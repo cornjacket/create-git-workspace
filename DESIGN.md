@@ -110,22 +110,53 @@ audit that reconciles both against a real filesystem scan is **not yet built**
 
 ---
 
-## 4. Three roles — who prevents, who detects, who explains
+## 4. Four roles — prevent, detect, remediate, explain
 
 The same convention (e.g. "scratch lives in a gitignored `sandbox/`, never as a
-sibling repo") is upheld by three separate players, each with one home:
+sibling repo") is upheld by separate players, each with one home:
 
 ```
-  PREVENT   generator (create-*)   emits the convention at birth, as machinery
-                                    → re-applied on every regeneration
-  DETECT    workspace audit         flags violations over time
-                                    → catches whatever slips past birth
-  EXPLAIN   second-brain            holds the *why* (the durable rationale)
+  PREVENT    generator (create-*)   emits the convention at birth, as machinery
+                                     → re-applied on every regeneration
+  DETECT     workspace audit         flags violations over time
+                                     → catches whatever slips past birth
+  REMEDIATE  the owning repo         fixes it, via its own task system
+                                     → the workspace files the task, never the fix
+  EXPLAIN    second-brain            holds the *why* (the durable rationale)
 ```
 
 No central "rules engine" repo — that would just re-nest the broad concern under
-a narrow one. Prevention at the origin, detection at the workspace, rationale in
-the brain.
+a narrow one.
+
+### The workspace detects; it does not fix
+
+> **A workspace never edits a child repo to fix hygiene. It reports the problem,
+> and the fix happens inside the repo that owns it.**
+
+Two reasons this line sits here and not one step further:
+
+- **Ownership.** Whether a repo keeps its scratch in a gitignored `sandbox/` is
+  that *repo's* business. The workspace's business is its own floor: which repos
+  are here, and whether they are accounted for.
+- **Shared files.** A child's `.gitignore` belongs to everyone who works there.
+  Two developers' workspaces both appending a line collide; two workspaces both
+  *reporting* the same missing line do not.
+
+Remediation therefore flows through the child's own task system: the workspace
+files a task in the offending repo describing what needs fixing, and that repo
+does the work on its own schedule. For a repo with no task system the verb
+degrades to a message — still useful, and still not a write.
+
+**One exception, and the test that defines it:** the workspace *does* inject the
+commit-message kernel into each child's `CLAUDE.md` (§7.4). That is not hygiene —
+it is the workspace's own **input**, since the rollup cannot read a history whose
+messages ignore the schema. And it is built for sharing: a marker block naming no
+workspace, no developer, and no version, so two people injecting it produce
+identical bytes. So:
+
+> **Write into a child only for something the workspace itself consumes, and only
+> in a form two workspaces can write identically. Everything else is
+> report-only.**
 
 ---
 
@@ -562,13 +593,32 @@ The workspace carries its own task-system, provided by the vendored
 inter-repo tasks piled up in `captains-log` precisely because there was no
 workspace to attach them to.
 
-Work flows **downward**: an idea lands as a workspace task before it has a repo;
-it **graduates** when it earns one (a subtask "create repo X", then migrate the
-rest into that repo's own task-system). Anything that clearly belongs to an
-existing child repo belongs *there*, not here.
+Work flows **downward**: an idea lands as a workspace task before it has a repo,
+and **graduates** when it earns one. Anything that clearly belongs to an existing
+child repo belongs *there*, not here.
 
-> Cross-boundary moves are manual today — recreate in the child, close in the
-> workspace. A `move-task` that crosses repos would be a real helper.
+### Graduation is two tasks, not a move
+
+Following §4's rule — the workspace requests, the owning repo implements — a
+workspace task is never migrated into a child. It is a **request**, and it is
+complete once the request has been made:
+
+```
+  WORKSPACE task   "create repo X, then file a task in X to do Y"   → closed
+  CHILD repo task  do Y                                             → the work
+```
+
+So there is **no cross-repo `move-task` to build**, here or upstream in
+`create-project-system`. A move was never the right shape: the workspace should
+not have owned the implementation detail in the first place.
+
+The one wrinkle is real, though. Triage means an idea can incubate here *before*
+its repo exists, so detail sometimes accumulates at the workspace level. When the
+repo finally appears, the child's task **links back** to the workspace task
+rather than copying it — the workspace repo is durable and closed tasks are
+archived, not deleted, so the link keeps resolving. Finding yourself with a lot
+to carry across usually means the implementation task was authored at the wrong
+level, which is a writing mistake rather than a missing feature.
 
 ### 8.8 Vendoring `create-project-system`
 
@@ -660,16 +710,41 @@ tier, which then needs its own managed workspace).
 
 ## 11. Open gaps — designed for, not built
 
-- **The hygiene audit (§3, §4).** Nothing reconciles `repos.yml` against a real
-  filesystem scan, so a stray sibling repo or an orphaned checkout goes
-  undetected. `DETECT` is the one role of §4 with no implementation.
-- **`sandbox/` gitignore as emitted machinery.** §6's convention is documented
-  but not installed at birth by every generator, so it is still remembered rather
-  than enforced.
-- **Cross-repo `move-task`** (§8.7) — graduating a workspace task into a child
-  repo is manual.
-- **Dogfooding.** No real workspace has been stamped yet. The generator is
-  tested but not lived in, and `project-status` cannot retire until it is.
+**Two commands `project-status` has and a workspace does not.** Both are
+retirement blockers (§8.9): the old tracker cannot be switched off while it is
+the only thing that can answer them.
+
+- **"Did I forget to push?"** `status.sh` reports branch and clean/dirty, which
+  misses the dangerous case — *a repo you committed but never pushed looks
+  perfectly clean*. The detection already exists as `delete-repo.py`'s
+  `unsafe_reasons()` (ahead of upstream, no upstream at all, stashes, detached
+  HEAD); it wants extracting into `_status_lib` and exposing as a floor-wide
+  sweep.
+- **Per-repo plan drafting.** `replan.sh` redrafts only the `_workspace` plan.
+  `project-status`'s `replan.py` fans out one `claude -p` per tracked repo. Today
+  every per-repo plan under `.workspace/plans/` is hand-written.
+
+**Dogfooding.** No real workspace has been stamped yet — the generator is tested
+but not lived in. This is the next effort, and it is mostly migration rather than
+code: stamp the real workspace, move repos in one at a time in §8.9's order,
+create the `/schedule` routine, then retire `project-status`. Expect it to
+rewrite the requirements for everything below it; using a thing for real is what
+tells you what is actually missing.
+
+**The hygiene audit (§3, §4).** `DETECT` is the one role of §4 with no
+implementation. Read-only, and narrower than it first appears — `delete-repo`
+already prunes a departing repo's plan slot by default. What genuinely goes
+unnoticed:
+
+- a repo folder on the floor that was never registered;
+- `state.json` entries for repos that no longer exist (nothing prunes them);
+- a member repo missing §6's gitignored `sandbox/` — **reported, never fixed**,
+  per §4.
+
+Build it *after* dogfooding, when real drift has shown what is worth checking.
+
+> **No longer a gap:** cross-repo `move-task`. §8.7's graduation is two tasks, not
+> a migration, so there is nothing to move — here or upstream.
 
 ---
 
