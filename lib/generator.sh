@@ -125,6 +125,27 @@ install_machinery() {
   done
   step "machinery: .workspace/prompts/"
 
+  # Templates injected INTO other repos (the child commit kernel). Machinery:
+  # the rules are the generator's, and they must upgrade with it.
+  mkdir -p "$target/.workspace/templates"
+  for f in "$TEMPLATE_DIR/workspace/templates/"*.md; do
+    [ -f "$f" ] || continue
+    base=$(basename "$f")
+    # Copied verbatim, NOT rendered: this block is committed into shared child
+    # repos, so a workspace name or version stamp in it would make two
+    # developers overwrite each other's block on every injection.
+    cp "$f" "$target/.workspace/templates/$base"
+    chmod 644 "$target/.workspace/templates/$base"
+  done
+  for f in "$target/.workspace/templates/"*.md; do
+    [ -f "$f" ] || continue
+    base=$(basename "$f")
+    [ -e "$TEMPLATE_DIR/workspace/templates/$base" ] || {
+      rm -f "$f"; step "machinery: removed stale .workspace/templates/$base"
+    }
+  done
+  step "machinery: .workspace/templates/"
+
   # Workflows are stored as template/github/ (no leading dot) so they stay inert
   # inside the generator repo, then land at .github/ in the workspace — the same
   # trick as template/gitignore.

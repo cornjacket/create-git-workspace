@@ -35,6 +35,8 @@ Run from this directory (the wrapper root):
 | `make add-repo ARGS="<url>"` | clone + register a repo, and seed its plan slot |
 | `make delete-repo ARGS="<name>"` | unregister + remove it (refuses unpushed work) |
 | `make mute-repo ARGS="<name>"` | quiet it in the rollup (`--skip`, `--unmute`) |
+| `make inject-kernel` | refresh the commit kernel in every tracked repo |
+| `make kernel-check` | report which tracked repos have a stale/missing kernel |
 
 The repo verbs take arguments, and `make` reads bare words as extra goals, so
 they are passed through `ARGS=`. Calling the scripts in `.workspace/scripts/`

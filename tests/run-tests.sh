@@ -54,6 +54,7 @@ EXPECTED_TRACKED="\
 .workspace/scripts/daily.sh
 .workspace/scripts/delete-repo.py
 .workspace/scripts/guard.sh
+.workspace/scripts/inject-kernel.py
 .workspace/scripts/lib.sh
 .workspace/scripts/mute-repo.py
 .workspace/scripts/new-work.py
@@ -62,6 +63,7 @@ EXPECTED_TRACKED="\
 .workspace/scripts/run.py
 .workspace/scripts/status.sh
 .workspace/scripts/sync.py
+.workspace/templates/commit-kernel.md
 CLAUDE.md
 Makefile
 README.md"
@@ -656,6 +658,14 @@ test_repo_verbs() {
   assert_fails "adding the same name twice is refused" \
     python3 "$S/add-repo.py" "$bare" --name alpha
 
+  # add-repo injects the commit kernel and deliberately leaves it UNCOMMITTED —
+  # the workspace never commits inside a child repo. Land it the way a user
+  # would, or every delete below would (correctly) refuse a dirty tree.
+  git -C "$ws/alpha" add -A
+  git -C "$ws/alpha" -c user.email="$TEST_AUTHOR" -c user.name=Dev \
+    commit -qm "docs(claude): commit-discipline kernel"
+  git -C "$ws/alpha" push -q origin main
+
   # A failed clone must not leave a half-registered repo behind.
   python3 "$S/add-repo.py" "$SANDBOX/nonexistent.git" --name ghost >/dev/null 2>&1
   assert_no_grep "a failed clone registers nothing" 'name: ghost' "$ws/.workspace/repos.yml"
@@ -851,6 +861,76 @@ test_pull_trigger() {
 }
 
 # ---------------------------------------------------------------------------
+# 8i. Child commit-kernel injection
+# ---------------------------------------------------------------------------
+test_commit_kernel() {
+  section "8i. Child commit-kernel injection"
+  local ws; ws=$(new_ws ws-kernel)
+  local S="$ws/.workspace/scripts"
+  local bare="$SANDBOX/origin-kernel.git" seed="$SANDBOX/kernel-seed"
+  rm -rf "$bare" "$seed"; git init -q --bare "$bare"
+  git init -q "$seed"
+  printf '# CLAUDE.md — my repo\n\nMy own house rules.\n' > "$seed/CLAUDE.md"
+  git -C "$seed" add -A
+  git -C "$seed" -c user.email="$TEST_AUTHOR" -c user.name=Dev commit -qm init
+  git -C "$seed" branch -M main
+  git -C "$seed" remote add origin "$bare"
+  git -C "$seed" push -q origin main
+  rm -rf "$seed"
+
+  assert_file "the kernel template is emitted" "$ws/.workspace/templates/commit-kernel.md"
+
+  python3 "$S/add-repo.py" "$bare" --name mine >/dev/null 2>&1
+  local cm="$ws/mine/CLAUDE.md"
+  assert_grep "add-repo injects the kernel"        'git-workspace-commits:begin' "$cm"
+  assert_grep "the repo's own content is preserved" 'My own house rules\.'       "$cm"
+  assert_grep "it carries the commit schema"        '\[Context\]'                "$cm"
+
+  # It is commit-discipline ONLY: plans moved up into each developer's workspace.
+  assert_no_grep "it does NOT ask for a daily-plan.md here" \
+    'first line is exactly' "$cm"
+  assert_grep "...and says plans live in the workspace" 'Daily plans do not live here' "$cm"
+
+  # The block is committed to a SHARED repo, so it must name no workspace, no
+  # developer, and no version — otherwise two developers tracking the same repo
+  # overwrite each other's block on every injection.
+  local block; block=$(sed -n '/git-workspace-commits:begin/,/git-workspace-commits:end/p' "$cm")
+  case "$block" in
+    *ws-kernel*) bad "the kernel names no workspace" "'ws-kernel' leaked into the block" ;;
+    *) ok "the kernel names no workspace" ;;
+  esac
+  case "$block" in
+    *"$TEST_AUTHOR"*) bad "the kernel names no developer" "the author leaked into the block" ;;
+    *) ok "the kernel names no developer" ;;
+  esac
+
+  # The workspace must never commit inside a child repo.
+  case "$(git -C "$ws/mine" status --porcelain)" in
+    *CLAUDE.md*) ok "the change is left uncommitted in the child" ;;
+    *) bad "the change is left uncommitted in the child" "it committed on your behalf" ;;
+  esac
+  assert_eq "...and the child has only its own commit" "1" \
+    "$(git -C "$ws/mine" rev-list --count HEAD)"
+
+  git -C "$ws/mine" add -A
+  git -C "$ws/mine" -c user.email="$TEST_AUTHOR" -c user.name=Dev commit -qm "docs: kernel"
+
+  # Idempotent, and drift is detectable.
+  local before; before=$(file_hash "$cm")
+  python3 "$S/inject-kernel.py" --all >/dev/null 2>&1
+  assert_eq "re-injection is byte-identical" "$before" "$(file_hash "$cm")"
+  python3 "$S/inject-kernel.py" --check >/dev/null 2>&1
+  assert_eq "--check passes when current" "0" "$?"
+
+  subst_in_file "$cm" "Commit at **task granularity**" "AN OUTDATED RULE"
+  assert_fails "--check catches a stale kernel" python3 "$S/inject-kernel.py" --check
+  python3 "$S/inject-kernel.py" --all >/dev/null 2>&1
+  assert_no_grep "...and --all refreshes it"   'AN OUTDATED RULE'          "$cm"
+  assert_grep    "...restoring the real rule"  'Commit at \*\*task granularity\*\*' "$cm"
+  assert_grep    "...while keeping the repo's own content" 'My own house rules\.' "$cm"
+}
+
+# ---------------------------------------------------------------------------
 # 9. Push round-trip against a LOCAL bare remote (no network)
 # ---------------------------------------------------------------------------
 test_local_remote() {
@@ -1007,6 +1087,7 @@ main() {
   test_repo_verbs
   test_daily_routine
   test_pull_trigger
+  test_commit_kernel
   test_local_remote
   test_github_remote
 

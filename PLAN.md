@@ -578,7 +578,10 @@ discovered during the build rather than planned up front. The generator skeleton
 - [x] `011` — local morning trigger: `pull.sh` (ff-only, notify-on-decline) + wiring.
       *(three exit codes — 0 advanced, 1 declined, 2 misconfigured — so a trigger
       can alert on breakage without nagging about unpushed work.)*
-- [ ] `012` — child commit-kernel injection (commit-discipline only).
+- [x] `012` — child commit-kernel injection (commit-discipline only).
+      *(marker `git-workspace-commits`, distinct from project-status's block so
+      both can coexist during migration; the kernel names no workspace or
+      developer, since it is committed to a shared repo.)*
 - [ ] `013` — status-pipeline tests (`claude -p` stubbed).
 - [ ] `014` — on-demand status guide/skill (durable home for routine-setup directions).
 - [ ] `015` — generator `README.md` (keep in sync as steps land).
