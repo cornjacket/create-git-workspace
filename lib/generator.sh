@@ -86,14 +86,19 @@ resolve_author() {
 install_machinery() {
   local target=$1 name=$2 f base
 
+  # Scripts are .sh AND .py (the status subsystem is Python — it parses YAML and
+  # structured git output, which bash has no business doing). Both get the exec
+  # bit; _status_lib.py is imported rather than run, but a uniform mode keeps the
+  # emitted tree byte-identical run to run, which zero-diff depends on.
   mkdir -p "$target/.workspace/scripts"
-  for f in "$TEMPLATE_DIR/workspace/scripts/"*.sh; do
+  for f in "$TEMPLATE_DIR/workspace/scripts/"*; do
+    [ -f "$f" ] || continue
     base=$(basename "$f")
     cp "$f" "$target/.workspace/scripts/$base"
     chmod 755 "$target/.workspace/scripts/$base"
   done
-  for f in "$target/.workspace/scripts/"*.sh; do
-    [ -e "$f" ] || continue
+  for f in "$target/.workspace/scripts/"*; do
+    [ -f "$f" ] || continue
     base=$(basename "$f")
     if [ ! -e "$TEMPLATE_DIR/workspace/scripts/$base" ]; then
       rm -f "$f"
@@ -101,6 +106,24 @@ install_machinery() {
     fi
   done
   step "machinery: .workspace/scripts/ ($(ls -1 "$TEMPLATE_DIR/workspace/scripts" | wc -l | tr -d ' ') scripts)"
+
+  # Prompts are machinery too: the wording of the summariser prompt is the
+  # generator's, not the user's, and it must upgrade with the scripts that use it.
+  mkdir -p "$target/.workspace/prompts"
+  for f in "$TEMPLATE_DIR/workspace/prompts/"*.md; do
+    [ -f "$f" ] || continue
+    base=$(basename "$f")
+    cp "$f" "$target/.workspace/prompts/$base"
+    chmod 644 "$target/.workspace/prompts/$base"
+  done
+  for f in "$target/.workspace/prompts/"*.md; do
+    [ -f "$f" ] || continue
+    base=$(basename "$f")
+    [ -e "$TEMPLATE_DIR/workspace/prompts/$base" ] || {
+      rm -f "$f"; step "machinery: removed stale .workspace/prompts/$base"
+    }
+  done
+  step "machinery: .workspace/prompts/"
 
   render "$TEMPLATE_DIR/gitignore" "$target/.gitignore" "$name"
   chmod 644 "$target/.gitignore"

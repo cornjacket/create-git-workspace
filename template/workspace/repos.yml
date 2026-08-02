@@ -26,6 +26,15 @@
 #   parent_repo_path  worktree ONLY — path of the repo the worktree hangs off
 #   tags              freeform labels for filtering (e.g. app, generator)
 #
+# Status flags (all optional) — read by the daily status run
+# ----------------------------------------------------------
+#   enabled           false = skip entirely: no summary, no plan row  (default true)
+#   report_inactivity false = keep tracking, but stay out of the "No updates"
+#                     list on quiet days                             (default true)
+#   priority          band, not a rank — 1 is highest. Ties are expected and
+#                     fall back to this file's order. Unset sorts last rather
+#                     than silently claiming the top band.           (default 3)
+#
 # Example — delete the comment markers and edit, or add entries by hand:
 #
 #   repos:

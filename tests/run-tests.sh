@@ -41,12 +41,19 @@ EXPECTED_TRACKED="\
 .gitignore
 .workspace/config.yml
 .workspace/plans/_workspace/daily-plan.md
+.workspace/prompts/per-repo.md
+.workspace/prompts/polish.md
 .workspace/repos.yml
+.workspace/scripts/_status_lib.py
+.workspace/scripts/aggregate-plans.py
 .workspace/scripts/bootstrap.sh
 .workspace/scripts/guard.sh
 .workspace/scripts/lib.sh
+.workspace/scripts/new-work.py
 .workspace/scripts/replan.sh
+.workspace/scripts/run.py
 .workspace/scripts/status.sh
+.workspace/scripts/sync.py
 CLAUDE.md
 Makefile
 README.md"
@@ -454,6 +461,136 @@ test_workspace_plan() {
 }
 
 # ---------------------------------------------------------------------------
+# 8d. Status subsystem — author-scoped telemetry, aggregation, state
+# ---------------------------------------------------------------------------
+
+# child_repo_with_commits <ws> — a child repo holding two commits by the test
+# author and one by a teammate. The teammate's commit is the point: it must
+# never appear in an author-scoped rollup.
+child_repo_with_commits() {
+  local ws=$1 d="$1/childrepo" i
+  mkdir -p "$d"; git -C "$d" init -q
+  for i in 1 2; do
+    echo "line $i" >> "$d/f.txt"
+    git -C "$d" add -A
+    git -C "$d" -c user.email="$TEST_AUTHOR" -c user.name=Dev commit -q -m "feat(core): land change $i
+
+- [Context]: exercise the telemetry parser.
+- [Impact]: adds line $i to f.txt."
+  done
+  echo teammate >> "$d/g.txt"
+  git -C "$d" add -A
+  git -C "$d" -c user.email=other@example.invalid -c user.name=Other \
+    commit -qm "chore(other): a teammate's commit"
+  cat > "$ws/.workspace/repos.yml" <<'YML'
+repos:
+  - name: childrepo
+    url: git@github.com:cornjacket/childrepo.git
+    path: childrepo
+    type: standard
+    branch: main
+    priority: 1
+YML
+}
+
+test_status_subsystem() {
+  section "8d. Status subsystem (author-scoped)"
+  local ws; ws=$(new_ws ws-status)
+  child_repo_with_commits "$ws"
+  local S="$ws/.workspace/scripts"
+
+  # sync is read-only and reports what it can see.
+  local out
+  out=$(python3 "$S/sync.py" 2>&1)
+  case "$out" in *"ok       childrepo"*) ok "sync sees the local checkout" ;;
+    *) bad "sync sees the local checkout" "$out" ;; esac
+
+  out=$(python3 "$S/new-work.py" 2>&1)
+  case "$out" in *"ACTIVE"*) ok "a repo with your commits is ACTIVE" ;;
+    *) bad "a repo with your commits is ACTIVE" "$out" ;; esac
+  case "$out" in *"land change 2"*) ok "commit telemetry is parsed" ;;
+    *) bad "commit telemetry is parsed" "$out" ;; esac
+  case "$out" in *"[Context]: exercise the telemetry parser."*)
+      ok "the [Context]/[Impact] schema is extracted" ;;
+    *) bad "the [Context]/[Impact] schema is extracted" "$out" ;; esac
+  # THE author-scoping assertion: a teammate's commit and the file it touched
+  # must both be absent from your rollup.
+  case "$out" in *"teammate"*) bad "the teammate's commit is excluded" "leaked into the report" ;;
+    *) ok "the teammate's commit is excluded" ;; esac
+  case "$out" in *"g.txt"*) bad "the teammate's file is excluded from file stat" "g.txt leaked" ;;
+    *) ok "the teammate's file is excluded from file stat" ;; esac
+
+  # Full dry run: no LLM, deterministic output.
+  python3 "$S/run.py" --dry-run >/dev/null 2>&1
+  assert_file "run --dry-run writes summary.md"            "$ws/summary.md"
+  assert_file "run --dry-run writes daily-plan-summary.md" "$ws/daily-plan-summary.md"
+  assert_file "state.json is advanced"                     "$ws/.workspace/state/state.json"
+  assert_grep "summary.md carries today's section"  '^## [0-9]{4}-[0-9]{2}-[0-9]{2}$' "$ws/summary.md"
+  assert_grep "the archive snapshot is written" 'Daily plan summary' \
+    "$(ls "$ws/.workspace/state/archive/"*.md | head -1)"
+
+  # The window advanced, so a re-run finds nothing of yours...
+  out=$(python3 "$S/new-work.py" 2>&1)
+  case "$out" in *"INACTIVE"*) ok "the window advances (re-run reports INACTIVE)" ;;
+    *) bad "the window advances (re-run reports INACTIVE)" "$out" ;; esac
+  # ...and a teammate moving HEAD does NOT make it active for you.
+  echo more >> "$ws/childrepo/g.txt"; git -C "$ws/childrepo" add -A
+  git -C "$ws/childrepo" -c user.email=other@example.invalid -c user.name=Other \
+    commit -qm "chore(other): teammate again"
+  out=$(python3 "$S/new-work.py" 2>&1)
+  case "$out" in *"INACTIVE"*) ok "a teammate's commit does not make it ACTIVE for you" ;;
+    *) bad "a teammate's commit does not make it ACTIVE for you" "$out" ;; esac
+
+  # An unresolved author would silently produce an empty rollup — refuse instead.
+  sed -i '' "s|$TEST_AUTHOR|CHANGEME@example.invalid|" "$ws/.workspace/config.yml"
+  assert_fails "a placeholder git_author hard-fails the run" python3 "$S/run.py" --dry-run
+  sed -i '' "s|CHANGEME@example.invalid|$TEST_AUTHOR|" "$ws/.workspace/config.yml"
+
+  # enabled: false drops the repo entirely.
+  printf '    enabled: false\n' >> "$ws/.workspace/repos.yml"
+  out=$(python3 "$S/new-work.py" 2>&1)
+  case "$out" in *"no enabled repos"*) ok "enabled: false removes the repo" ;;
+    *) bad "enabled: false removes the repo" "$out" ;; esac
+}
+
+test_aggregation() {
+  section "8e. Plan aggregation (workspace first)"
+  local ws; ws=$(new_ws ws-agg)
+  child_repo_with_commits "$ws"
+  mkdir -p "$ws/.workspace/plans/childrepo"
+  printf '# Daily plan — 2026-08-01\n\n## Focus / plan\n\n- Ship the backend\n' \
+    > "$ws/.workspace/plans/childrepo/daily-plan.md"
+
+  python3 "$ws/.workspace/scripts/aggregate-plans.py" >/dev/null 2>&1
+  local sum="$ws/daily-plan-summary.md"
+
+  assert_grep "an At a glance table is rendered" '^\| Repo \| Pri \| Plan \| Focus \| Idle \|' "$sum"
+  # 007's ordering contract: the workspace row leads the table and the body.
+  assert_eq "the workspace row is FIRST in the table" "0" \
+    "$(grep -n '^| ' "$sum" | grep -n 'workspace' | cut -d: -f1 | head -1 | awk '{print $1-3}')"
+  assert_eq "the workspace section is FIRST in the body" "ws-agg (workspace)" \
+    "$(grep -m1 '^## [^A]' "$sum" | sed 's/^## //; s/ — .*//')"
+  assert_grep "the repo's focus bullet reaches the table" 'Ship the backend' "$sum"
+  assert_grep "the repo URL is linkified from repos.yml" \
+    '\[childrepo\]\(https://github.com/cornjacket/childrepo\)' "$sum"
+  # An embedded plan's own headings must nest UNDER its section, not beside it.
+  assert_grep "embedded plan headings are demoted" '^### Focus / plan$' "$sum"
+
+  # A plan from last month is stale; a missing one says so rather than vanishing.
+  printf '# Daily plan — 2020-01-01\n\n- old\n' > "$ws/.workspace/plans/childrepo/daily-plan.md"
+  python3 "$ws/.workspace/scripts/aggregate-plans.py" >/dev/null 2>&1
+  assert_grep "a stale plan is flagged STALE" 'STALE' "$sum"
+  rm -f "$ws/.workspace/plans/childrepo/daily-plan.md"
+  python3 "$ws/.workspace/scripts/aggregate-plans.py" >/dev/null 2>&1
+  assert_grep "a missing plan is reported, not skipped" 'no plan' "$sum"
+
+  # Deliverables are runtime: regeneration must not touch them.
+  git -C "$ws" add -A; git -C "$ws" commit -qm "status output"
+  "$GEN_ROOT/update.sh" "$ws" >/dev/null 2>&1
+  assert_empty "update.sh leaves the deliverables alone" "$(git -C "$ws" status --porcelain)"
+}
+
+# ---------------------------------------------------------------------------
 # 9. Push round-trip against a LOCAL bare remote (no network)
 # ---------------------------------------------------------------------------
 test_local_remote() {
@@ -605,6 +742,8 @@ main() {
   test_refusals
   test_task_system
   test_workspace_plan
+  test_status_subsystem
+  test_aggregation
   test_local_remote
   test_github_remote
 

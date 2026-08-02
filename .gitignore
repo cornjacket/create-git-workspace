@@ -7,3 +7,6 @@
 
 # OS / editor noise
 .DS_Store
+
+# Python bytecode from compile-checking the emitted scripts
+__pycache__/

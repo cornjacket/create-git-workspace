@@ -548,8 +548,9 @@ Numbered in **build order** — `001` first, `016` last. The generator skeleton
       triage/graduate flow. *(plan slot + `replan.sh` + triage docs landed;
       "aggregated first" is an ordering contract the aggregator in `008`
       implements.)*
-- [ ] `008` — status core: `sync`/`new-work`/`aggregate`/`run`, author-scoped `git log`,
-      `claude -p` prompts; plans under `.workspace/plans/`.
+- [x] `008` — status core: `sync`/`new-work`/`aggregate`/`run`, author-scoped `git log`,
+      `claude -p` prompts; plans under `.workspace/plans/`. *(ACTIVE now means
+      "you committed", not "the repo moved"; `_workspace` aggregates first.)*
 - [ ] `009` — `add-repo` / `delete-repo` (refuses dirty) / `mute-repo` verbs.
 - [ ] `010` — remote routine: `daily.sh` + `auto-merge-status.yml` + `claude.yml`
       + `.workspace/config.yml`.

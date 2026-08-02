@@ -12,7 +12,11 @@ v{{GENERATOR_VERSION}}.
 - **[daily-plan-summary.md](daily-plan-summary.md)** — your per-repo daily plans,
   aggregated, with an "At a glance" table.
 
-Both are written by the daily status routine; they appear after its first run.
+Both are written by the daily status run; they appear after its first run. The
+rollup is **author-scoped** — it filters `git log --author` against `git_author`
+in `.workspace/config.yml`, so it shows only your own commits. The run refuses to
+start if that value is still the placeholder, because a wrong author yields an
+empty rollup rather than an error.
 
 ## Commands
 
@@ -23,6 +27,11 @@ Run from this directory (the wrapper root):
 | `make status` | branch + clean/dirty for every managed checkout |
 | `make bootstrap` | clone/attach every repo in `.workspace/repos.yml` |
 | `make guard` | fail if a child repo was staged into the wrapper index |
+| `make replan` | redraft the workspace plan from `project/tasks` (draft only) |
+| `make new-work` | what you committed per repo since the last status run |
+| `make run` | the full daily status run (uses `claude -p`) |
+| `make run-dry` | the same run with no LLM calls — deterministic placeholders |
+| `make aggregate` | rebuild `daily-plan-summary.md` from `.workspace/plans/` |
 
 The scripts themselves live in `.workspace/scripts/`. The wrapper manages the
 *set* of repos; do real code work inside the owning child repo, from a session
