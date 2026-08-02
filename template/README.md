@@ -75,6 +75,52 @@ in-progress edits stay in the working tree where you left them.
 Keep the fast-forward clean by pushing your own workspace edits *before* the
 routine runs, so remote `main` is your commits with the rollup on top.
 
+### The pull side — your morning trigger
+
+`make pull` (or `.workspace/scripts/pull.sh`) fast-forwards this workspace onto
+whatever the routine landed overnight. It is **`--ff-only`**: it advances cleanly
+or it stops and notifies you. It never merges, rebases, or forces — an unattended
+job that resolves history is one that eventually destroys something at 6am.
+
+| Exit | Meaning |
+|------|---------|
+| 0 | up to date, or fast-forwarded |
+| 1 | declined — you are ahead or diverged; it tells you which and what to run |
+| 2 | misconfigured — no origin, detached HEAD, or origin unreachable |
+
+Add `--bootstrap` to also clone any repo you registered from another machine.
+
+Pick **one** trigger; the script ships, the wiring is yours:
+
+**cron** (every weekday at 08:00)
+```cron
+0 8 * * 1-5 cd /path/to/{{WORKSPACE_NAME}} && .workspace/scripts/pull.sh --quiet >> /tmp/workspace-pull.log 2>&1
+```
+
+**macOS launchd** — `~/Library/LaunchAgents/com.you.workspace-pull.plist`, then
+`launchctl load` it. Preferred over cron on a laptop: launchd runs the job when
+the machine wakes, cron silently skips it if you were asleep at 08:00.
+```xml
+<dict>
+  <key>Label</key><string>com.you.workspace-pull</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/path/to/{{WORKSPACE_NAME}}/.workspace/scripts/pull.sh</string>
+    <string>--quiet</string>
+  </array>
+  <key>StartCalendarInterval</key><dict><key>Hour</key><integer>8</integer></dict>
+</dict>
+```
+
+**Claude Code SessionStart hook** — pulls whenever you start working here, which
+matches the real trigger (you sitting down) better than a clock does. In
+`.claude/settings.json`:
+```json
+{"hooks": {"SessionStart": [{"hooks": [
+  {"type": "command", "command": ".workspace/scripts/pull.sh --quiet", "timeout": 30}
+]}]}}
+```
+
 ## This file is yours
 
 `README.md` is **content**: seeded once, never overwritten. Everything under

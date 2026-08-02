@@ -57,6 +57,7 @@ EXPECTED_TRACKED="\
 .workspace/scripts/lib.sh
 .workspace/scripts/mute-repo.py
 .workspace/scripts/new-work.py
+.workspace/scripts/pull.sh
 .workspace/scripts/replan.sh
 .workspace/scripts/run.py
 .workspace/scripts/status.sh
@@ -793,6 +794,63 @@ YML
 }
 
 # ---------------------------------------------------------------------------
+# 8h. The morning pull trigger (pull.sh)
+# ---------------------------------------------------------------------------
+test_pull_trigger() {
+  section "8h. Morning pull trigger (pull.sh)"
+  local bare="$SANDBOX/origin-pull.git"
+  rm -rf "$bare"; git init -q --bare "$bare"
+  local ws; ws=$(new_ws ws-pull --remote "$bare")
+  git -C "$ws" push -q -u origin main
+  local P="$ws/.workspace/scripts/pull.sh"
+
+  "$P" >/dev/null 2>&1
+  assert_eq "up to date exits 0" "0" "$?"
+
+  # Stand in for the overnight routine: land aggregates on origin/main.
+  local clone="$SANDBOX/ws-pull-routine"
+  rm -rf "$clone"; git clone -q "$bare" "$clone"
+  printf '# summary\n\nthe rollup\n' > "$clone/summary.md"
+  printf '# daily-plan-summary\n' > "$clone/daily-plan-summary.md"
+  git -C "$clone" add -A
+  git -C "$clone" -c user.email=r@r -c user.name=Routine commit -qm "status: rollup"
+  git -C "$clone" push -q origin main
+
+  local out; out=$("$P" 2>&1); local rc=$?
+  assert_eq   "a fast-forward exits 0"          "0" "$rc"
+  assert_file "...and summary.md arrived"       "$ws/summary.md"
+  assert_file "...and daily-plan-summary.md too" "$ws/daily-plan-summary.md"
+  case "$out" in *"updated summary.md"*) ok "it names what arrived" ;;
+    *) bad "it names what arrived" "$out" ;; esac
+
+  # Purely ahead: nothing to fast-forward to. Stop and name the fix.
+  echo "note" >> "$ws/.workspace/plans/_workspace/daily-plan.md"
+  git -C "$ws" add -A; git -C "$ws" commit -qm "local: plan edit"
+  local head_before; head_before=$(git -C "$ws" rev-parse HEAD)
+  out=$("$P" 2>&1); rc=$?
+  assert_eq "being ahead declines with exit 1" "1" "$rc"
+  case "$out" in *"git push origin main"*) ok "...and names the fix" ;;
+    *) bad "...and names the fix" "$out" ;; esac
+
+  # Diverged: the case that must never be auto-resolved.
+  echo more >> "$clone/summary.md"
+  git -C "$clone" -c user.email=r@r -c user.name=Routine commit -qam "status: more"
+  git -C "$clone" push -q origin main
+  out=$("$P" 2>&1); rc=$?
+  assert_eq "a diverged history declines with exit 1" "1" "$rc"
+  case "$out" in *diverged*) ok "...and says diverged" ;;
+    *) bad "...and says diverged" "$out" ;; esac
+  assert_eq "...leaving local HEAD untouched" "$head_before" "$(git -C "$ws" rev-parse HEAD)"
+  assert_eq "...and creating no merge commit" "1" \
+    "$(git -C "$ws" rev-list --count "origin/main..HEAD")"
+
+  # Misconfiguration is exit 2, distinct from a decline.
+  local nr; nr=$(new_ws ws-pull-noremote)
+  assert_eq "no origin exits 2" "2" \
+    "$(:; "$nr/.workspace/scripts/pull.sh" >/dev/null 2>&1; echo $?)"
+}
+
+# ---------------------------------------------------------------------------
 # 9. Push round-trip against a LOCAL bare remote (no network)
 # ---------------------------------------------------------------------------
 test_local_remote() {
@@ -948,6 +1006,7 @@ main() {
   test_aggregation
   test_repo_verbs
   test_daily_routine
+  test_pull_trigger
   test_local_remote
   test_github_remote
 

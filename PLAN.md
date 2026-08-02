@@ -575,7 +575,9 @@ discovered during the build rather than planned up front. The generator skeleton
 - [x] `010` — remote routine: `daily.sh` + `auto-merge-status.yml` + `claude.yml`
       + `.workspace/config.yml`. *(`daily.sh` commits explicit routine-owned
       paths, never `git add -A`, so it cannot sweep up your working edits.)*
-- [ ] `011` — local morning trigger: `pull.sh` (ff-only, notify-on-decline) + wiring.
+- [x] `011` — local morning trigger: `pull.sh` (ff-only, notify-on-decline) + wiring.
+      *(three exit codes — 0 advanced, 1 declined, 2 misconfigured — so a trigger
+      can alert on breakage without nagging about unpushed work.)*
 - [ ] `012` — child commit-kernel injection (commit-discipline only).
 - [ ] `013` — status-pipeline tests (`claude -p` stubbed).
 - [ ] `014` — on-demand status guide/skill (durable home for routine-setup directions).
