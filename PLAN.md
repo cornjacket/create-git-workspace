@@ -568,7 +568,10 @@ discovered during the build rather than planned up front. The generator skeleton
 - [x] `008` — status core: `sync`/`new-work`/`aggregate`/`run`, author-scoped `git log`,
       `claude -p` prompts; plans under `.workspace/plans/`. *(ACTIVE now means
       "you committed", not "the repo moved"; `_workspace` aggregates first.)*
-- [ ] `009` — `add-repo` / `delete-repo` (refuses dirty) / `mute-repo` verbs.
+- [x] `009` — `add-repo` / `delete-repo` (refuses dirty) / `mute-repo` verbs.
+      *(`delete-repo` also refuses unpushed branches, no-upstream branches,
+      stashes, and a detached HEAD; `repos.yml` is edited as text so its
+      comments survive.)*
 - [ ] `010` — remote routine: `daily.sh` + `auto-merge-status.yml` + `claude.yml`
       + `.workspace/config.yml`.
 - [ ] `011` — local morning trigger: `pull.sh` (ff-only, notify-on-decline) + wiring.

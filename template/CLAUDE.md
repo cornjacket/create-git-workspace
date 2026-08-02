@@ -47,6 +47,19 @@ The wrapper manages the *set* of repos; it does not edit their contents.
   `project/tasks`. **Draft-only:** it writes the file and stops, never commits.
 - `lib.sh` — shared `repos.yml` parser (python3 + PyYAML).
 
+Membership verbs — **never hand-edit `.workspace/repos.yml`**, run these:
+
+- `add-repo.py <url>` — clone it, register it, seed its plan slot. Clones
+  *before* writing the entry, so a bad URL leaves the registry untouched.
+- `delete-repo.py <name>` — unregister and remove the checkout. **Refuses** a
+  dirty tree, an unpushed branch, a branch with *no* upstream, or a stash —
+  every reason at once. `--keep-checkout` unregisters without touching disk.
+- `mute-repo.py <name>` — `report_inactivity: false` (stay tracked, hide on
+  quiet days); `--skip` sets `enabled: false` (drop it entirely); `--unmute`
+  restores both.
+
+They edit `repos.yml` as *text*, so its comments and ordering survive.
+
 The status subsystem (Python, run via `make`):
 
 - `run.py` — the daily run: summarize → aggregate → advance state.

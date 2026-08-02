@@ -44,11 +44,15 @@ EXPECTED_TRACKED="\
 .workspace/prompts/per-repo.md
 .workspace/prompts/polish.md
 .workspace/repos.yml
+.workspace/scripts/_repos_edit.py
 .workspace/scripts/_status_lib.py
+.workspace/scripts/add-repo.py
 .workspace/scripts/aggregate-plans.py
 .workspace/scripts/bootstrap.sh
+.workspace/scripts/delete-repo.py
 .workspace/scripts/guard.sh
 .workspace/scripts/lib.sh
+.workspace/scripts/mute-repo.py
 .workspace/scripts/new-work.py
 .workspace/scripts/replan.sh
 .workspace/scripts/run.py
@@ -608,6 +612,99 @@ test_aggregation() {
 }
 
 # ---------------------------------------------------------------------------
+# 8f. Repo verbs — add / delete / mute
+# ---------------------------------------------------------------------------
+
+# bare_origin <path> — a bare repo with one commit on main, usable as a remote.
+bare_origin() {
+  local bare=$1 seed="$1.seed"
+  rm -rf "$bare" "$seed"
+  git init -q --bare "$bare"
+  git init -q "$seed"
+  echo hello > "$seed/README.md"
+  git -C "$seed" add -A
+  git -C "$seed" -c user.email="$TEST_AUTHOR" -c user.name=Dev commit -qm init
+  git -C "$seed" branch -M main
+  git -C "$seed" remote add origin "$bare"
+  git -C "$seed" push -q origin main
+  rm -rf "$seed"
+}
+
+test_repo_verbs() {
+  section "8f. Repo verbs (add / delete / mute)"
+  local ws; ws=$(new_ws ws-verbs)
+  local S="$ws/.workspace/scripts"
+  local bare="$SANDBOX/origin-verbs.git"
+  bare_origin "$bare"
+
+  local header_before; header_before=$(grep -c '^#' "$ws/.workspace/repos.yml")
+
+  # --- add ---
+  python3 "$S/add-repo.py" "$bare" --name alpha --priority 1 --tags app,demo >/dev/null 2>&1
+  assert_file "add-repo clones the checkout"     "$ws/alpha/.git"
+  assert_grep "add-repo registers the entry"     '^  - name: alpha$' "$ws/.workspace/repos.yml"
+  assert_grep "...with the flags it was given"   '^    priority: 1$'  "$ws/.workspace/repos.yml"
+  assert_file "add-repo seeds a plan slot"       "$ws/.workspace/plans/alpha/daily-plan.md"
+  # repos.yml is CONTENT with a long explanatory header — a YAML round-trip
+  # would silently delete every comment in it.
+  assert_eq "the file's comments survive the edit" \
+    "$header_before" "$(grep -c '^#' "$ws/.workspace/repos.yml")"
+  assert_fails "adding the same name twice is refused" \
+    python3 "$S/add-repo.py" "$bare" --name alpha
+
+  # A failed clone must not leave a half-registered repo behind.
+  python3 "$S/add-repo.py" "$SANDBOX/nonexistent.git" --name ghost >/dev/null 2>&1
+  assert_no_grep "a failed clone registers nothing" 'name: ghost' "$ws/.workspace/repos.yml"
+
+  # --- mute ---
+  python3 "$S/mute-repo.py" alpha >/dev/null 2>&1
+  assert_grep "mute-repo hides it on quiet days" '^    report_inactivity: false$' \
+    "$ws/.workspace/repos.yml"
+  python3 "$S/mute-repo.py" alpha --skip >/dev/null 2>&1
+  assert_grep "--skip disables it entirely" '^    enabled: false$' "$ws/.workspace/repos.yml"
+  python3 "$S/mute-repo.py" alpha --unmute >/dev/null 2>&1
+  assert_grep "--unmute restores it" '^    enabled: true$' "$ws/.workspace/repos.yml"
+
+  # --- delete: every refusal path ---
+  echo scratch > "$ws/alpha/untracked.txt"
+  assert_fails "delete-repo refuses a DIRTY checkout" python3 "$S/delete-repo.py" alpha
+  rm -f "$ws/alpha/untracked.txt"
+
+  echo more >> "$ws/alpha/README.md"
+  git -C "$ws/alpha" -c user.email="$TEST_AUTHOR" -c user.name=Dev commit -qam "local work"
+  assert_fails "delete-repo refuses an UNPUSHED commit" python3 "$S/delete-repo.py" alpha
+  git -C "$ws/alpha" push -q origin main
+
+  git -C "$ws/alpha" checkout -q -b experiment
+  echo x >> "$ws/alpha/README.md"
+  git -C "$ws/alpha" -c user.email="$TEST_AUTHOR" -c user.name=Dev commit -qam exp
+  git -C "$ws/alpha" checkout -q main
+  assert_fails "delete-repo refuses a branch with NO UPSTREAM" python3 "$S/delete-repo.py" alpha
+  git -C "$ws/alpha" branch -q -D experiment
+
+  echo tmp >> "$ws/alpha/README.md"
+  git -C "$ws/alpha" stash -q
+  assert_fails "delete-repo refuses a STASHED change" python3 "$S/delete-repo.py" alpha
+  git -C "$ws/alpha" stash drop -q
+
+  assert_file "...and the checkout survived every refusal" "$ws/alpha/.git"
+
+  # --- delete: the clean path ---
+  python3 "$S/delete-repo.py" alpha >/dev/null 2>&1
+  assert_no_grep "delete-repo unregisters a clean repo" 'name: alpha' "$ws/.workspace/repos.yml"
+  assert_no_file "...removes its checkout"              "$ws/alpha"
+  assert_no_file "...and its plan slot"                 "$ws/.workspace/plans/alpha"
+  assert_grep "an emptied list is spelled 'repos: []'"  '^repos: \[\]$' "$ws/.workspace/repos.yml"
+
+  # --keep-checkout unregisters without touching a dirty tree.
+  python3 "$S/add-repo.py" "$bare" --name beta >/dev/null 2>&1
+  echo scratch > "$ws/beta/untracked.txt"
+  python3 "$S/delete-repo.py" beta --keep-checkout >/dev/null 2>&1
+  assert_no_grep "--keep-checkout still unregisters" 'name: beta' "$ws/.workspace/repos.yml"
+  assert_file "...and leaves the dirty checkout alone" "$ws/beta/untracked.txt"
+}
+
+# ---------------------------------------------------------------------------
 # 9. Push round-trip against a LOCAL bare remote (no network)
 # ---------------------------------------------------------------------------
 test_local_remote() {
@@ -761,6 +858,7 @@ main() {
   test_workspace_plan
   test_status_subsystem
   test_aggregation
+  test_repo_verbs
   test_local_remote
   test_github_remote
 

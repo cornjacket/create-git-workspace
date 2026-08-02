@@ -32,6 +32,16 @@ Run from this directory (the wrapper root):
 | `make run` | the full daily status run (uses `claude -p`) |
 | `make run-dry` | the same run with no LLM calls — deterministic placeholders |
 | `make aggregate` | rebuild `daily-plan-summary.md` from `.workspace/plans/` |
+| `make add-repo ARGS="<url>"` | clone + register a repo, and seed its plan slot |
+| `make delete-repo ARGS="<name>"` | unregister + remove it (refuses unpushed work) |
+| `make mute-repo ARGS="<name>"` | quiet it in the rollup (`--skip`, `--unmute`) |
+
+The repo verbs take arguments, and `make` reads bare words as extra goals, so
+they are passed through `ARGS=`. Calling the scripts in `.workspace/scripts/`
+directly is equivalent and reads better for anything complex.
+
+**Never hand-edit `.workspace/repos.yml`** — it is a lockfile the verbs
+maintain. `make bootstrap` replays it onto a new machine.
 
 The scripts themselves live in `.workspace/scripts/`. The wrapper manages the
 *set* of repos; do real code work inside the owning child repo, from a session
