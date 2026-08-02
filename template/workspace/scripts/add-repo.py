@@ -117,11 +117,18 @@ def main():
     if not plan.exists():
         plan_dir.mkdir(parents=True, exist_ok=True)
         from datetime import date
+        # Same section shape `replan.sh` writes, so the first redraft refreshes
+        # the derived half and preserves everything under ## Notes — rather than
+        # silently eating a heading this seed invented.
         plan.write_text(
             f"# Daily plan — {date.today().isoformat()}\n\n"
-            f"_Your plan for {name}. Per-developer: it lives in your workspace, not in\n"
+            f"_Your plan for `{name}`. Per-developer: it lives in this workspace, not in\n"
             f"the shared repo, so two developers never collide over one plan file._\n\n"
-            "## Focus / plan\n\n- _What are you doing in this repo next?_\n"
+            "## In progress\n\n_Nothing in progress._\n\n"
+            "## Next up\n\n_Nothing queued._\n\n"
+            "## Triage\n\n_Nothing in triage._\n\n"
+            "## Notes\n\n"
+            "_Everything below the Notes heading is yours — `replan` never rewrites it._\n"
         )
         print(f"[add-repo] seeded .workspace/daily-plans/{name}/daily-plan.md")
 

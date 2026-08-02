@@ -9,9 +9,9 @@ effort.
 
 ## Where I left off
 
-- **current task** — `01` done; `02` (per-repo replan) is next but needs a design decision
-- **next concrete step** — pick a replan shape (A–D below), or skip to `03` and
-  create `dev-workspace`, which is unblocked
+- **current task** — `01` and `02` done; `03` (create `dev-workspace`) is next
+- **next concrete step** — `./setup.sh ~/src/github.com/cornjacket/dev-workspace
+  --name dev-workspace --with-hook`, then decide the remote
 - **files mid-edit** — none
 - **uncommitted / unpushed** — task `01`'s changes are uncommitted
 - **open questions** — see the section at the bottom; per-repo replan is the big one
@@ -49,7 +49,7 @@ In order. Acceptance is one line each until these are extracted into files.
 | # | Task | Status |
 |---|---|---|
 | 01 | `make status` also reports unpushed work; `--all` mode | **done** |
-| 02 | per-repo replan — **design undecided**, see open questions | todo |
+| 02 | per-repo replan — deterministic, no model calls | **done** |
 | 03 | create `dev-workspace` locally, push it to a new remote | todo |
 | 04 | move the first repos in and register them | todo |
 | 05 | create the `/schedule` routine, add every repo to `sources` | todo |
@@ -68,7 +68,18 @@ as its own uncommitted plans are the easiest to forget and the routine's
 fast-forward depends on them being pushed; and `--all` sweeps unregistered
 checkouts with no ignore-file yet (see the open question). §8n, 291 assertions.
 
-**02** — blocked on the design question below.
+**02 — done.** Shape **A**: a plan is a *report* of decisions already made, so
+`replan.sh` projects task state into plan files with no model call. It now covers
+every enabled repo carrying a task-system plus the workspace's own, with `--repo`
+to target one. Notable calls: the child's task-system is **probed**
+(`project/tasks`, then `tasks/`) rather than configured, so there is no field to
+keep true; a repo with no task-system is skipped **loudly** rather than given an
+empty plan, since "nothing to do" and "does not track tasks here" are different
+claims; `enabled: false` repos are skipped, which needed a new
+`parse_enabled_repos` in `lib.sh` (`bootstrap`/`guard` still want every repo);
+and `add-repo`'s seeded plan now matches the shape `replan` writes, so the first
+redraft preserves the human half instead of eating it. A test puts a failing stub
+`claude` on `PATH` to prove no model is ever called. §8o, 307 assertions.
 
 **03** — `./setup.sh ~/src/github.com/cornjacket/dev-workspace --name dev-workspace
 --with-hook`, then `--create-remote` or an existing remote, push, and confirm the
@@ -97,23 +108,10 @@ delete `cornjacket/CLAUDE.md` and `gen-umbrella-claude.py`, and archive the
 
 ## Open questions
 
-**Per-repo replan (blocks `02`).** Four candidate shapes, discussed:
-
-- **A — deterministic**, mirroring today's `replan.sh`: read each child's task
-  system, render bullets. Free, offline, exactly testable. *Current lean.*
-- **B — one `claude -p` per repo**, porting `replan.py`: richer, costs N calls,
-  needs the read-only/draft-only/skip-if-dated guardrails.
-- **C — A by default, `--ai` to enrich.**
-- **D — one call for all repos.** Cheapest LLM option, most fragile.
-
 **Should `--all` honour an ignore file?** `project-status`'s sweep skips repos
 carrying `.project-status-ignore`. The workspace sweep currently has no opt-out,
 on the grounds that an unregistered checkout is exactly what you want flagged.
 Revisit if the floor gets noisy — the hygiene audit will want the same answer.
-
-Either way: **where does a child's task system live?** `<repo>/project/tasks` or
-`<repo>/tasks` depending on how it was stamped — needs a convention or a
-`repos.yml` field.
 
 **Membership: TBD, deliberately.** `DESIGN.md` §1 files `create-*` generators
 under the personal tier, but while they are under **active development** they are

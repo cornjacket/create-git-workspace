@@ -67,7 +67,7 @@ real interface and read better for anything with arguments.
 | `make guard` | `guard.sh` | fail if a child repo, a `.git` dir, or a worktree `.git` pointer was staged into the wrapper index |
 | `make hook` | `install-hooks.sh` | install `guard.sh` as this clone's pre-commit hook (`hook-check` reports status; `--uninstall` removes it) |
 | `make readme` | `render-readme.py` | refresh `README.md`'s roster block from `repos.yml` + `config.yml` (`readme-check` reports staleness) |
-| `make replan` | `replan.sh` | redraft `.workspace/daily-plans/_workspace/daily-plan.md` from `project/tasks`. **Draft-only** — it writes the file and stops, never commits |
+| `make replan` | `replan.sh` | redraft every daily plan from task state — the workspace's, plus one per enabled repo that has a task-system. **No model calls**; **draft-only**, it writes and stops. `ARGS="--repo NAME"` for one, `--date` for another day |
 | `make new-work` | `new-work.py` | what *you* committed per repo since the last run |
 | `make run` | `run.py` | the daily run: summarize → aggregate → advance state, via `claude -p` |
 | `make run-dry` | `run.py --dry-run` | the same pipeline with no LLM calls — deterministic placeholders |

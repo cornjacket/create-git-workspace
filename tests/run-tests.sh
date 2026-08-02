@@ -1288,6 +1288,101 @@ test_optional_extras() {
 }
 
 # ---------------------------------------------------------------------------
+# 8o. Per-repo replan (dogfood 02)
+#
+# A plan is a REPORT of decisions already made, so this is deterministic: task
+# state in, plan out, no model call. Which means the suite can assert the exact
+# output — the whole argument for choosing this shape.
+# ---------------------------------------------------------------------------
+test_per_repo_replan() {
+  section "8o. Per-repo replan (deterministic)"
+  local ws; ws=$(new_ws ws-replan)
+  local rp="$ws/.workspace/scripts/replan.sh"
+
+  # A child repo carrying its own task-system, installed the same way a real one
+  # would be: by the vendored generator.
+  mkdir -p "$ws/kid" && git -C "$ws/kid" init -q
+  "$GEN_ROOT/vendor/create-project-system/generate.sh" --target-repo "$ws/kid" \
+      --tasks-dir project/tasks >/dev/null 2>&1
+  git -C "$ws/kid" add -A
+  git -C "$ws/kid" -c user.email=t@t -c user.name=t commit -qm init
+  cat > "$ws/.workspace/repos.yml" <<'YML'
+repos:
+  - name: kid
+    path: kid
+    type: standard
+    branch: main
+    url: https://example.invalid/kid.git
+  - name: ghost
+    path: ghost
+    type: standard
+    branch: main
+    url: https://example.invalid/ghost.git
+  - name: off
+    path: off
+    type: standard
+    branch: main
+    url: https://example.invalid/off.git
+    enabled: false
+YML
+
+  "$ws/kid/project/tasks/scripts/new-user-task.sh" --folder in-progress --name ship-the-thing \
+    >/dev/null 2>&1
+  "$ws/kid/project/tasks/scripts/new-user-task.sh" --folder backlog --name later-thing \
+    >/dev/null 2>&1
+
+  local out; out=$("$rp" 2>&1)
+  local plan="$ws/.workspace/daily-plans/kid/daily-plan.md"
+  assert_file "a repo with a task-system gets a plan" "$plan"
+  assert_grep "its in-progress task lands under In progress" 'ship-the-thing' "$plan"
+  assert_grep "its backlog task lands under Next up"         'later-thing'    "$plan"
+  assert_grep "the plan says where it came from"  'Derived from `kid/project/tasks`' "$plan"
+  assert_grep "the workspace's own plan is still drafted" 'Daily plan' \
+    "$ws/.workspace/daily-plans/_workspace/daily-plan.md"
+
+  # A registered repo with no checkout, and one switched off, are both skipped —
+  # and skipped LOUDLY, so a missing plan is never a silent absence.
+  case "$out" in *ghost*"not checked out"*) ok "a missing checkout is skipped, and says so" ;;
+                 *) bad "a missing checkout is skipped, and says so" "$out" ;; esac
+  assert_no_file "a repo with enabled:false gets no plan" \
+    "$ws/.workspace/daily-plans/off/daily-plan.md"
+
+  # Deterministic: the same task state renders byte-identically.
+  local before; before=$(file_hash "$plan")
+  out=$("$rp" 2>&1)
+  assert_eq "re-running is byte-identical" "$before" "$(file_hash "$plan")"
+  case "$out" in *"already current"*) ok "...and it says so rather than rewriting" ;;
+                 *) bad "...and it says so rather than rewriting" "$out" ;; esac
+
+  # The human's half survives a redraft, exactly like the workspace plan.
+  printf '\n- a note I typed\n' >> "$plan"
+  "$ws/kid/project/tasks/scripts/new-user-task.sh" --folder backlog --name third-thing >/dev/null 2>&1
+  "$rp" >/dev/null 2>&1
+  assert_grep "text under ## Notes survives"   'a note I typed' "$plan"
+  assert_grep "...and the new task appeared"   'third-thing'    "$plan"
+
+  # --repo targets one; --date sets the header; neither commits anything.
+  "$rp" --repo kid --date 2026-12-25 >/dev/null 2>&1
+  assert_eq "--repo + --date redraft just that plan" "# Daily plan — 2026-12-25" \
+    "$(head -1 "$plan")"
+  assert_no_grep "...leaving the workspace plan alone" '2026-12-25' \
+    "$ws/.workspace/daily-plans/_workspace/daily-plan.md"
+  assert_fails "an unknown --repo is rejected" "$rp" --repo nope
+  case "$(git -C "$ws" diff --cached --name-only)" in
+    "") ok "replan stages nothing" ;;
+    *)  bad "replan stages nothing" "$(git -C "$ws" diff --cached --name-only)" ;;
+  esac
+
+  # No model call, ever: a stub `claude` that fails loudly must never be reached.
+  local bin="$SANDBOX/replan-nocall"; rm -rf "$bin"; mkdir -p "$bin"
+  printf '#!/bin/sh\necho "MODEL CALLED" >&2\nexit 9\n' > "$bin/claude"
+  chmod 755 "$bin/claude"
+  out=$( PATH="$bin:$PATH" "$rp" --date 2026-12-26 2>&1 )
+  case "$out" in *"MODEL CALLED"*) bad "replan makes no model call" "$out" ;;
+                 *) ok "replan makes no model call" ;; esac
+}
+
+# ---------------------------------------------------------------------------
 # 8n. The pending sweep (dogfood 01)
 #
 # The dangerous case: a repo you COMMITTED but never PUSHED looks perfectly
@@ -1666,6 +1761,7 @@ main() {
   test_optional_extras
   test_living_readme
   test_pending_sweep
+  test_per_repo_replan
   test_local_remote
   test_github_remote
 

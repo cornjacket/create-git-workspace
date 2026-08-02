@@ -43,8 +43,8 @@ readme: ## refresh README.md's roster block from repos.yml + config.yml
 readme-check: ## report whether that roster block is stale (writes nothing)
 	@python3 $(SCRIPTS)/render-readme.py --check
 
-replan: ## redraft the workspace daily plan from project/tasks (draft only)
-	@$(SCRIPTS)/replan.sh
+replan: ## redraft every daily plan from task state (draft only, no LLM)
+	@$(SCRIPTS)/replan.sh $(ARGS)
 
 pull: ## bring the routine's aggregates down (ff-only; declines if diverged)
 	@$(SCRIPTS)/pull.sh

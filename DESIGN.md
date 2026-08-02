@@ -535,6 +535,33 @@ Two output contracts worth stating, because both were learned by breaking them:
 hand-written periodic reports for status-review meetings, versus `summary.md`,
 the automated git-telemetry rollup.
 
+### 8.3b A plan is a report, not an act of planning
+
+Plans are **derived deterministically from task state — no model call.**
+`replan.sh` reads each task-system's own lister and projects its
+in-progress / backlog / draft folders into the plan's sections, preserving
+everything from `## Notes` onward.
+
+This is a deliberate departure from `project-status`, which spent one `claude -p`
+per repo. The reasoning:
+
+- **The thinking already happened.** You decide what is in progress and what is
+  next by curating tasks. The plan renders that decision; it does not make one.
+- **A model can invent work you never chose.** A plausible-looking next step in a
+  plan flows straight into the aggregate and reads as something you committed to.
+  Determinism cannot produce that failure.
+- **`replan.py`'s own behaviour concedes the point** — it defaults to re-dating
+  the current plan whenever the next step is not unambiguous. That is a lot of
+  model calls to mostly re-date a file.
+- Free, offline, and **exactly testable**: the suite asserts byte-identical
+  output for the same task state, which no model-driven version allows.
+
+The honest cost: a repo **without** a task-system has nothing to project, so it
+is skipped — loudly, never with an empty plan, because "nothing to do" and "this
+repo does not track tasks here" are different claims. If a repo needs a plan, it
+needs a task-system; that is the same "curate tasks, not prose" discipline
+applied one level down.
+
 ### 8.4 The daily loop — push up, pull down
 
 ```
@@ -710,13 +737,10 @@ tier, which then needs its own managed workspace).
 
 ## 11. Open gaps — designed for, not built
 
-**One command `project-status` has and a workspace does not.** It is a
-retirement blocker (§8.9): the old tracker cannot be switched off while it is the
-only thing that can answer it.
-
-- **Per-repo plan drafting.** `replan.sh` redrafts only the `_workspace` plan.
-  `project-status`'s `replan.py` fans out one `claude -p` per tracked repo. Today
-  every per-repo plan under `.workspace/daily-plans/` is hand-written.
+> **Closed:** per-repo plan drafting. `replan.sh` now redrafts every plan — the
+> workspace's, plus one per enabled repo carrying a task-system — and it does so
+> **deterministically, with no model call at all**, which is a deliberate
+> departure from `project-status`'s `replan.py`. See §8.3b for why.
 
 > **Closed:** the pending sweep. `status.py` now reports *unpushed* alongside
 > uncommitted — the dangerous case, since a repo you committed but never pushed
