@@ -582,7 +582,8 @@ discovered during the build rather than planned up front. The generator skeleton
       *(marker `git-workspace-commits`, distinct from project-status's block so
       both can coexist during migration; the kernel names no workspace or
       developer, since it is committed to a shared repo.)*
-- [ ] `013` — status-pipeline tests (`claude -p` stubbed).
+- [x] `013` — status-pipeline tests (`claude -p` stubbed). *(§8j drives the real
+      prompt path with a stub `claude` on PATH — the code `--dry-run` skips.)*
 - [ ] `014` — on-demand status guide/skill (durable home for routine-setup directions).
 - [ ] `015` — generator `README.md` (keep in sync as steps land).
 - [ ] `016` — optional extras: `gh repo create`, guard pre-commit hook.

@@ -931,6 +931,181 @@ test_commit_kernel() {
 }
 
 # ---------------------------------------------------------------------------
+# 8j. The LIVE claude -p path, with `claude` stubbed
+#
+# --dry-run (covered in 8d) skips prompt rendering entirely, so the prompts
+# themselves — the substitution, and what actually reaches the model — were
+# never exercised. This puts a fake `claude` first on PATH that records each
+# prompt it is handed and answers deterministically.
+# ---------------------------------------------------------------------------
+make_claude_stub() { # make_claude_stub <bindir>
+  mkdir -p "$1"
+  cat > "$1/claude" <<'STUB'
+#!/usr/bin/env bash
+# Stand-in for `claude -p`: records the prompt, answers deterministically.
+prompt=$(cat)
+if [ -n "${CLAUDE_STUB_LOG:-}" ]; then
+  mkdir -p "$CLAUDE_STUB_LOG"
+  n=$(find "$CLAUDE_STUB_LOG" -name 'prompt-*' | wc -l | tr -d ' ')
+  printf '%s' "$prompt" > "$CLAUDE_STUB_LOG/prompt-$n.txt"
+fi
+[ "${CLAUDE_STUB_FAIL:-0}" = "1" ] && { echo "stub: simulated failure" >&2; exit 1; }
+if printf '%s' "$prompt" | grep -q '^DRAFTS:'; then
+  today=$(printf '%s' "$prompt" | sed -n 's/.*starting with `## \([0-9-]*\)`.*/\1/p' | head -1)
+  printf '## %s\n\nSTUB-POLISHED\n' "${today:-unknown}"
+else
+  name=$(printf '%s' "$prompt" | sed -n 's/.*slice for repo `\([^`]*\)`.*/\1/p' | head -1)
+  printf '### %s\n- STUB-SUMMARY for %s\n' "$name" "$name"
+fi
+STUB
+  chmod 755 "$1/claude"
+}
+
+test_claude_pipeline() {
+  section "8j. Live claude -p path (stubbed)"
+  local bin="$SANDBOX/stub-bin"; rm -rf "$bin"; make_claude_stub "$bin"
+  local log="$SANDBOX/stub-prompts"; rm -rf "$log"
+
+  local ws; ws=$(new_ws ws-claude)
+  local S="$ws/.workspace/scripts"
+
+  # Two repos with the developer's commits (so the polish step triggers) and one
+  # teammate commit that must never reach a prompt.
+  local r
+  for r in alpha beta; do
+    mkdir -p "$ws/$r"; git -C "$ws/$r" init -q
+    echo one > "$ws/$r/f.txt"; git -C "$ws/$r" add -A
+    git -C "$ws/$r" -c user.email="$TEST_AUTHOR" -c user.name=Dev commit -qm "feat($r): build the thing
+
+- [Context]: exercise prompt rendering.
+- [Impact]: adds f.txt to $r."
+  done
+  echo secret > "$ws/alpha/teammate.txt"; git -C "$ws/alpha" add -A
+  git -C "$ws/alpha" -c user.email=other@example.invalid -c user.name=Other \
+    commit -qm "chore(other): TEAMMATE-ONLY change"
+  cat > "$ws/.workspace/repos.yml" <<'YML'
+repos:
+  - name: alpha
+    url: git@github.com:cornjacket/alpha.git
+    path: alpha
+    type: standard
+    branch: main
+  - name: beta
+    url: git@github.com:cornjacket/beta.git
+    path: beta
+    type: standard
+    branch: main
+YML
+
+  ( cd "$ws" && PATH="$bin:$PATH" CLAUDE_STUB_LOG="$log" python3 "$S/run.py" ) >/dev/null 2>&1
+
+  # Two ACTIVE repos -> two per-repo calls plus one polish call.
+  assert_eq "claude is called once per repo, plus polish" "3" \
+    "$(find "$log" -name 'prompt-*' 2>/dev/null | wc -l | tr -d ' ')"
+
+  local prompts; prompts=$(cat "$log"/prompt-*.txt 2>/dev/null)
+  case "$prompts" in
+    *'{{'*) bad "every placeholder is substituted" "a {{...}} reached the model" ;;
+    *) ok "every placeholder is substituted" ;;
+  esac
+  case "$prompts" in
+    *"build the thing"*) ok "the prompt carries real commit telemetry" ;;
+    *) bad "the prompt carries real commit telemetry" "telemetry missing" ;;
+  esac
+  case "$prompts" in
+    *"exercise prompt rendering"*) ok "...including [Context]/[Impact]" ;;
+    *) bad "...including [Context]/[Impact]" "schema lines missing" ;;
+  esac
+  # The author-scoping guarantee has to hold at the PROMPT boundary too: a
+  # teammate's work must never be handed to the model as this developer's.
+  case "$prompts" in
+    *TEAMMATE-ONLY*) bad "no teammate work reaches the model" "it leaked into a prompt" ;;
+    *) ok "no teammate work reaches the model" ;;
+  esac
+  case "$prompts" in
+    *"ws-claude"*) ok "the polish prompt names the workspace" ;;
+    *) bad "the polish prompt names the workspace" "{{WORKSPACE_NAME}} not filled" ;;
+  esac
+
+  assert_grep "the model's output lands in summary.md" 'STUB-POLISHED' "$ws/summary.md"
+
+  # One ACTIVE repo must NOT trigger polish — there is nothing cross-repo to
+  # merge, and paying for a second call would be waste.
+  rm -rf "$log"
+  local ws1; ws1=$(new_ws ws-claude-single)
+  mkdir -p "$ws1/solo"; git -C "$ws1/solo" init -q
+  echo one > "$ws1/solo/f.txt"; git -C "$ws1/solo" add -A
+  git -C "$ws1/solo" -c user.email="$TEST_AUTHOR" -c user.name=Dev commit -qm "feat(solo): work
+
+- [Context]: single-repo day.
+- [Impact]: adds f.txt."
+  cat > "$ws1/.workspace/repos.yml" <<'YML'
+repos:
+  - name: solo
+    url: git@github.com:cornjacket/solo.git
+    path: solo
+    type: standard
+    branch: main
+YML
+  ( cd "$ws1" && PATH="$bin:$PATH" CLAUDE_STUB_LOG="$log" \
+      python3 "$ws1/.workspace/scripts/run.py" ) >/dev/null 2>&1
+  assert_eq "a single active repo skips the polish call" "1" \
+    "$(find "$log" -name 'prompt-*' 2>/dev/null | wc -l | tr -d ' ')"
+  assert_grep "...and its section still lands" 'STUB-SUMMARY for solo' "$ws1/summary.md"
+
+  # --dry-run must not shell out at all.
+  rm -rf "$log"
+  echo two > "$ws1/solo/f.txt"; git -C "$ws1/solo" add -A
+  git -C "$ws1/solo" -c user.email="$TEST_AUTHOR" -c user.name=Dev commit -qm "feat(solo): more
+
+- [Context]: second day.
+- [Impact]: changes f.txt."
+  ( cd "$ws1" && PATH="$bin:$PATH" CLAUDE_STUB_LOG="$log" \
+      python3 "$ws1/.workspace/scripts/run.py" --dry-run ) >/dev/null 2>&1
+  assert_eq "--dry-run calls claude zero times" "0" \
+    "$(find "$log" 2>/dev/null -name 'prompt-*' | wc -l | tr -d ' ')"
+
+  # Newest day first: the second section is prepended above the first.
+  assert_eq "sections are newest-first in summary.md" "dry-run" \
+    "$(grep -m1 -o 'dry-run\|STUB-SUMMARY' "$ws1/summary.md")"
+
+  # A failing model call must abort loudly, not write a half-built summary.
+  # Needs fresh work, or the repo is INACTIVE and claude is never called at all.
+  echo three > "$ws1/solo/f.txt"; git -C "$ws1/solo" add -A
+  git -C "$ws1/solo" -c user.email="$TEST_AUTHOR" -c user.name=Dev commit -qm "feat(solo): third
+
+- [Context]: give the failing run something to summarize.
+- [Impact]: changes f.txt."
+  local before state_before
+  before=$(file_hash "$ws1/summary.md")
+  state_before=$(file_hash "$ws1/.workspace/state/state.json")
+  ( cd "$ws1" && PATH="$bin:$PATH" CLAUDE_STUB_FAIL=1 \
+      python3 "$ws1/.workspace/scripts/run.py" ) >/dev/null 2>&1
+  assert_eq "a failing claude call aborts the run" "1" "$?"
+  assert_eq "...leaving summary.md untouched" "$before" "$(file_hash "$ws1/summary.md")"
+  # State must not advance past work that was never summarized, or the next run
+  # would skip it and the day would silently vanish from the record.
+  assert_eq "...and NOT advancing the commit window" \
+    "$state_before" "$(file_hash "$ws1/.workspace/state/state.json")"
+
+  # The same work is still pending, so a good run picks it up.
+  rm -rf "$log"
+  ( cd "$ws1" && PATH="$bin:$PATH" CLAUDE_STUB_LOG="$log" \
+      python3 "$ws1/.workspace/scripts/run.py" ) >/dev/null 2>&1
+  assert_eq "a retry after the failure summarizes the same work" "1" \
+    "$(find "$log" -name 'prompt-*' 2>/dev/null | wc -l | tr -d ' ')"
+
+  # An INACTIVE repo is reported deterministically — no model call for it.
+  rm -rf "$log"
+  ( cd "$ws1" && PATH="$bin:$PATH" CLAUDE_STUB_LOG="$log" \
+      python3 "$ws1/.workspace/scripts/run.py" ) >/dev/null 2>&1
+  assert_grep "an idle repo yields a deterministic 'No updates' line" \
+    'No updates' "$ws1/summary.md"
+  assert_eq "...with no model call" "0" \
+    "$(find "$log" -name 'prompt-*' 2>/dev/null | wc -l | tr -d ' ')"
+}
+
+# ---------------------------------------------------------------------------
 # 9. Push round-trip against a LOCAL bare remote (no network)
 # ---------------------------------------------------------------------------
 test_local_remote() {
@@ -1088,6 +1263,7 @@ main() {
   test_daily_routine
   test_pull_trigger
   test_commit_kernel
+  test_claude_pipeline
   test_local_remote
   test_github_remote
 
