@@ -9,9 +9,9 @@ its own task-system for the work that belongs to no single repo.
 - Workspace-architecture model: [`docs/roadmap-2026-07-31.md`](docs/roadmap-2026-07-31.md)
 - Build tracker: [`tasks/`](tasks/)
 
-> **Implementation status.** Steps below are marked ✅ built / 🔧 planned. Every
-> step is built and covered by the suite; what remains is the opt-in extras in
-> task `016` (`gh repo create`, installing `guard.sh` as a pre-commit hook).
+> **Implementation status.** Every step below is built and covered by the
+> acceptance suite. Task `015` (keeping this README current) stays open by
+> design; everything else in [`tasks/`](tasks/) is done.
 
 ## Quick start
 
@@ -62,8 +62,9 @@ and `.workspace/status-guide.md` holding the procedure exactly once.
 
 ### 1. Generate a workspace — `setup.sh` ✅
 ```bash
-./setup.sh <target-dir> [--name NAME] [--author EMAIL] [--remote URL]
-                        [--no-tasks] [--no-commit] [--force]
+./setup.sh <target-dir> [--name NAME] [--author EMAIL]
+                        [--remote URL | --create-remote [--public]]
+                        [--with-hook] [--no-tasks] [--no-commit] [--force]
 ```
 Creates the wrapper, `git init`s it, writes the machinery, seeds the content
 (`repos.yml`, `config.yml`, plans, `README.md`), injects the managed `CLAUDE.md`
@@ -78,6 +79,12 @@ empty rollup.
 There is no `--no-status`: the status subsystem is not a layer a workspace opts
 into, it *is* the workspace layer. The task-system is optional (`--no-tasks`)
 because it is a separate, delegated generator.
+
+`--remote` attaches an existing remote; `--create-remote` makes one with `gh`
+(**private** unless you add `--public` — a workspace carries your plans and your
+rollup). They are mutually exclusive, and both `gh`'s presence and its auth are
+checked *before* anything is stamped. It creates and wires origin but does not
+push; the closing print names that command.
 
 ### 2. Add / remove / mute repos ✅
 ```bash
@@ -109,8 +116,12 @@ make status       # branch + clean/dirty per managed checkout
 ### 5. Guard the index — `guard.sh` ✅
 ```bash
 make guard        # fail if a child repo / .git dir / worktree pointer was staged
+make hook         # install it as this clone's pre-commit hook (hook-check reports status)
 ```
-Installing it as the workspace's pre-commit hook is still manual (task `016`).
+`setup.sh --with-hook` does the same at stamp time. It is **per-clone** — git
+does not track `.git/hooks/`, which is why the installer ships inside the
+workspace rather than being something only the generator can do. It refuses to
+overwrite or remove a pre-commit hook it did not write.
 
 ### 6. Daily status loop — push up / pull down ✅
 Per-developer status, multi-dev-safe: plans live per-workspace, and every git
@@ -187,14 +198,15 @@ sandbox/                 throwaway generated workspaces (git-ignored)
 ./tests/run-tests.sh --remote   # additionally run the GitHub round-trip
 ```
 
-219 local assertions. Every test generates throwaway workspaces into `sandbox/`
+244 local assertions. Every test generates throwaway workspaces into `sandbox/`
 (git-ignored) — never a real repo. The suite covers the emitted tree and
 allowlist, the generated scripts, **zero-diff regeneration**, machinery overwrite
 + stale pruning, content/runtime preservation, all `CLAUDE.md` injection paths
 (including four malformed-marker shapes), the version stamp, every refusal path,
 the task-system delegation, the status pipeline against a stubbed `claude` on
-`PATH`, the repo verbs, the kernel/guide/skill split, and a push + ff-only-pull
-round-trip against a local bare remote.
+`PATH`, the repo verbs, the kernel/guide/skill split, the opt-in extras
+(including a real blocked commit through the installed hook), and a push +
+ff-only-pull round-trip against a local bare remote.
 
 CI (`.github/workflows/tests.yml`) runs the suite on every push to `main` and
 every PR, so the zero-diff invariant is protected by the repo rather than by

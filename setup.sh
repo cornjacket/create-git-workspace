@@ -20,6 +20,10 @@ usage: setup.sh <target-dir> [options]
   --author EMAIL  git author to scope the status summary to
                   (default: git config user.email)
   --remote URL    git remote add origin URL
+  --create-remote create a PRIVATE GitHub repo with 'gh' and wire it as origin
+                  (--public to create it public; conflicts with --remote)
+  --public        with --create-remote, create a public repo instead
+  --with-hook     install guard.sh as the pre-commit hook
   --no-tasks      skip installing the task-system (project/tasks)
   --no-commit     leave the generated files uncommitted
   --force         proceed even if <target-dir> already looks like a workspace
@@ -31,7 +35,8 @@ EOF
 # Arguments
 # ---------------------------------------------------------------------------
 target=""; name=""; author=""; remote=""
-with_tasks=1; do_commit=1; force=0
+with_tasks=1; do_commit=1; force=0; create_remote=0; public=0; with_hook=0
+created_remote=0
 
 # There is deliberately no --no-status. The status subsystem is not a layer a
 # workspace opts into — it IS the workspace layer (PLAN: "each workspace
@@ -45,6 +50,9 @@ while [ $# -gt 0 ]; do
     --name)     name=${2:-}; shift 2 || die "--name needs a value" ;;
     --author)   author=${2:-}; shift 2 || die "--author needs a value" ;;
     --remote)   remote=${2:-}; shift 2 || die "--remote needs a value" ;;
+    --create-remote) create_remote=1; shift ;;
+    --public)        public=1; shift ;;
+    --with-hook)     with_hook=1; shift ;;
     --no-tasks)  with_tasks=0; shift ;;
     --no-commit) do_commit=0; shift ;;
     --force)     force=1; shift ;;
@@ -55,6 +63,25 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$target" ] || { usage >&2; exit 2; }
+
+# Two ways to get an origin, and they would fight over it. Fail before creating
+# anything rather than silently letting one win.
+if [ "$create_remote" -eq 1 ] && [ -n "$remote" ]; then
+  die "--create-remote and --remote are mutually exclusive: one creates the
+       remote repo, the other attaches an existing one. Pick one."
+fi
+if [ "$public" -eq 1 ] && [ "$create_remote" -eq 0 ]; then
+  die "--public only means something with --create-remote."
+fi
+# Check for gh up front: discovering it is missing AFTER stamping a workspace
+# leaves a half-configured repo and a confusing error.
+if [ "$create_remote" -eq 1 ]; then
+  command -v gh >/dev/null 2>&1 \
+    || die "--create-remote needs the GitHub CLI ('gh') on PATH. Install it, or
+       create the repo yourself and pass --remote <url>."
+  gh auth status >/dev/null 2>&1 \
+    || die "'gh' is installed but not authenticated. Run 'gh auth login' first."
+fi
 
 # Validate before creating anything, so a bad name leaves no stray directory.
 [ -n "$name" ] || name=$(basename "${target%/}")
@@ -121,6 +148,31 @@ if [ -n "$remote" ]; then
   fi
 fi
 
+# --create-remote: opt-in, and PRIVATE unless you say otherwise. A workspace
+# carries your plans and your rollup; defaulting to public would publish them on
+# a flag whose name says nothing about visibility.
+#
+# It creates the repo and wires origin, but does NOT push: pushing is a separate,
+# outward-facing act, and --no-commit means there may be nothing to push. The
+# closing print names the one command.
+if [ "$create_remote" -eq 1 ]; then
+  if git -C "$target" remote get-url origin >/dev/null 2>&1; then
+    step "git:       remote 'origin' already set — skipping --create-remote"
+  else
+    vis="--private"; [ "$public" -eq 1 ] && vis="--public"
+    if gh repo create "$name" $vis --source "$target" --remote origin >/dev/null 2>&1; then
+      step "gh:        created ${vis#--} repo -> $(git -C "$target" remote get-url origin)"
+      created_remote=1
+    else
+      # Not fatal: the workspace is fully stamped and usable. Losing the whole
+      # run because a repo name is taken would be a poor trade.
+      warn "gh repo create failed (name taken, or no permission?)."
+      warn "the workspace is fine — attach a remote by hand:"
+      warn "  git -C $target remote add origin <url>"
+    fi
+  fi
+fi
+
 # ---------------------------------------------------------------------------
 # 6. Task-system (vendored create-project-system) — default on
 # ---------------------------------------------------------------------------
@@ -128,6 +180,22 @@ if [ "$with_tasks" -eq 1 ]; then
   install_task_system "$target"
 else
   step "tasks:     skipped (--no-tasks)"
+fi
+
+# ---------------------------------------------------------------------------
+# 6b. Pre-commit hook (opt-in)
+#
+# Hooks live in .git/hooks/, which git does not track — so this is per-clone, and
+# the installer ships inside the workspace (`make hook`) to be re-run after any
+# clone. setup.sh only invokes it; it does not reimplement it.
+# ---------------------------------------------------------------------------
+if [ "$with_hook" -eq 1 ]; then
+  if "$target/.workspace/scripts/install-hooks.sh" >/dev/null 2>&1; then
+    step "hook:      guard.sh installed as pre-commit"
+  else
+    warn "could not install the pre-commit hook — run 'make hook' in the"
+    warn "workspace to see why (an existing hook is never overwritten)."
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -184,6 +252,22 @@ Two steps the generator cannot do for you (the routine seams):
     remote run cannot read its git log.
   Both are written up in .workspace/status-guide.md (section 5).
 EOF
+
+if [ "$created_remote" -eq 1 ]; then
+  cat <<EOF
+
+The remote exists but is empty — nothing was pushed for you:
+  git -C $target push -u origin main
+EOF
+fi
+
+if [ "$with_hook" -eq 0 ]; then
+  cat <<EOF
+
+Optional: 'make hook' installs guard.sh as the pre-commit hook, so a child repo
+can never be committed into the wrapper. Per-clone (hooks are not tracked).
+EOF
+fi
 
 if [ "$author" = "$AUTHOR_PLACEHOLDER" ]; then
   echo

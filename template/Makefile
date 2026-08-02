@@ -7,8 +7,8 @@ SCRIPTS := .workspace/scripts
 
 .DEFAULT_GOAL := help
 
-.PHONY: help guide status bootstrap guard replan new-work run run-dry aggregate pull \
-        add-repo delete-repo mute-repo inject-kernel kernel-check
+.PHONY: help guide status bootstrap guard hook hook-check replan new-work run run-dry \
+        aggregate pull add-repo delete-repo mute-repo inject-kernel kernel-check
 
 help: ## show this help
 	@echo "{{WORKSPACE_NAME}} — workspace commands"
@@ -29,6 +29,12 @@ bootstrap: ## clone/attach every repo listed in .workspace/repos.yml
 
 guard: ## fail if a child repo was staged into the wrapper index
 	@$(SCRIPTS)/guard.sh
+
+hook: ## install guard.sh as this clone's pre-commit hook (re-run after a clone)
+	@$(SCRIPTS)/install-hooks.sh
+
+hook-check: ## report whether the pre-commit hook is installed and current
+	@$(SCRIPTS)/install-hooks.sh --check
 
 replan: ## redraft the workspace daily plan from project/tasks (draft only)
 	@$(SCRIPTS)/replan.sh

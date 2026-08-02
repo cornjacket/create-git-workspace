@@ -226,9 +226,16 @@ substituted.
      use*: the status run (local + remote) **hard-fails** on an unresolved/placeholder
      author — a wrong/empty author silently corrupts the author-scoped summary, and
      the remote has no ambient identity to fall back on.
-6. Optionally `git remote add origin <URL>` if `--remote`.
-7. Optionally install `.workspace/scripts/guard.sh` as the pre-commit hook.
-8. Print next steps (edit `.workspace/repos.yml`, run `.workspace/scripts/bootstrap.sh`).
+6. Optionally `git remote add origin <URL>` if `--remote`, or create the repo
+   with `gh` if `--create-remote` (private by default; `--public` opts out;
+   mutually exclusive with `--remote`; creates and wires origin but never
+   pushes).
+7. Optionally install `.workspace/scripts/guard.sh` as the pre-commit hook
+   (`--with-hook`). *Amended in `016`:* the installer lives **in the workspace**
+   (`install-hooks.sh`, `make hook`), not in the generator, because
+   `.git/hooks/` is untracked — a second clone needs it re-run locally, and
+   `update.sh` cannot reach it.
+8. Print next steps (`make add-repo`, `make status`) plus the routine seams.
 
 **Do NOT** init or create GitHub repos for the *managed children* — that's
 `bootstrap.sh`'s / the user's job. `setup.sh` only creates the wrapper.
@@ -540,7 +547,8 @@ track and retires — by obsolescence, not amputation:
 
 1. ✅ **RESOLVED — Hidden-dir name** = `.workspace/`.
 2. ✅ **RESOLVED — setup.sh remote creation** = local-only default + `--remote <url>`
-   to attach an existing remote; `gh repo create` is an opt-in extra (task 016).
+   to attach an existing remote; `gh repo create` is an opt-in extra (task 016,
+   shipped as `--create-remote`, **private** unless `--public`).
 3. ✅ **RESOLVED — git-workspace-test** = persistent local sibling checkout + remote
    (like `second-brain-test`); throwaway, removed when mature. `sandbox/` stays for
    ephemeral determinism tests.
@@ -613,7 +621,12 @@ discovered during the build rather than planned up front. The generator skeleton
 - [ ] `015` — generator `README.md` (keep in sync as steps land). *(Standing —
       closes when the build does. Current through `014`/`017`; see the sync log
       in the task file.)*
-- [ ] `016` — optional extras: `gh repo create`, guard pre-commit hook.
+- [x] `016` — optional extras: `gh repo create`, guard pre-commit hook.
+      *(`--create-remote` is private-by-default and pre-flights `gh`'s presence
+      and auth **before** stamping, so a missing tool cannot leave a
+      half-configured workspace. The hook installer ships inside the workspace
+      — hooks are per-clone and untracked — and refuses to overwrite or remove
+      a pre-commit hook it did not write.)*
 - [x] `017` — **CI**: run the acceptance suite on push/PR (`tests.yml`). *(Not in
       the original breakdown — added once it was clear commits were landing on
       `main` with no automated verification.)*

@@ -57,6 +57,10 @@ Then pick a morning trigger — cron, launchd, or a Claude Code SessionStart hoo
 to run `.workspace/scripts/pull.sh`, which fast-forwards this workspace onto
 whatever the routine landed overnight.
 
+Worth doing once per clone: **`make hook`** installs `guard.sh` as the pre-commit
+hook, so a child repo can never be committed into the wrapper by accident. Git
+does not track hooks, so it does not travel with the repo.
+
 ## Where the details live
 
 **[`.workspace/status-guide.md`](.workspace/status-guide.md)** is the operating

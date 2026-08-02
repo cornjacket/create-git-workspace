@@ -64,7 +64,8 @@ real interface and read better for anything with arguments.
 |---|---|---|
 | `make status` | `status.sh` | branch + clean/dirty for every managed checkout |
 | `make bootstrap` | `bootstrap.sh` | replay `repos.yml` onto this machine: clone every `standard` repo, `git worktree add` every `worktree`. Idempotent |
-| `make guard` | `guard.sh` | fail if a child repo, a `.git` dir, or a worktree `.git` pointer was staged into the wrapper index. Wire it in as a pre-commit hook |
+| `make guard` | `guard.sh` | fail if a child repo, a `.git` dir, or a worktree `.git` pointer was staged into the wrapper index |
+| `make hook` | `install-hooks.sh` | install `guard.sh` as this clone's pre-commit hook (`hook-check` reports status; `--uninstall` removes it) |
 | `make replan` | `replan.sh` | redraft `.workspace/plans/_workspace/daily-plan.md` from `project/tasks`. **Draft-only** — it writes the file and stops, never commits |
 | `make new-work` | `new-work.py` | what *you* committed per repo since the last run |
 | `make run` | `run.py` | the daily run: summarize → aggregate → advance state, via `claude -p` |
@@ -76,6 +77,12 @@ real interface and read better for anything with arguments.
 | — | `sync.py` | report which repos are readable. Read-only; it never clones |
 | — | `daily.sh` | the scheduled REMOTE routine's entry point (§4) |
 | — | `lib.sh`, `_status_lib.py`, `_repos_edit.py` | shared helpers, not run directly |
+
+**The pre-commit hook is per-clone.** Git does not track `.git/hooks/`, so a
+workspace cloned onto a second machine arrives without it — run `make hook`
+there. It refuses to overwrite (or remove) a pre-commit hook it did not write;
+`--force` overrides, or chain it from your own hook with
+`.workspace/scripts/guard.sh || exit 1`.
 
 ## 3. Membership: the repo verbs
 

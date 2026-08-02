@@ -55,6 +55,7 @@ EXPECTED_TRACKED="\
 .workspace/scripts/delete-repo.py
 .workspace/scripts/guard.sh
 .workspace/scripts/inject-kernel.py
+.workspace/scripts/install-hooks.sh
 .workspace/scripts/lib.sh
 .workspace/scripts/mute-repo.py
 .workspace/scripts/new-work.py
@@ -1196,6 +1197,83 @@ test_guide_and_skill() {
 }
 
 # ---------------------------------------------------------------------------
+# 8l. Optional extras (task 016): the pre-commit hook and --create-remote
+#
+# Both are opt-in. The hook is exercised for real — install it, then try to
+# commit a child repo and require the commit to FAIL. --create-remote is checked
+# up to the point of the network call: the flag contract, the refusals, and the
+# fact that a workspace is never stamped when the preconditions fail.
+# ---------------------------------------------------------------------------
+test_optional_extras() {
+  section "8l. Optional extras (hook, --create-remote)"
+  local ws; ws=$(new_ws ws-extras)
+  local hook; hook="$(git -C "$ws" rev-parse --absolute-git-dir)/hooks/pre-commit"
+
+  # Not installed unless asked for.
+  assert_no_file "no hook without --with-hook" "$hook"
+  assert_fails   "hook-check reports it missing" "$ws/.workspace/scripts/install-hooks.sh" --check
+
+  "$ws/.workspace/scripts/install-hooks.sh" >/dev/null 2>&1
+  assert_exec "install-hooks.sh installs an executable hook" "$hook"
+  assert_grep "the hook execs guard.sh" 'guard\.sh' "$hook"
+  local out
+  out=$("$ws/.workspace/scripts/install-hooks.sh" 2>&1)
+  case "$out" in *"already current"*) ok "re-running is idempotent" ;;
+                 *) bad "re-running is idempotent" "$out" ;; esac
+  "$ws/.workspace/scripts/install-hooks.sh" --check >/dev/null 2>&1
+  assert_eq "--check passes once installed" "0" "$?"
+
+  # The real thing: a staged child repo must abort the commit.
+  mkdir -p "$ws/kid" && git -C "$ws/kid" init -q
+  echo hi > "$ws/kid/f.txt"
+  git -C "$ws/kid" add -A
+  git -C "$ws/kid" -c user.email=t@t -c user.name=t commit -qm init
+  git -C "$ws" add -f kid >/dev/null 2>&1
+  assert_fails "the hook blocks a commit that swallows a child repo" \
+    git -C "$ws" -c user.email="$TEST_AUTHOR" -c user.name=Dev commit -m "oops"
+  git -C "$ws" reset -q; rm -rf "$ws/kid"
+
+  # A foreign hook is never clobbered — that is unrecoverable work.
+  printf '#!/bin/sh\necho mine\n' > "$hook"; chmod 755 "$hook"
+  assert_fails "refuses to overwrite a hook it did not write" \
+    "$ws/.workspace/scripts/install-hooks.sh"
+  assert_grep "...leaving the foreign hook intact" 'echo mine' "$hook"
+  assert_fails "refuses to remove a hook it did not write" \
+    "$ws/.workspace/scripts/install-hooks.sh" --uninstall
+  "$ws/.workspace/scripts/install-hooks.sh" --force >/dev/null 2>&1
+  assert_grep "--force replaces it" 'guard\.sh' "$hook"
+  "$ws/.workspace/scripts/install-hooks.sh" --uninstall >/dev/null 2>&1
+  assert_no_file "--uninstall removes our own hook" "$hook"
+
+  # setup.sh --with-hook wires it at stamp time.
+  local wh; wh=$(new_ws ws-hooked --with-hook)
+  assert_file "setup.sh --with-hook installs it" \
+    "$(git -C "$wh" rev-parse --absolute-git-dir)/hooks/pre-commit"
+
+  # --create-remote: contract and refusals. No network, no gh call.
+  rm -rf "$SANDBOX/ws-cr"
+  assert_fails "--create-remote conflicts with --remote" \
+    "$GEN_ROOT/setup.sh" "$SANDBOX/ws-cr" --name ws-cr --author "$TEST_AUTHOR" \
+      --create-remote --remote git@example.invalid:x/y.git
+  assert_no_file "...and stamps nothing when it refuses" "$SANDBOX/ws-cr"
+  assert_fails "--public without --create-remote is rejected" \
+    "$GEN_ROOT/setup.sh" "$SANDBOX/ws-cr" --name ws-cr --author "$TEST_AUTHOR" --public
+  assert_no_file "...and stamps nothing either" "$SANDBOX/ws-cr"
+
+  # gh missing must fail BEFORE anything is written, not halfway through.
+  local bin="$SANDBOX/nogh-bin"; rm -rf "$bin"; mkdir -p "$bin"
+  assert_fails "no gh on PATH -> refuses up front" \
+    env PATH="$bin:/usr/bin:/bin" "$GEN_ROOT/setup.sh" "$SANDBOX/ws-cr" \
+      --name ws-cr --author "$TEST_AUTHOR" --create-remote
+  assert_no_file "...leaving no half-stamped workspace" "$SANDBOX/ws-cr"
+
+  local help="$SANDBOX/extras-help.txt"
+  "$GEN_ROOT/setup.sh" --help > "$help" 2>&1
+  assert_grep "--create-remote is documented in --help" '\-\-create-remote' "$help"
+  assert_grep "--with-hook is documented in --help"     '\-\-with-hook'     "$help"
+}
+
+# ---------------------------------------------------------------------------
 # 9. Push round-trip against a LOCAL bare remote (no network)
 # ---------------------------------------------------------------------------
 test_local_remote() {
@@ -1355,6 +1433,7 @@ main() {
   test_commit_kernel
   test_claude_pipeline
   test_guide_and_skill
+  test_optional_extras
   test_local_remote
   test_github_remote
 
