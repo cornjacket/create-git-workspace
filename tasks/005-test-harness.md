@@ -36,15 +36,27 @@ round-trip · 10. GitHub round-trip (opt-in).
 - Section 7 runs against a **copy** of the generator in `sandbox/gen-copy` so
   bumping `VERSION` to test propagation never dirties the repo.
 
-## Deviation from the original acceptance
-- **The GitHub round-trip does not run.** Neither `../git-workspace-test` nor the
-  `cornjacket/git-workspace-test` remote exists, and creating a GitHub repo is
-  outward-facing — not something to do unasked. It is implemented as an opt-in
-  `--remote` path that skips with a reason, and the scripts it would exercise
-  (`daily.sh`, `pull.sh`) do not land until tasks 010–011. Revisit there.
-- **Substitute:** section 9 does the same round-trip against a *local bare repo* —
-  push, clone, land an aggregate remotely, `git pull --ff-only` it back — proving
-  the allowlist keeps child repos out of the push, with no network and no fixture.
+## The GitHub round-trip — now live (`--remote`, 70 assertions total)
+The fixture `cornjacket/git-workspace-test` + its sibling checkout were created
+mid-task, so §10 became real. It stamps/updates the fixture, pushes, clones fresh
+(what the remote routine's sandbox actually sees), has the "routine" write both
+deliverables and land them on `main`, then `pull --ff-only`s them down. The
+decline path runs in a throwaway clone: a diverged history must make `--ff-only`
+**refuse**, leaving the local commit untouched. Repeatable — a second run passes.
+
+Guards, because it touches a real checkout: it skips (never fails) when the
+fixture is missing, has uncommitted changes, or origin is unreachable, and it
+leaves the fixture clean and in sync.
+
+- Section 9 keeps the same shape against a *local bare repo* — no network, no
+  fixture — so the round-trip stays covered in the default run.
+
+## Found by the round-trip: the allowlist blocked the deliverables
+`summary.md` / `daily-plan-summary.md` were still ignored (those `!` lines were
+deferred in `001`), so the routine could not have committed its own output. The
+local bare-remote test had masked this with `git add -f`; against the real remote
+the failure was obvious. Fixed in `template/gitignore`, and §10 now stages both
+**without** `-f` so the regression cannot come back.
 
 ## The harness was mutation-tested
 A green suite on its first run proves nothing, so each invariant was deliberately

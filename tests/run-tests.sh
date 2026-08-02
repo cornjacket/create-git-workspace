@@ -371,17 +371,86 @@ test_local_remote() {
 # 10. GitHub round-trip — opt-in, needs the persistent fixture
 # ---------------------------------------------------------------------------
 test_github_remote() {
-  section "10. GitHub round-trip (opt-in)"
+  section "10. GitHub round-trip (opt-in, needs network)"
   local fixture="$GEN_ROOT/../git-workspace-test"
+
   if [ "$RUN_REMOTE" -eq 0 ]; then
     skip "GitHub round-trip" "pass --remote to run"
     return
   fi
-  if [ ! -d "$fixture" ]; then
-    skip "GitHub round-trip" "fixture $fixture does not exist yet"
+  if [ ! -d "$fixture/.git" ]; then
+    skip "GitHub round-trip" "fixture $fixture is not a checkout"
     return
   fi
-  skip "GitHub round-trip" "routine scripts (daily.sh/pull.sh) land in tasks 010-011"
+  # Never run against a fixture with work in it — this test pulls into it.
+  if [ -n "$(git -C "$fixture" status --porcelain)" ]; then
+    skip "GitHub round-trip" "fixture has uncommitted changes; refusing to touch it"
+    return
+  fi
+  if ! git -C "$fixture" fetch -q origin 2>/dev/null; then
+    skip "GitHub round-trip" "cannot reach origin (offline?)"
+    return
+  fi
+
+  # (a) the fixture is a real workspace and regeneration is a no-op on it
+  "$GEN_ROOT/update.sh" "$fixture" >/dev/null 2>&1
+  assert_empty "fixture: update.sh leaves zero diff" "$(git -C "$fixture" status --porcelain)"
+
+  git -C "$fixture" push -q origin main 2>/dev/null
+
+  # (b) a fresh clone — this is what the remote routine's sandbox actually sees
+  local clone="$SANDBOX/gh-routine"
+  rm -rf "$clone"
+  if ! git clone -q "$(git -C "$fixture" remote get-url origin)" "$clone" 2>/dev/null; then
+    bad "fixture: clone from origin" "clone failed"
+    return
+  fi
+  assert_eq "clone: emitted tree arrived over the wire" \
+    "$EXPECTED_TRACKED" "$(git -C "$clone" ls-files | grep -v -e '^summary\.md$' -e '^daily-plan-summary\.md$')"
+
+  # (c) the routine writes both deliverables and lands them on main.
+  # No `git add -f`: if the allowlist ignores them, this test fails — which is
+  # exactly how the missing !/summary.md line was found.
+  printf '# summary — round-trip %s\n' "$$" > "$clone/summary.md"
+  printf '# daily-plan-summary — round-trip %s\n' "$$" > "$clone/daily-plan-summary.md"
+  git -C "$clone" add -A
+  local staged; staged=$(git -C "$clone" diff --cached --name-only | sort | tr '\n' ' ')
+  assert_eq "routine: allowlist lets both deliverables be staged" \
+    "daily-plan-summary.md summary.md " "$staged"
+  git -C "$clone" -c user.email="$TEST_AUTHOR" -c user.name=routine commit -qm "status(aggregate): round-trip"
+  if git -C "$clone" push -q origin main 2>/dev/null; then
+    ok "routine: aggregates pushed to main"
+  else
+    bad "routine: aggregates pushed to main" "push failed"
+    return
+  fi
+
+  # (d) the morning pull brings them down
+  local rc
+  git -C "$fixture" pull --ff-only -q origin main >/dev/null 2>&1; rc=$?
+  assert_eq   "morning: pull --ff-only succeeds" "0" "$rc"
+  assert_grep "morning: summary.md landed"            "round-trip $$" "$fixture/summary.md"
+  assert_grep "morning: daily-plan-summary.md landed" "round-trip $$" "$fixture/daily-plan-summary.md"
+
+  # (e) the decline path. Run it in a THROWAWAY clone, never the user's fixture:
+  # --ff-only must refuse a diverged history rather than merge or clobber.
+  local diverged="$SANDBOX/gh-diverged"
+  rm -rf "$diverged"
+  git clone -q "$(git -C "$fixture" remote get-url origin)" "$diverged" 2>/dev/null
+  echo "local-only work" >> "$diverged/README.md"
+  git -C "$diverged" -c user.email="$TEST_AUTHOR" -c user.name=dev commit -qam "local: diverging commit"
+  local local_head; local_head=$(git -C "$diverged" rev-parse HEAD)
+  printf '# summary — moved on %s\n' "$$" > "$clone/summary.md"
+  git -C "$clone" -c user.email="$TEST_AUTHOR" -c user.name=routine commit -qam "status: remote moves on"
+  git -C "$clone" push -q origin main 2>/dev/null
+
+  git -C "$diverged" pull --ff-only -q origin main >/dev/null 2>&1; rc=$?
+  if [ "$rc" -ne 0 ]; then ok "diverged: pull --ff-only safely declines"
+  else bad "diverged: pull --ff-only safely declines" "it fast-forwarded over a diverged history"; fi
+  assert_eq "diverged: the local commit is untouched" "$local_head" "$(git -C "$diverged" rev-parse HEAD)"
+
+  # Leave the fixture current so the next run starts from a clean slate.
+  git -C "$fixture" pull --ff-only -q origin main >/dev/null 2>&1
 }
 
 # ---------------------------------------------------------------------------

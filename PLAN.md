@@ -529,10 +529,10 @@ Numbered in **build order** — `001` first, `016` last. The generator skeleton
       **zero-diff** regeneration test). *(delegation wired but inert until `006`.)*
 - [x] `004` — `CLAUDE.md` marker-block injection (append when no markers; version echo).
 - [x] `005` — test harness: `sandbox/` determinism + zero-diff + `git-workspace-test`
-      round-trip + teardown. *(`tests/run-tests.sh`, 61 assertions; the GitHub
-      round-trip is opt-in `--remote` and still unexercised — the fixture repo
-      does not exist and its scripts land in `010`–`011`. A local bare-remote
-      push/ff-only-pull round-trip stands in.)*
+      round-trip + teardown. *(`tests/run-tests.sh` — 61 local assertions, 70
+      with `--remote`. The GitHub round-trip against `git-workspace-test` is
+      live: push → routine writes the aggregates → `pull --ff-only` lands them,
+      plus the diverged-history decline path.)*
 - [ ] `006` — vendor `create-project-system`; wire `setup.sh --with-tasks` (default)
       + `add-repo`; document re-vendor.
 - [ ] `007` — workspace task-system + `_workspace/daily-plan.md` (aggregated first);
