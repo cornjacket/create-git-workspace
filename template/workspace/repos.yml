@@ -1,4 +1,7 @@
-# repos.yml — Meta-State Workspace membership registry
+# repos.yml — this workspace's membership registry
+#
+# CONTENT: seeded once by create-git-workspace, then it is yours. `update.sh`
+# never touches it.
 #
 # The single source of truth for *what repos physically live in this workspace*.
 # `.workspace/scripts/bootstrap.sh` reconstitutes the whole workspace from this
@@ -22,43 +25,26 @@
 #   branch            branch to checkout (standard) / attach the worktree to
 #   parent_repo_path  worktree ONLY — path of the repo the worktree hangs off
 #   tags              freeform labels for filtering (e.g. app, generator)
+#
+# Example — delete the comment markers and edit, or add entries by hand:
+#
+#   repos:
+#     # ---- standard clones ----
+#     - name: my-app
+#       url: git@github.com:me/my-app.git
+#       path: my-app
+#       type: standard
+#       branch: main
+#       tags: [app]
+#
+#     # ---- worktrees ----
+#     # `my-lib` is checked out as a container; `main` and `feature-x` are
+#     # linked worktrees hanging off it.
+#     - name: my-lib-main
+#       path: my-lib/main
+#       type: worktree
+#       branch: main
+#       parent_repo_path: my-lib
+#       tags: [lib, worktree]
 
-repos:
-  # ---- standard clones ----
-  - name: foa
-    url: git@github.com:cornjacket/foa.git
-    path: foa
-    type: standard
-    branch: main
-    tags: [app]
-
-  - name: dotfiles
-    url: git@github.com:cornjacket/dotfiles.git
-    path: dotfiles
-    type: standard
-    branch: main
-    tags: [config]
-
-  - name: second-brain-devkit
-    url: https://github.com/cornjacket/second-brain-devkit.git
-    path: second-brain-devkit
-    type: standard
-    branch: main
-    tags: [generator]
-
-  # ---- worktrees ----
-  # create-ai-builder is checked out as a bare-style container; `main` and
-  # `workspace-mgmt` are linked worktrees hanging off it.
-  - name: create-ai-builder-main
-    path: create-ai-builder/main
-    type: worktree
-    branch: main
-    parent_repo_path: create-ai-builder
-    tags: [generator, worktree]
-
-  - name: create-ai-builder-workspace-mgmt
-    path: create-ai-builder/workspace-mgmt
-    type: worktree
-    branch: workspace-mgmt
-    parent_repo_path: create-ai-builder
-    tags: [generator, worktree]
+repos: []

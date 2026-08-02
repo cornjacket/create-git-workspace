@@ -21,15 +21,17 @@ The wrapper manages the *set* of repos; it does not edit their contents.
 ```
 {{WORKSPACE_NAME}}/
 ├── CLAUDE.md            this file (visible entry point)
-├── README.md
-├── .gitignore           allowlist: tracks .workspace/, CLAUDE.md, README.md
+├── README.md            what this workspace is + the daily dashboard links
+├── Makefile             visible command surface: make status | bootstrap | guard
+├── .gitignore           allowlist: tracks .workspace/ + the top-level files
 ├── .workspace/          the wrapper's control plane (hidden)
+│   ├── config.yml       identity: name · git_author · generator_version
 │   ├── repos.yml        membership registry — what repos/worktrees live here
 │   └── scripts/         the wrapper's verbs (see below)
 └── <child repos>/       managed checkouts — ignored by git
 ```
 
-### The scripts (run from `.workspace/scripts/`)
+### The scripts (run via `make`, or directly from `.workspace/scripts/`)
 
 - `bootstrap.sh` — reconstitute the workspace from `.workspace/repos.yml`: clone
   every `standard` repo, then `git worktree add` every `worktree`. Idempotent.
@@ -54,5 +56,15 @@ The wrapper manages the *set* of repos; it does not edit their contents.
 Two checkout kinds are declared in `.workspace/repos.yml`: **standard** (a normal
 clone) and **worktree** (a linked worktree; `parent_repo_path` names the repo it
 hangs off).
+
+### What regeneration owns
+
+`.workspace/scripts/`, `.gitignore`, `Makefile`, and this block are **machinery**:
+`update.sh` overwrites them, so edits are lost. `.workspace/repos.yml`,
+`.workspace/config.yml`, `README.md`, and anything you write *outside* these
+markers are **content** — never overwritten.
+
+_Managed block from create-git-workspace v{{GENERATOR_VERSION}}; canonical version
+lives in `.workspace/config.yml`. Refresh with the generator's `update.sh`._
 
 <!-- git-workspace:end -->

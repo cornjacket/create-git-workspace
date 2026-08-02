@@ -512,8 +512,9 @@ Numbered in **build order** — `001` first, `016` last. The generator skeleton
 
 - [x] `001` — restructure `template/` into `template/workspace/` (hidden `.workspace/`
       layout); fix script `WORKSPACE_ROOT` to `../..`.
-- [ ] `002` — implement `setup.sh` (create wrapper: machinery, CLAUDE.md block,
+- [x] `002` — implement `setup.sh` (create wrapper: machinery, CLAUDE.md block,
       `config.yml`, `Makefile`; seed content; run tasks by default).
+      *(task-system install deferred to `006`; setup warns and skips.)*
 - [ ] `003` — implement `update.sh` (machinery-only + delegate to create-project-system;
       **zero-diff** regeneration test).
 - [ ] `004` — `CLAUDE.md` marker-block injection (append when no markers; version echo).

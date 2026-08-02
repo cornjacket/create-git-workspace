@@ -1,6 +1,6 @@
 # 002 — implement setup.sh
 
-Status: todo
+Status: done (2026-08-01) — task-system install deferred to 006 (warns + skips)
 
 Create `setup.sh <target-dir> [--name NAME] [--author EMAIL] [--remote URL] [--no-tasks] [--no-status]`
 that stamps out a new git-workspace from `template/`. Full-featured by default.
@@ -26,3 +26,36 @@ that stamps out a new git-workspace from `template/`. Full-featured by default.
 ## Notes
 - Plain copy + `sed`; use a **non-`/` delimiter** for values that contain `/`
   (e.g. a remote URL).
+
+## What landed
+- `lib/generator.sh` — **all machinery is written here**, not in `setup.sh`, so
+  `update.sh` can reuse the identical code path. That single shared writer is
+  what makes zero-diff hold; two independent renderers would drift.
+  - `install_machinery` (overwrite) · `seed_content_file` (never overwrite) ·
+    `inject_claude_block` (hybrid) · `workspace_name` (recover from config.yml).
+- New template files: `template/Makefile` (machinery), `template/README.md`
+  (content seed), `template/workspace/config.yml` (content seed). `repos.yml` now
+  seeds `repos: []` with the schema commented out — a starter list of real repos
+  would make `bootstrap.sh` clone someone else's work.
+- `VERSION` (0.1.0) is the generator stamp: canonical into `config.yml`, echoed
+  into the CLAUDE.md block.
+- Allowlist gained `!/Makefile` (caught by the emitted-tree assertion — the
+  Makefile was generated but untracked).
+- Workspace names are validated to `[A-Za-z0-9._-]`, which also removes any
+  chance of a `sed` delimiter collision.
+- `setup.sh` makes the **initial commit** by default (`--no-commit` opts out).
+  Without a commit, `git diff` is trivially empty and the zero-diff test proves
+  nothing. If no git identity exists *and* no `--author` was given, it stages but
+  refuses to commit rather than writing the placeholder author into history.
+
+## Verified (sandbox, then wiped)
+- Emitted tree tracked by the allowlist: `.gitignore`, `Makefile`, `CLAUDE.md`,
+  `README.md`, `.workspace/{config.yml,repos.yml,scripts/*}` — child checkouts
+  ignored; `make help|status|guard` all work.
+- **Zero-diff probe:** re-running `setup.sh --force` over a committed workspace
+  leaves `git status --porcelain` empty.
+- All three CLAUDE.md paths: create · append-when-no-markers (user content
+  preserved byte-for-byte) · replace-block, and a second run is byte-identical.
+- Content is never overwritten: a hand-edited `repos.yml` survives a re-run.
+- `--author` / `--remote` / default-name-from-basename / refusal without
+  `--force` / invalid name rejected before any directory is created.
