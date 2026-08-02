@@ -122,10 +122,10 @@ live workspace and produce a **zero-line diff** — no `--force`.
 | `.gitignore` (from `template/gitignore`) | **machinery** | write | **overwrite** |
 | installed task-system (via `create-project-system`) | **delegated** | install | upgrade |
 | `CLAUDE.md` (managed block) | **hybrid** | create-or-inject block | **replace block only** |
-| `.workspace/repos.yml` | **content** | seed if missing | **leave untouched** |
+| `.workspace/repos.yml` | **content** | seed if missing | seed if missing²; **never overwrite** |
 | `.workspace/config.yml` | **content** | seed if missing | **leave untouched** except the `generator_version` key¹ |
-| `.workspace/plans/**` | **content** | seed if missing | **leave untouched** |
-| `README.md` | **content** | seed if missing | leave untouched |
+| `.workspace/plans/**` | **content** | seed if missing | seed if missing²; **never overwrite** |
+| `README.md` | **content** | seed if missing | seed if missing²; **never overwrite** |
 | `.workspace/state/state.json`, `archive/` | **runtime** | — | — |
 | `summary.md`, `daily-plan-summary.md` | **runtime** | — | — |
 
@@ -145,6 +145,14 @@ freezing it at the setup-time value makes it lie after every upgrade. `update.sh
 rewrites **only that line** — the same hybrid rule as `CLAUDE.md`, applied at
 single-line instead of block granularity: the generator owns the key, the user
 owns every other byte of the file. Idempotent, so zero-diff still holds.
+
+² *Amended in task `007`.* The content rule is "never overwrite", **not** "never
+create". `update.sh` seeds a content slot that is *missing* — otherwise a slot
+introduced by a newer generator version could never reach an existing workspace,
+because only `setup.sh` seeds and it refuses to run on a live one. (Found the
+moment `_workspace/daily-plan.md` was added: the upgraded test fixture silently
+lacked it.) Creating an absent file destroys nothing, and zero-diff is unaffected
+— on a current workspace every slot already exists, so nothing is written.
 
 Also decided in `003`: `.workspace/scripts/` is **mirrored**, not merely copied
 over — a script dropped from the template is deleted from the workspace (and the
@@ -536,8 +544,10 @@ Numbered in **build order** — `001` first, `016` last. The generator skeleton
 - [x] `006` — vendor `create-project-system`; wire `setup.sh --with-tasks` (default)
       + `add-repo`; document re-vendor. *(`add-repo` half deferred to `009`,
       which is where that verb is built.)*
-- [ ] `007` — workspace task-system + `_workspace/daily-plan.md` (aggregated first);
-      triage/graduate flow.
+- [x] `007` — workspace task-system + `_workspace/daily-plan.md` (aggregated first);
+      triage/graduate flow. *(plan slot + `replan.sh` + triage docs landed;
+      "aggregated first" is an ordering contract the aggregator in `008`
+      implements.)*
 - [ ] `008` — status core: `sync`/`new-work`/`aggregate`/`run`, author-scoped `git log`,
       `claude -p` prompts; plans under `.workspace/plans/`.
 - [ ] `009` — `add-repo` / `delete-repo` (refuses dirty) / `mute-repo` verbs.

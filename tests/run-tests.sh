@@ -40,10 +40,12 @@ done
 EXPECTED_TRACKED="\
 .gitignore
 .workspace/config.yml
+.workspace/plans/_workspace/daily-plan.md
 .workspace/repos.yml
 .workspace/scripts/bootstrap.sh
 .workspace/scripts/guard.sh
 .workspace/scripts/lib.sh
+.workspace/scripts/replan.sh
 .workspace/scripts/status.sh
 CLAUDE.md
 Makefile
@@ -66,8 +68,9 @@ assert_eq()      { if [ "$2" = "$3" ]; then ok "$1"; else bad "$1" "expected [$2
 assert_file()    { if [ -e "$2" ]; then ok "$1"; else bad "$1" "missing file: $2"; fi; }
 assert_no_file() { if [ ! -e "$2" ]; then ok "$1"; else bad "$1" "file should not exist: $2"; fi; }
 assert_exec()    { if [ -x "$2" ]; then ok "$1"; else bad "$1" "not executable: $2"; fi; }
-assert_grep()    { if grep -qE "$2" "$3" 2>/dev/null; then ok "$1"; else bad "$1" "pattern not found in $3: $2"; fi; }
-assert_no_grep() { if grep -qE "$2" "$3" 2>/dev/null; then bad "$1" "pattern SHOULD be absent from $3: $2"; else ok "$1"; fi; }
+# `--` matters: a pattern starting with '-' would otherwise be read as an option.
+assert_grep()    { if grep -qE -- "$2" "$3" 2>/dev/null; then ok "$1"; else bad "$1" "pattern not found in $3: $2"; fi; }
+assert_no_grep() { if grep -qE -- "$2" "$3" 2>/dev/null; then bad "$1" "pattern SHOULD be absent from $3: $2"; else ok "$1"; fi; }
 # assert_fails — the command must exit non-zero (used for the refusal paths).
 assert_fails()   { local l=$1; shift; if "$@" >/dev/null 2>&1; then bad "$l" "command unexpectedly succeeded: $*"; else ok "$l"; fi; }
 
@@ -220,6 +223,17 @@ test_content_and_runtime() {
   assert_grep "config.yml git_author survives"   'me@real\.example'      "$ws/.workspace/config.yml"
   assert_grep "runtime state.json untouched"     'abc123'                "$ws/.workspace/state/state.json"
   assert_grep "runtime summary.md untouched"     'routine-owned summary' "$ws/summary.md"
+
+  # A content slot introduced by a newer generator version must reach a workspace
+  # that already exists — "never overwrite" is not "never create". Only setup.sh
+  # seeds, and setup.sh refuses to run on a live workspace, so without this an
+  # upgraded workspace could never gain a new content file.
+  rm -rf "$ws/.workspace/plans"
+  "$GEN_ROOT/update.sh" "$ws" >/dev/null 2>&1
+  assert_file "a MISSING content slot is back-filled on update" \
+    "$ws/.workspace/plans/_workspace/daily-plan.md"
+  assert_grep "...while existing content is still not overwritten" \
+    '# hand-written note' "$ws/.workspace/repos.yml"
 }
 
 # ---------------------------------------------------------------------------
@@ -390,6 +404,56 @@ test_task_system() {
 }
 
 # ---------------------------------------------------------------------------
+# 8c. Workspace plan — the triage area's forward-looking half
+# ---------------------------------------------------------------------------
+test_workspace_plan() {
+  section "8c. Workspace plan (_workspace/daily-plan.md)"
+  local ws; ws=$(new_ws ws-plan)
+  local plan="$ws/.workspace/plans/_workspace/daily-plan.md"
+
+  assert_file "plan slot is seeded"        "$plan"
+  assert_grep "seeded with a dated header" '^# Daily plan — [0-9]{4}-[0-9]{2}-[0-9]{2}$' "$plan"
+
+  # Derived from task state, not invented.
+  local ts="$ws/project/tasks/scripts"
+  "$ts/new-user-task.sh" --folder in-progress --name doing-now  >/dev/null 2>&1
+  "$ts/new-user-task.sh" --folder backlog     --name queued-up  >/dev/null 2>&1
+  "$ts/new-user-task.sh" --folder draft       --name homeless   >/dev/null 2>&1
+  printf '\n- my own note\n' >> "$plan"
+  git -C "$ws" add -A; git -C "$ws" commit -qm "tasks + a note"
+
+  "$ws/.workspace/scripts/replan.sh" >/dev/null 2>&1
+  assert_grep "in-progress task lands under In progress" 'doing-now' "$plan"
+  assert_grep "backlog task lands under Next up"         'queued-up' "$plan"
+  assert_grep "draft task lands under Triage"            'homeless'  "$plan"
+  assert_grep "the human's Notes are preserved"          '- my own note' "$plan"
+
+  # Draft-only: it writes the file and stops.
+  assert_eq "replan stages nothing" "" "$(git -C "$ws" diff --cached --name-only)"
+  assert_eq "replan commits nothing" "2" "$(git -C "$ws" rev-list --count HEAD)"
+
+  # Idempotent, and the date is controllable.
+  local before; before=$(shasum "$plan" | cut -d' ' -f1)
+  "$ws/.workspace/scripts/replan.sh" >/dev/null 2>&1
+  assert_eq "a second replan changes nothing" "$before" "$(shasum "$plan" | cut -d' ' -f1)"
+  "$ws/.workspace/scripts/replan.sh" --date 2026-12-25 >/dev/null 2>&1
+  assert_eq "--date sets the header" "# Daily plan — 2026-12-25" "$(head -1 "$plan")"
+  assert_fails "an unparseable --date is rejected" \
+    "$ws/.workspace/scripts/replan.sh" --date "next tuesday"
+
+  # The plan is CONTENT: regeneration must not touch it.
+  git -C "$ws" add -A; git -C "$ws" commit -qm replan
+  "$GEN_ROOT/update.sh" "$ws" >/dev/null 2>&1
+  assert_empty "update.sh leaves the plan alone" "$(git -C "$ws" status --porcelain)"
+
+  # Without a task-system there is nothing to derive from — refuse, don't guess.
+  local nots; nots=$(new_ws ws-plan-notasks --no-tasks)
+  assert_file  "the plan is seeded even with --no-tasks" \
+    "$nots/.workspace/plans/_workspace/daily-plan.md"
+  assert_fails "replan refuses with no task-system" "$nots/.workspace/scripts/replan.sh"
+}
+
+# ---------------------------------------------------------------------------
 # 9. Push round-trip against a LOCAL bare remote (no network)
 # ---------------------------------------------------------------------------
 test_local_remote() {
@@ -540,6 +604,7 @@ main() {
   test_version_stamp
   test_refusals
   test_task_system
+  test_workspace_plan
   test_local_remote
   test_github_remote
 

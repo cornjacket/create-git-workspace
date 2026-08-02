@@ -67,6 +67,20 @@ fi
 
 install_machinery "$target" "$name"
 inject_claude_block "$target" "$name"
+
+# Seed content slots that are MISSING — never overwrite one that exists.
+#
+# The content rule is "never overwrite", not "never create". Without this, a
+# content slot introduced by a newer generator version could never reach a
+# workspace that already exists: only setup.sh seeds, and setup.sh refuses to run
+# on a live workspace. Creating an absent file destroys nothing, and zero-diff is
+# unaffected — on a current workspace every slot is already present, so nothing
+# is written.
+seed_content_file "$TEMPLATE_DIR/workspace/repos.yml" "$target/.workspace/repos.yml" "$name"
+seed_content_file "$TEMPLATE_DIR/README.md"           "$target/README.md"            "$name"
+seed_content_file "$TEMPLATE_DIR/workspace/plans/_workspace/daily-plan.md" \
+                  "$target/.workspace/plans/_workspace/daily-plan.md"                 "$name"
+
 stamp_generator_version "$target"
 
 # The vendored create-project-system owns the installed task-system's own

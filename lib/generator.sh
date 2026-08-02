@@ -49,11 +49,15 @@ validate_name() {
 # render <src> <dst> <name> <author> — copy a template file, substituting the
 # placeholders. Uses '|' as the sed delimiter, never '/', because emitted values
 # (paths, remote URLs) routinely contain slashes.
+#
+# {{TODAY}} is only safe in CONTENT templates (seeded once). Putting it in a
+# machinery file would re-render a different value tomorrow and break zero-diff.
 render() {
   local src=$1 dst=$2 name=$3 author=${4:-}
   sed -e "s|{{WORKSPACE_NAME}}|$name|g" \
       -e "s|{{GENERATOR_VERSION}}|$(generator_version)|g" \
       -e "s|{{GIT_AUTHOR}}|$author|g" \
+      -e "s|{{TODAY}}|$(date +%Y-%m-%d)|g" \
       "$src" > "$dst"
 }
 

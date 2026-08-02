@@ -98,6 +98,8 @@ inject_claude_block "$target" "$name"
 seed_content_file "$TEMPLATE_DIR/workspace/config.yml" "$target/.workspace/config.yml" "$name" "$author"
 seed_content_file "$TEMPLATE_DIR/workspace/repos.yml"  "$target/.workspace/repos.yml"  "$name" "$author"
 seed_content_file "$TEMPLATE_DIR/README.md"            "$target/README.md"             "$name" "$author"
+seed_content_file "$TEMPLATE_DIR/workspace/plans/_workspace/daily-plan.md" \
+                  "$target/.workspace/plans/_workspace/daily-plan.md"      "$name" "$author"
 
 # generator_version is the one generator-owned key inside that content file.
 stamp_generator_version "$target"
