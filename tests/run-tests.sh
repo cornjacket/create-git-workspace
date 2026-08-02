@@ -42,7 +42,7 @@ EXPECTED_TRACKED="\
 .github/workflows/claude.yml
 .gitignore
 .workspace/config.yml
-.workspace/plans/_workspace/daily-plan.md
+.workspace/daily-plans/_workspace/daily-plan.md
 .workspace/prompts/per-repo.md
 .workspace/prompts/polish.md
 .workspace/repos.yml
@@ -265,10 +265,10 @@ test_content_and_runtime() {
   # that already exists — "never overwrite" is not "never create". Only setup.sh
   # seeds, and setup.sh refuses to run on a live workspace, so without this an
   # upgraded workspace could never gain a new content file.
-  rm -rf "$ws/.workspace/plans"
+  rm -rf "$ws/.workspace/daily-plans"
   "$GEN_ROOT/update.sh" "$ws" >/dev/null 2>&1
   assert_file "a MISSING content slot is back-filled on update" \
-    "$ws/.workspace/plans/_workspace/daily-plan.md"
+    "$ws/.workspace/daily-plans/_workspace/daily-plan.md"
   assert_grep "...while existing content is still not overwritten" \
     '# hand-written note' "$ws/.workspace/repos.yml"
 }
@@ -461,7 +461,7 @@ test_task_system() {
 test_workspace_plan() {
   section "8c. Workspace plan (_workspace/daily-plan.md)"
   local ws; ws=$(new_ws ws-plan)
-  local plan="$ws/.workspace/plans/_workspace/daily-plan.md"
+  local plan="$ws/.workspace/daily-plans/_workspace/daily-plan.md"
 
   assert_file "plan slot is seeded"        "$plan"
   assert_grep "seeded with a dated header" '^# Daily plan — [0-9]{4}-[0-9]{2}-[0-9]{2}$' "$plan"
@@ -501,7 +501,7 @@ test_workspace_plan() {
   # Without a task-system there is nothing to derive from — refuse, don't guess.
   local nots; nots=$(new_ws ws-plan-notasks --no-tasks)
   assert_file  "the plan is seeded even with --no-tasks" \
-    "$nots/.workspace/plans/_workspace/daily-plan.md"
+    "$nots/.workspace/daily-plans/_workspace/daily-plan.md"
   assert_fails "replan refuses with no task-system" "$nots/.workspace/scripts/replan.sh"
 }
 
@@ -602,9 +602,9 @@ test_aggregation() {
   section "8e. Plan aggregation (workspace first)"
   local ws; ws=$(new_ws ws-agg)
   child_repo_with_commits "$ws"
-  mkdir -p "$ws/.workspace/plans/childrepo"
+  mkdir -p "$ws/.workspace/daily-plans/childrepo"
   printf '# Daily plan — 2026-08-01\n\n## Focus / plan\n\n- Ship the backend\n' \
-    > "$ws/.workspace/plans/childrepo/daily-plan.md"
+    > "$ws/.workspace/daily-plans/childrepo/daily-plan.md"
 
   python3 "$ws/.workspace/scripts/aggregate-plans.py" >/dev/null 2>&1
   local sum="$ws/daily-plan-summary.md"
@@ -622,10 +622,10 @@ test_aggregation() {
   assert_grep "embedded plan headings are demoted" '^### Focus / plan$' "$sum"
 
   # A plan from last month is stale; a missing one says so rather than vanishing.
-  printf '# Daily plan — 2020-01-01\n\n- old\n' > "$ws/.workspace/plans/childrepo/daily-plan.md"
+  printf '# Daily plan — 2020-01-01\n\n- old\n' > "$ws/.workspace/daily-plans/childrepo/daily-plan.md"
   python3 "$ws/.workspace/scripts/aggregate-plans.py" >/dev/null 2>&1
   assert_grep "a stale plan is flagged STALE" 'STALE' "$sum"
-  rm -f "$ws/.workspace/plans/childrepo/daily-plan.md"
+  rm -f "$ws/.workspace/daily-plans/childrepo/daily-plan.md"
   python3 "$ws/.workspace/scripts/aggregate-plans.py" >/dev/null 2>&1
   assert_grep "a missing plan is reported, not skipped" 'no plan' "$sum"
 
@@ -674,7 +674,7 @@ test_repo_verbs() {
   assert_file "add-repo clones the checkout"     "$ws/alpha/.git"
   assert_grep "add-repo registers the entry"     '^  - name: alpha$' "$ws/.workspace/repos.yml"
   assert_grep "...with the flags it was given"   '^    priority: 1$'  "$ws/.workspace/repos.yml"
-  assert_file "add-repo seeds a plan slot"       "$ws/.workspace/plans/alpha/daily-plan.md"
+  assert_file "add-repo seeds a plan slot"       "$ws/.workspace/daily-plans/alpha/daily-plan.md"
   # repos.yml is CONTENT with a long explanatory header — a YAML round-trip
   # would silently delete every comment in it.
   assert_eq "the file's comments survive the edit" \
@@ -731,7 +731,7 @@ test_repo_verbs() {
   python3 "$S/delete-repo.py" alpha >/dev/null 2>&1
   assert_no_grep "delete-repo unregisters a clean repo" 'name: alpha' "$ws/.workspace/repos.yml"
   assert_no_file "...removes its checkout"              "$ws/alpha"
-  assert_no_file "...and its plan slot"                 "$ws/.workspace/plans/alpha"
+  assert_no_file "...and its plan slot"                 "$ws/.workspace/daily-plans/alpha"
   assert_grep "an emptied list is spelled 'repos: []'"  '^repos: \[\]$' "$ws/.workspace/repos.yml"
 
   # --keep-checkout unregisters without touching a dirty tree.
@@ -774,7 +774,7 @@ YML
 
   # Leave uncommitted edits lying around: a routine that swept these up would
   # commit the developer's half-finished work behind their back.
-  echo "# my in-progress plan edit" >> "$ws/.workspace/plans/_workspace/daily-plan.md"
+  echo "# my in-progress plan edit" >> "$ws/.workspace/daily-plans/_workspace/daily-plan.md"
 
   ( cd "$ws" && ./.workspace/scripts/daily.sh --dry-run ) >/dev/null 2>&1
   local branch; branch="auto/status-$(date -u +%Y-%m-%d)"
@@ -793,9 +793,9 @@ YML
     ".workspace/state/archive/$(date +%Y-%m-%d).md .workspace/state/state.json daily-plan-summary.md summary.md " \
     "$committed"
   assert_grep "the developer's plan edit is still uncommitted" \
-    '# my in-progress plan edit' "$ws/.workspace/plans/_workspace/daily-plan.md"
+    '# my in-progress plan edit' "$ws/.workspace/daily-plans/_workspace/daily-plan.md"
   case "$(git -C "$ws" status --porcelain)" in
-    *"plans/_workspace/daily-plan.md"*) ok "...and shows as a working-tree change" ;;
+    *"daily-plans/_workspace/daily-plan.md"*) ok "...and shows as a working-tree change" ;;
     *) bad "...and shows as a working-tree change" "the routine swept it up" ;;
   esac
 
@@ -858,7 +858,7 @@ test_pull_trigger() {
     *) bad "it names what arrived" "$out" ;; esac
 
   # Purely ahead: nothing to fast-forward to. Stop and name the fix.
-  echo "note" >> "$ws/.workspace/plans/_workspace/daily-plan.md"
+  echo "note" >> "$ws/.workspace/daily-plans/_workspace/daily-plan.md"
   git -C "$ws" add -A; git -C "$ws" commit -qm "local: plan edit"
   local head_before; head_before=$(git -C "$ws" rev-parse HEAD)
   out=$("$P" 2>&1); rc=$?

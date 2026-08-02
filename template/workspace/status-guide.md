@@ -67,11 +67,11 @@ real interface and read better for anything with arguments.
 | `make guard` | `guard.sh` | fail if a child repo, a `.git` dir, or a worktree `.git` pointer was staged into the wrapper index |
 | `make hook` | `install-hooks.sh` | install `guard.sh` as this clone's pre-commit hook (`hook-check` reports status; `--uninstall` removes it) |
 | `make readme` | `render-readme.py` | refresh `README.md`'s roster block from `repos.yml` + `config.yml` (`readme-check` reports staleness) |
-| `make replan` | `replan.sh` | redraft `.workspace/plans/_workspace/daily-plan.md` from `project/tasks`. **Draft-only** — it writes the file and stops, never commits |
+| `make replan` | `replan.sh` | redraft `.workspace/daily-plans/_workspace/daily-plan.md` from `project/tasks`. **Draft-only** — it writes the file and stops, never commits |
 | `make new-work` | `new-work.py` | what *you* committed per repo since the last run |
 | `make run` | `run.py` | the daily run: summarize → aggregate → advance state, via `claude -p` |
 | `make run-dry` | `run.py --dry-run` | the same pipeline with no LLM calls — deterministic placeholders |
-| `make aggregate` | `aggregate-plans.py` | rebuild `daily-plan-summary.md` from `.workspace/plans/` |
+| `make aggregate` | `aggregate-plans.py` | rebuild `daily-plan-summary.md` from `.workspace/daily-plans/` |
 | `make pull` | `pull.sh` | the morning trigger (§4) |
 | `make inject-kernel` | `inject-kernel.py --all` | refresh the commit kernel in every tracked repo (§7) |
 | `make kernel-check` | `inject-kernel.py --check` | report stale/missing kernels without writing |
@@ -261,7 +261,7 @@ Three classes plus a hybrid, and the boundary is what keeps regeneration safe:
   `.github/workflows/`, `.gitignore`, `Makefile`. The generator overwrites all of
   it on `update.sh`; edits are lost.
 - **content** — `.workspace/repos.yml`, `.workspace/config.yml`,
-  `.workspace/plans/**`, your tasks. Created if missing, never overwritten.
+  `.workspace/daily-plans/**`, your tasks. Created if missing, never overwritten.
 - **runtime** — `summary.md`, `daily-plan-summary.md`, `.workspace/state/`. The
   daily run owns them. They are committed (they are the durable record), but
   `setup.sh` and `update.sh` never touch them, so a regeneration can never race
@@ -295,7 +295,7 @@ Two different artifacts, easy to confuse:
   `create-project-system`, entirely optional, and many workspaces never use it.
 
 `daily-plan-summary.md` is the forward-looking twin of `summary.md`: every
-`.workspace/plans/*/daily-plan.md` aggregated behind an "At a glance" table, with
+`.workspace/daily-plans/*/daily-plan.md` aggregated behind an "At a glance" table, with
 the `_workspace` plan first and stale plans flagged. Dated snapshots of both land
 in `.workspace/state/archive/`.
 
@@ -317,7 +317,7 @@ The block is **committed to a shared repo**, so it names no workspace, no
 developer, and no version: several developers may track the same repo from their
 own workspaces, and anything personal in it would make them overwrite each
 other's block forever. It is commit-discipline **only** — plans live
-per-developer under `.workspace/plans/`, so a tracked repo should have no
+per-developer under `.workspace/daily-plans/`, so a tracked repo should have no
 `daily-plan.md` of its own.
 
 `inject-kernel.py` never commits inside a child repo. You `cd` there and commit,
@@ -337,7 +337,7 @@ flows *downward*:
 - Anything that clearly belongs to an **existing** child repo belongs in *that
   repo's* task-system, not here. This one is for the homeless work.
 
-`.workspace/plans/_workspace/daily-plan.md` is that task state rendered as a
+`.workspace/daily-plans/_workspace/daily-plan.md` is that task state rendered as a
 plan, redrafted by `make replan`. It is **forward-looking only** — the
 workspace's own commits are meta-noise, so unlike a child repo's plan it carries
 no retrospective git summary.

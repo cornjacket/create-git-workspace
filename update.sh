@@ -78,8 +78,8 @@ inject_claude_block "$target" "$name"
 # is written.
 seed_content_file "$TEMPLATE_DIR/workspace/repos.yml" "$target/.workspace/repos.yml" "$name"
 seed_content_file "$TEMPLATE_DIR/README.md"           "$target/README.md"            "$name"
-seed_content_file "$TEMPLATE_DIR/workspace/plans/_workspace/daily-plan.md" \
-                  "$target/.workspace/plans/_workspace/daily-plan.md"                 "$name"
+seed_content_file "$TEMPLATE_DIR/workspace/daily-plans/_workspace/daily-plan.md" \
+                  "$target/.workspace/daily-plans/_workspace/daily-plan.md"                 "$name"
 
 stamp_generator_version "$target"
 

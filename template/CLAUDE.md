@@ -39,7 +39,7 @@ running the status pipeline.
 - **`.workspace/scripts/`, `.workspace/prompts/`, `.workspace/templates/`,
   `.workspace/status-guide.md`, `.github/workflows/`, `.gitignore`, `Makefile`,
   and this block are machinery** — `update.sh` overwrites them, so edits are lost.
-  `repos.yml`, `config.yml`, `.workspace/plans/`, and anything outside these
+  `repos.yml`, `config.yml`, `.workspace/daily-plans/`, and anything outside these
   markers are yours and are never overwritten. `README.md` is the same deal one
   level down: its `git-workspace-roster` block is regenerated from `repos.yml`,
   every other byte is yours.

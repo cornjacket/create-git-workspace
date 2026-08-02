@@ -88,7 +88,7 @@ def main():
     ap.add_argument("--keep-checkout", action="store_true",
                     help="unregister only; leave the working copy on disk")
     ap.add_argument("--keep-plan", action="store_true",
-                    help="keep .workspace/plans/<name>/ (default: remove it)")
+                    help="keep .workspace/daily-plans/<name>/ (default: remove it)")
     ap.add_argument("--force", action="store_true",
                     help="delete the checkout even when it is dirty or unpushed")
     args = ap.parse_args()
@@ -131,12 +131,12 @@ def main():
         print(f"[delete-repo] left the checkout at {d.relative_to(WORKSPACE_ROOT)} "
               "(now untracked by the workspace)")
 
-    plan_dir = WORKSPACE_DIR / "plans" / args.name
+    plan_dir = WORKSPACE_DIR / "daily-plans" / args.name
     if plan_dir.exists() and not args.keep_plan:
         shutil.rmtree(plan_dir)
-        print(f"[delete-repo] removed .workspace/plans/{args.name}/")
+        print(f"[delete-repo] removed .workspace/daily-plans/{args.name}/")
     elif plan_dir.exists():
-        print(f"[delete-repo] kept .workspace/plans/{args.name}/ — it is no longer "
+        print(f"[delete-repo] kept .workspace/daily-plans/{args.name}/ — it is no longer "
               "aggregated, since only registered repos are")
 
     refresh_readme()

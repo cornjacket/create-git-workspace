@@ -480,7 +480,7 @@ own workspace.
 - **Commit telemetry** is the repo's *shared* git history → the commit kernel is
   injected into each child repo's `CLAUDE.md`.
 - **Daily-plans** are *per-developer* intent → they move **up into the
-  workspace** (`.workspace/plans/<repo>/daily-plan.md`), private to each dev's
+  workspace** (`.workspace/daily-plans/<repo>/daily-plan.md`), private to each dev's
   workspace. No shared plan file, so no collision.
 
 The child kernel therefore shrinks to **commit discipline only**, and a tracked
@@ -512,8 +512,8 @@ which is why §8.5's `sources` list is load-bearing rather than a convenience.
 
 - `summary.md` — author-scoped retrospective rollup, newest day first.
 - `daily-plan-summary.md` — aggregated plans behind an "At a glance" table.
-- `.workspace/plans/<repo>/daily-plan.md` — this dev's plan per repo.
-- `.workspace/plans/_workspace/daily-plan.md` — the **workspace's own** plan:
+- `.workspace/daily-plans/<repo>/daily-plan.md` — this dev's plan per repo.
+- `.workspace/daily-plans/_workspace/daily-plan.md` — the **workspace's own** plan:
   inter-repo work belonging to no single repo. Aggregated **first**, and
   **forward-looking only** — the workspace's own commits are meta-noise.
 - `.workspace/state/state.json` + `archive/YYYY-MM-DD.md`.
@@ -722,7 +722,7 @@ the only thing that can answer them.
   sweep.
 - **Per-repo plan drafting.** `replan.sh` redrafts only the `_workspace` plan.
   `project-status`'s `replan.py` fans out one `claude -p` per tracked repo. Today
-  every per-repo plan under `.workspace/plans/` is hand-written.
+  every per-repo plan under `.workspace/daily-plans/` is hand-written.
 
 **Dogfooding.** No real workspace has been stamped yet — the generator is tested
 but not lived in. This is the next effort, and it is mostly migration rather than

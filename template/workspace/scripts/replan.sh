@@ -3,7 +3,7 @@
 #
 #   .workspace/scripts/replan.sh [--date YYYY-MM-DD]
 #
-# The workspace plan (.workspace/plans/_workspace/daily-plan.md) covers work that
+# The workspace plan (.workspace/daily-plans/_workspace/daily-plan.md) covers work that
 # belongs to no single child repo: inter-repo chores, infrastructure, and ideas
 # that do not have a repo home yet. It is FORWARD-LOOKING ONLY — the workspace's
 # own commits are meta-noise, so unlike a child repo's plan it has no
@@ -23,7 +23,7 @@
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-PLAN="$WORKSPACE_DIR/plans/_workspace/daily-plan.md"
+PLAN="$WORKSPACE_DIR/daily-plans/_workspace/daily-plan.md"
 TASKS="$WORKSPACE_ROOT/project/tasks"
 DATE=""
 

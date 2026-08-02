@@ -42,7 +42,7 @@ that does not say what changed is work nobody can see.
 
 Do **not** create a `daily-plan.md` in this repo. Plans are *per-developer*
 intent, so each developer keeps their own in their own workspace
-(`.workspace/plans/<repo>/daily-plan.md`). A shared plan file in a shared repo is
+(`.workspace/daily-plans/<repo>/daily-plan.md`). A shared plan file in a shared repo is
 a file two people overwrite.
 
 <!-- git-workspace-commits:end -->

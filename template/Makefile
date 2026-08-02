@@ -52,7 +52,7 @@ pull: ## bring the routine's aggregates down (ff-only; declines if diverged)
 new-work: ## show your new commits per repo since the last status run
 	@python3 $(SCRIPTS)/new-work.py
 
-aggregate: ## rebuild daily-plan-summary.md from .workspace/plans/
+aggregate: ## rebuild daily-plan-summary.md from .workspace/daily-plans/
 	@python3 $(SCRIPTS)/aggregate-plans.py
 
 run: ## full status run: summarize, aggregate, advance state (uses claude -p)

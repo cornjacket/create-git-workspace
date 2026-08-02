@@ -9,7 +9,7 @@ tracker repo:
     reads them in place. The remote routine still has no checkouts of its own,
     so it falls back to the platform's pre-cloned sources.
   * **Plans moved up into the workspace.** A plan is *per-developer* intent, so
-    it lives at `.workspace/plans/<repo>/daily-plan.md` — in this developer's own
+    it lives at `.workspace/daily-plans/<repo>/daily-plan.md` — in this developer's own
     workspace — not in the shared child repo where two developers would collide.
   * **Author-scoped telemetry.** Every git-log read filters `--author`, so each
     developer's rollup shows only their own commits. Required, not optional: the
@@ -33,7 +33,7 @@ CONFIG_YML = WORKSPACE_DIR / "config.yml"
 STATE_DIR = WORKSPACE_DIR / "state"
 STATE_JSON = STATE_DIR / "state.json"
 ARCHIVE_DIR = STATE_DIR / "archive"
-PLANS_DIR = WORKSPACE_DIR / "plans"
+DAILY_PLANS_DIR = WORKSPACE_DIR / "daily-plans"
 PROMPTS_DIR = WORKSPACE_DIR / "prompts"
 
 # Top-level deliverables — the daily dashboard.

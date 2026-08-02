@@ -112,7 +112,7 @@ def main():
 
     # Seed a plan slot so the repo shows up in daily-plan-summary.md immediately
     # — as "no plan" rather than not at all, which is the useful nudge.
-    plan_dir = WORKSPACE_DIR / "plans" / name
+    plan_dir = WORKSPACE_DIR / "daily-plans" / name
     plan = plan_dir / "daily-plan.md"
     if not plan.exists():
         plan_dir.mkdir(parents=True, exist_ok=True)
@@ -123,7 +123,7 @@ def main():
             f"the shared repo, so two developers never collide over one plan file._\n\n"
             "## Focus / plan\n\n- _What are you doing in this repo next?_\n"
         )
-        print(f"[add-repo] seeded .workspace/plans/{name}/daily-plan.md")
+        print(f"[add-repo] seeded .workspace/daily-plans/{name}/daily-plan.md")
 
     # The commit kernel is what makes this repo's git log readable as telemetry,
     # so it goes in at registration rather than waiting to be remembered.

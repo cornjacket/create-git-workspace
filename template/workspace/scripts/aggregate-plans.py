@@ -3,8 +3,8 @@
 
 Plans live in THIS workspace, one per tracked repo:
 
-    .workspace/plans/_workspace/daily-plan.md    the workspace's own (see below)
-    .workspace/plans/<repo>/daily-plan.md        one per tracked repo
+    .workspace/daily-plans/_workspace/daily-plan.md    the workspace's own (see below)
+    .workspace/daily-plans/<repo>/daily-plan.md        one per tracked repo
 
 They are per-developer intent, which is why they sit here rather than in the
 shared child repos — two developers each keep their own and never collide.
@@ -32,7 +32,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from _status_lib import (  # noqa: E402
-    ARCHIVE_DIR, DAILY_PLAN_SUMMARY_MD, PLANS_DIR, WORKSPACE_PLAN_KEY,
+    ARCHIVE_DIR, DAILY_PLAN_SUMMARY_MD, DAILY_PLANS_DIR, WORKSPACE_PLAN_KEY,
     StatusError, enabled_repos, git, repo_dir, workspace_name,
 )
 
@@ -100,7 +100,7 @@ def extract_focus(body):
 
 
 def plan_path(key):
-    return PLANS_DIR / key / "daily-plan.md"
+    return DAILY_PLANS_DIR / key / "daily-plan.md"
 
 
 def plan_state(path, today):
@@ -235,7 +235,7 @@ def render_section(r):
     label = f"[{r['label']}]({r['url']})" if r["url"] else r["label"]
     if r["state"] == "missing":
         return f"## {label} — no plan\n\n> No `{plan_path(r['key']).name}` in " \
-               f"`.workspace/plans/{r['key']}/`.\n"
+               f"`.workspace/daily-plans/{r['key']}/`.\n"
     if r["state"] == "unparseable":
         return (f"## {label} — plan present but unparseable\n\n"
                 "> Could not read a `# Daily plan — YYYY-MM-DD` header.\n")
@@ -255,7 +255,7 @@ def build_summary(today=None, repos=None):
     return (
         f"# Daily plan summary — {today.isoformat()}\n\n"
         "<!-- Auto-aggregated by .workspace/scripts/aggregate-plans.py from the "
-        "plans in .workspace/plans/. Overwritten on every run. -->\n\n"
+        "plans in .workspace/daily-plans/. Overwritten on every run. -->\n\n"
         f"{render_overview(rows)}\n"
         + "\n".join(render_section(r) for r in rows)
     )
