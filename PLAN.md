@@ -70,7 +70,7 @@ Consequences baked into the plan:
   │   ├── tasks/               the task-system (mount = project/tasks)
   │   ├── status/              narrative reports (status-review mtgs; optional)
   │   └── README.md            project container
-  ├── .claude/skills/…       task-system skill (machinery)
+  ├── .claude/skills/…       workspace-status + task-system skills (machinery)
   ├── .gitignore             allowlist (machinery)
   ├── .github/workflows/     auto-merge-status.yml, claude.yml (machinery)
   ├── .workspace/            hidden control plane
@@ -401,6 +401,18 @@ pattern). The always-on `CLAUDE.md` block carries only a **one-line pointer** to
 it, keeping the kernel small; the `add-repo` print and the README are the
 just-in-time nudges, the guide/skill is the canonical home.
 
+> **Built in `014`.** Three layers, mirroring create-project-system: the
+> procedure lives once in `.workspace/status-guide.md` (machinery, agent-agnostic
+> Markdown), `.claude/skills/workspace-status/SKILL.md` surfaces it on demand
+> without restating it, and the `CLAUDE.md` block keeps only the rules that would
+> be **too late** if they loaded on demand (`cd` into the child first; the verbs
+> own `repos.yml`; the run owns the deliverables; machinery is overwritten) plus
+> the pointer. The guide deliberately carries no `{{GENERATOR_VERSION}}` — the
+> version echo has exactly two homes (`config.yml` canonical, the `CLAUDE.md`
+> block derived), and a third would make every bump move an extra file.
+> `README.md` is **content**, seeded once and never regenerated, so it now keeps
+> only the front-door summary and points at the guide for anything that drifts.
+
 ### New workspace verbs (edit `.workspace/repos.yml`)
 
 - `add-repo <url> [--branch b]` — append entry; clone; inject the commit kernel
@@ -584,7 +596,11 @@ discovered during the build rather than planned up front. The generator skeleton
       developer, since it is committed to a shared repo.)*
 - [x] `013` — status-pipeline tests (`claude -p` stubbed). *(§8j drives the real
       prompt path with a stub `claude` on PATH — the code `--dry-run` skips.)*
-- [ ] `014` — on-demand status guide/skill (durable home for routine-setup directions).
+- [x] `014` — on-demand status guide/skill (durable home for routine-setup directions).
+      *(three layers: `.workspace/status-guide.md` holds the procedure,
+      `.claude/skills/workspace-status/` surfaces it on demand, and the
+      `CLAUDE.md` block shrank from ~150 lines to a 47-line kernel — a test now
+      caps it at 60 and fails if it re-absorbs the mechanics.)*
 - [ ] `015` — generator `README.md` (keep in sync as steps land).
 - [ ] `016` — optional extras: `gh repo create`, guard pre-commit hook.
 - [x] `017` — **CI**: run the acceptance suite on push/PR (`tests.yml`). *(Not in

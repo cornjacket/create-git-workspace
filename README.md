@@ -26,11 +26,13 @@ status deliverables sit at the top level.
 ├── summary.md                author-scoped retrospective rollup
 ├── daily-plan-summary.md     aggregated per-dev plans + "At a glance"
 ├── .gitignore                allowlist
+├── .claude/skills/…          workspace-status (+ task-system) on-demand skills
 ├── .workspace/               hidden control plane
 │   ├── config.yml            name · git_author(s) · generator version
 │   ├── repos.yml             membership registry (standard | worktree)
+│   ├── status-guide.md       the operating reference the kernel points at
 │   ├── plans/<repo>/…        this developer's daily-plans (per-dev, private)
-│   ├── status/…              state.json + dated plan archive
+│   ├── state/…               state.json + dated plan archive (runtime)
 │   └── scripts/…             the workspace verbs
 └── <child repos>/            managed checkouts — git-ignored
 ```

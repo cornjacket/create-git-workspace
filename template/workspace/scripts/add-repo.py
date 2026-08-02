@@ -123,6 +123,8 @@ def main():
     if kernel_note:
         print(kernel_note)
     print("  * Commit the workspace: repos.yml and the new plan slot are tracked.")
+    # This print scrolls away; the guide is where the instruction lives durably.
+    print("    How: .workspace/status-guide.md §5.2 (or the workspace-status skill).")
     return 0
 
 

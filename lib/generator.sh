@@ -146,6 +146,37 @@ install_machinery() {
   done
   step "machinery: .workspace/templates/"
 
+  # The on-demand guide: the reference half of the kernel-plus-guide split. The
+  # CLAUDE.md block stays a small always-on kernel and points here; this file
+  # carries the procedure. Machinery, because the procedure describes the
+  # generator's own scripts and must upgrade in lockstep with them.
+  #
+  # Deliberately carries NO {{GENERATOR_VERSION}}: a version bump would then move
+  # a third file, and the version echo already has exactly two homes (config.yml,
+  # canonical, and the CLAUDE.md block, derived).
+  render "$TEMPLATE_DIR/workspace/status-guide.md" "$target/.workspace/status-guide.md" "$name"
+  chmod 644 "$target/.workspace/status-guide.md"
+  step "machinery: .workspace/status-guide.md"
+
+  # The skill that surfaces the guide on demand. Only OUR skill directory is
+  # mirrored — .claude/skills/ also holds task-system/, which the vendored
+  # create-project-system owns and must not be pruned by us.
+  mkdir -p "$target/.claude/skills/workspace-status"
+  for f in "$TEMPLATE_DIR/claude/skills/workspace-status/"*.md; do
+    [ -f "$f" ] || continue
+    base=$(basename "$f")
+    render "$f" "$target/.claude/skills/workspace-status/$base" "$name"
+    chmod 644 "$target/.claude/skills/workspace-status/$base"
+  done
+  for f in "$target/.claude/skills/workspace-status/"*.md; do
+    [ -f "$f" ] || continue
+    base=$(basename "$f")
+    [ -e "$TEMPLATE_DIR/claude/skills/workspace-status/$base" ] || {
+      rm -f "$f"; step "machinery: removed stale .claude/skills/workspace-status/$base"
+    }
+  done
+  step "machinery: .claude/skills/workspace-status/"
+
   # Workflows are stored as template/github/ (no leading dot) so they stay inert
   # inside the generator repo, then land at .github/ in the workspace — the same
   # trick as template/gitignore.

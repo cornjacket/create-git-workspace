@@ -63,6 +63,7 @@ EXPECTED_TRACKED="\
 .workspace/scripts/run.py
 .workspace/scripts/status.sh
 .workspace/scripts/sync.py
+.workspace/status-guide.md
 .workspace/templates/commit-kernel.md
 CLAUDE.md
 Makefile
@@ -280,7 +281,10 @@ test_claude_md() {
   # create
   d=$(new_ws ws-claude-create)
   assert_grep "no file -> created from template" '<!-- git-workspace:begin' "$d/CLAUDE.md"
-  assert_grep "workspace name substituted"       '^ws-claude-create/'      "$d/CLAUDE.md"
+  assert_grep "title carries the workspace name" '^# CLAUDE.md — ws-claude-create$' "$d/CLAUDE.md"
+  # Inside the block too — the append path emits ONLY the block, so a name that
+  # appears just in the title would vanish for a user who brought their own file.
+  assert_grep "block substitutes the name"       '\(`ws-claude-create`\)'  "$d/CLAUDE.md"
   assert_grep "block carries a version echo"     'create-git-workspace v'  "$d/CLAUDE.md"
 
   # replace — a stale block is swapped, surrounding text preserved
@@ -1106,6 +1110,80 @@ YML
 }
 
 # ---------------------------------------------------------------------------
+# 8k. The kernel / guide / skill split
+#
+# The CLAUDE.md block is always-on context, so it must stay a small kernel: the
+# rules that would be too late if they loaded on demand, plus a pointer. The
+# procedure lives in .workspace/status-guide.md (agent-agnostic) and is surfaced
+# on demand by the workspace-status skill. This test pins that split — a kernel
+# that quietly re-absorbs the procedure is the failure mode.
+# ---------------------------------------------------------------------------
+test_guide_and_skill() {
+  section "8k. On-demand guide and skill (kernel split)"
+  local ws; ws=$(new_ws ws-guide)
+  local guide="$ws/.workspace/status-guide.md"
+  local skill="$ws/.claude/skills/workspace-status/SKILL.md"
+
+  assert_file "the guide is emitted"            "$guide"
+  assert_file "the skill is emitted"            "$skill"
+  assert_no_grep "no placeholders survive in the guide" '\{\{' "$guide"
+  assert_no_grep "no placeholders survive in the skill" '\{\{' "$skill"
+  assert_grep "the guide is named for the workspace" '^# Workspace guide — ws-guide$' "$guide"
+  assert_grep "the skill declares its name"     '^name: workspace-status$' "$skill"
+  assert_grep "the skill points at the guide"   '\.workspace/status-guide\.md' "$skill"
+  assert_empty "both are tracked by the allowlist" "$(git -C "$ws" status --porcelain)"
+
+  # The guide is the canonical home for the routine seams (task 014's whole point).
+  assert_grep "guide documents creating the /schedule routine" '/schedule' "$guide"
+  assert_grep "guide documents the sources pre-clone list"     'sources'   "$guide"
+  assert_grep "guide documents the ff-only pull"               'ff-only'   "$guide"
+  assert_grep "guide documents the repo verbs"                 'delete-repo\.py' "$guide"
+  assert_grep "guide separates project/status from summary.md" \
+    'summary\.md.* is not .*project/status/' "$guide"
+
+  # The kernel: small, and a pointer rather than a restatement.
+  local block
+  block=$(sed -n '/git-workspace:begin/,/git-workspace:end/p' "$ws/CLAUDE.md")
+  local lines; lines=$(printf '%s\n' "$block" | wc -l | tr -d ' ')
+  if [ "$lines" -le 60 ]; then ok "the managed block stays a kernel ($lines lines)"
+  else bad "the managed block stays a kernel" "grew to $lines lines (limit 60)"; fi
+  case "$block" in
+    *".workspace/status-guide.md"*) ok "the kernel points at the guide" ;;
+    *) bad "the kernel points at the guide" "no pointer in the managed block" ;;
+  esac
+  case "$block" in
+    *"auto/status-"*|*launchd*|*StartCalendarInterval*)
+      bad "the kernel does not restate routine mechanics" "found push/pull detail inline" ;;
+    *) ok "the kernel does not restate routine mechanics" ;;
+  esac
+
+  # Machinery: overwritten, and OUR skill dir is mirrored — but the vendored
+  # generator's sibling skill must survive, since we do not own it.
+  echo 'VANDALIZED' >> "$guide"
+  echo 'VANDALIZED' >> "$skill"
+  echo 'stale' > "$ws/.claude/skills/workspace-status/RETIRED.md"
+  git -C "$ws" add -A; git -C "$ws" commit -qm "vandalize the guide"
+  "$GEN_ROOT/update.sh" "$ws" >/dev/null 2>&1
+  assert_no_grep "a vandalized guide is restored" 'VANDALIZED' "$guide"
+  assert_no_grep "a vandalized skill is restored" 'VANDALIZED' "$skill"
+  assert_no_file "a stale file in our skill dir is pruned" \
+    "$ws/.claude/skills/workspace-status/RETIRED.md"
+  assert_file "the vendored task-system skill is NOT pruned" \
+    "$ws/.claude/skills/task-system/SKILL.md"
+
+  git -C "$ws" add -A; git -C "$ws" commit -qm restore
+  "$GEN_ROOT/update.sh" "$ws" >/dev/null 2>&1
+  assert_empty "and it settles back to zero diff" "$(git -C "$ws" status --porcelain)"
+
+  # The skill is ours, not the vendored generator's, so --no-tasks keeps it.
+  local nots; nots=$(new_ws ws-guide-notasks --no-tasks)
+  assert_file "--no-tasks still emits our skill" \
+    "$nots/.claude/skills/workspace-status/SKILL.md"
+  assert_no_file "...and still no task-system skill" \
+    "$nots/.claude/skills/task-system"
+}
+
+# ---------------------------------------------------------------------------
 # 9. Push round-trip against a LOCAL bare remote (no network)
 # ---------------------------------------------------------------------------
 test_local_remote() {
@@ -1264,6 +1342,7 @@ main() {
   test_pull_trigger
   test_commit_kernel
   test_claude_pipeline
+  test_guide_and_skill
   test_local_remote
   test_github_remote
 

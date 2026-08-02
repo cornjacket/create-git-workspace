@@ -20,23 +20,15 @@ empty rollup rather than an error.
 
 ## Commands
 
-Run from this directory (the wrapper root):
+Run `make` from this directory (the wrapper root) for the full list:
 
 | Command | What it does |
 |---------|--------------|
 | `make status` | branch + clean/dirty for every managed checkout |
 | `make bootstrap` | clone/attach every repo in `.workspace/repos.yml` |
-| `make guard` | fail if a child repo was staged into the wrapper index |
-| `make replan` | redraft the workspace plan from `project/tasks` (draft only) |
-| `make new-work` | what you committed per repo since the last status run |
 | `make run` | the full daily status run (uses `claude -p`) |
-| `make run-dry` | the same run with no LLM calls — deterministic placeholders |
-| `make aggregate` | rebuild `daily-plan-summary.md` from `.workspace/plans/` |
+| `make pull` | bring the routine's aggregates down (ff-only) |
 | `make add-repo ARGS="<url>"` | clone + register a repo, and seed its plan slot |
-| `make delete-repo ARGS="<name>"` | unregister + remove it (refuses unpushed work) |
-| `make mute-repo ARGS="<name>"` | quiet it in the rollup (`--skip`, `--unmute`) |
-| `make inject-kernel` | refresh the commit kernel in every tracked repo |
-| `make kernel-check` | report which tracked repos have a stale/missing kernel |
 
 The repo verbs take arguments, and `make` reads bare words as extra goals, so
 they are passed through `ARGS=`. Calling the scripts in `.workspace/scripts/`
@@ -45,86 +37,41 @@ directly is equivalent and reads better for anything complex.
 **Never hand-edit `.workspace/repos.yml`** — it is a lockfile the verbs
 maintain. `make bootstrap` replays it onto a new machine.
 
-The scripts themselves live in `.workspace/scripts/`. The wrapper manages the
-*set* of repos; do real code work inside the owning child repo, from a session
-rooted there.
-
 ## Setting up the daily routine (manual steps)
 
-The generator emits every piece of machinery, but three steps need you:
+The generator emits every piece of machinery, but the remote routine is not
+self-installing. Two steps are yours, and the run is silently useless without
+them:
 
 1. **Create the Claude `/schedule` routine** — a one-time interactive step in the
    Claude app. Point it at `.workspace/scripts/daily.sh`.
 2. **Add every tracked repo to the routine's `sources`** — the remote sandbox has
    no checkouts of its own, so a repo missing from that pre-clone list cannot
    have its git log read. `add-repo` reprints this reminder each time.
-3. **Set the `CLAUDE_CODE_OAUTH_TOKEN` repository secret** if you want to mention
-   `@claude` on issues and PRs here (`.github/workflows/claude.yml`). The daily
-   routine does not need it.
 
-### How the push side works
+Optionally, set the `CLAUDE_CODE_OAUTH_TOKEN` repository secret if you want to
+mention `@claude` on issues and PRs here (`.github/workflows/claude.yml`). The
+daily routine does not need it.
 
-The routine cannot commit to `main` directly: the GitHub App identity it runs
-under is blocked from pushing to the default branch, and the error it produces is
-a misleading "non-fast-forward". So `daily.sh` pushes `auto/status-YYYY-MM-DD`,
-and `.github/workflows/auto-merge-status.yml` fast-forwards that onto `main` and
-deletes it.
+Then pick a morning trigger — cron, launchd, or a Claude Code SessionStart hook —
+to run `.workspace/scripts/pull.sh`, which fast-forwards this workspace onto
+whatever the routine landed overnight.
 
-`daily.sh` commits **only** `summary.md`, `daily-plan-summary.md`, and
-`.workspace/state/` — never your plans, `repos.yml`, or a child repo. Your
-in-progress edits stay in the working tree where you left them.
+## Where the details live
 
-Keep the fast-forward clean by pushing your own workspace edits *before* the
-routine runs, so remote `main` is your commits with the rollup on top.
+**[`.workspace/status-guide.md`](.workspace/status-guide.md)** is the operating
+reference: the full command surface, the repo verbs, how the push/pull loop
+works, the two routine seams above in detail with ready-to-paste trigger
+configs, and which files are machinery, content, or runtime. Agents reach the
+same guide through the `workspace-status` skill; `CLAUDE.md` carries only the
+always-on kernel and a pointer.
 
-### The pull side — your morning trigger
-
-`make pull` (or `.workspace/scripts/pull.sh`) fast-forwards this workspace onto
-whatever the routine landed overnight. It is **`--ff-only`**: it advances cleanly
-or it stops and notifies you. It never merges, rebases, or forces — an unattended
-job that resolves history is one that eventually destroys something at 6am.
-
-| Exit | Meaning |
-|------|---------|
-| 0 | up to date, or fast-forwarded |
-| 1 | declined — you are ahead or diverged; it tells you which and what to run |
-| 2 | misconfigured — no origin, detached HEAD, or origin unreachable |
-
-Add `--bootstrap` to also clone any repo you registered from another machine.
-
-Pick **one** trigger; the script ships, the wiring is yours:
-
-**cron** (every weekday at 08:00)
-```cron
-0 8 * * 1-5 cd /path/to/{{WORKSPACE_NAME}} && .workspace/scripts/pull.sh --quiet >> /tmp/workspace-pull.log 2>&1
-```
-
-**macOS launchd** — `~/Library/LaunchAgents/com.you.workspace-pull.plist`, then
-`launchctl load` it. Preferred over cron on a laptop: launchd runs the job when
-the machine wakes, cron silently skips it if you were asleep at 08:00.
-```xml
-<dict>
-  <key>Label</key><string>com.you.workspace-pull</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>/path/to/{{WORKSPACE_NAME}}/.workspace/scripts/pull.sh</string>
-    <string>--quiet</string>
-  </array>
-  <key>StartCalendarInterval</key><dict><key>Hour</key><integer>8</integer></dict>
-</dict>
-```
-
-**Claude Code SessionStart hook** — pulls whenever you start working here, which
-matches the real trigger (you sitting down) better than a clock does. In
-`.claude/settings.json`:
-```json
-{"hooks": {"SessionStart": [{"hooks": [
-  {"type": "command", "command": ".workspace/scripts/pull.sh --quiet", "timeout": 30}
-]}]}}
-```
+The wrapper manages the *set* of repos; do real code work inside the owning child
+repo, from a session rooted there.
 
 ## This file is yours
 
-`README.md` is **content**: seeded once, never overwritten. Everything under
-`.workspace/scripts/`, plus `.gitignore` and `Makefile`, is **machinery** —
-regenerated by `update.sh`, so edits there are lost.
+`README.md` is **content**: seeded once, never overwritten — so keep durable
+detail in the guide (machinery, always current) and personal notes here.
+Everything under `.workspace/scripts/`, plus `.gitignore` and `Makefile`, is
+**machinery** — regenerated by `update.sh`, so edits there are lost.

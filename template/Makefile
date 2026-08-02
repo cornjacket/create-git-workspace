@@ -7,7 +7,7 @@ SCRIPTS := .workspace/scripts
 
 .DEFAULT_GOAL := help
 
-.PHONY: help status bootstrap guard replan new-work run run-dry aggregate pull \
+.PHONY: help guide status bootstrap guard replan new-work run run-dry aggregate pull \
         add-repo delete-repo mute-repo inject-kernel kernel-check
 
 help: ## show this help
@@ -15,6 +15,11 @@ help: ## show this help
 	@grep -hE '^[a-z][a-z-]*:.*## ' $(MAKEFILE_LIST) \
 		| sort \
 		| awk -F':.*## ' '{printf "  \033[1m%-12s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "  full operating reference: .workspace/status-guide.md"
+
+guide: ## print the operating reference (.workspace/status-guide.md)
+	@cat .workspace/status-guide.md
 
 status: ## branch + clean/dirty for every managed checkout
 	@$(SCRIPTS)/status.sh
