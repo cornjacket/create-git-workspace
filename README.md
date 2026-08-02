@@ -2,91 +2,178 @@
 
 A **generator** for *git-workspaces*. Clone it, run `setup.sh`, and you get a new
 repo that manages a set of other repos (standard clones and worktrees) — with a
-built-in, per-developer status subsystem (the evolution of `project-status`).
+built-in, per-developer status subsystem (the evolution of `project-status`) and
+its own task-system for the work that belongs to no single repo.
 
 - Design & rationale: [`PLAN.md`](PLAN.md)
 - Workspace-architecture model: [`docs/roadmap-2026-07-31.md`](docs/roadmap-2026-07-31.md)
+- Build tracker: [`tasks/`](tasks/)
 
-> **Implementation status.** This README documents the intended workspace steps as
-> they are built. Today: the emitted skeleton lives in `template/` (allowlist
-> `.gitignore`, `repos.yml`, `CLAUDE.md`, `bootstrap`/`status`/`guard`/`lib`
-> scripts). `setup.sh`, `update.sh`, the repo verbs, and the status subsystem are
-> in progress — see [`tasks/`](tasks/). Steps below are marked ✅ built / 🔧 planned.
+> **Implementation status.** Steps below are marked ✅ built / 🔧 planned. Every
+> step is built and covered by the suite; what remains is the opt-in extras in
+> task `016` (`gh repo create`, installing `guard.sh` as a pre-commit hook).
+
+## Quick start
+
+```bash
+git clone git@github.com:cornjacket/create-git-workspace.git
+cd create-git-workspace
+./setup.sh ~/src/my-workspace --name my-workspace --remote git@github.com:you/my-workspace.git
+cd ~/src/my-workspace && make            # lists every command
+```
+
+`setup.sh` creates the **wrapper only**. It never clones, inits, or creates the
+managed child repos — that is `add-repo.py`'s and `bootstrap.sh`'s job.
 
 ## What it generates
 
 A git-workspace keeps all its machinery in a hidden `.workspace/` directory and
 tracks *only* that machinery via an allowlist `.gitignore`; every managed child
-repo is ignored, so the wrapper can never swallow them. Only `CLAUDE.md` and the
-status deliverables sit at the top level.
+repo is ignored, so the wrapper can never swallow one.
 
 ```
 <workspace>/
-├── CLAUDE.md                 managed marker-block (your directives preserved)
-├── summary.md                author-scoped retrospective rollup
-├── daily-plan-summary.md     aggregated per-dev plans + "At a glance"
+├── CLAUDE.md                 always-on kernel (managed marker-block) + your directives
+├── README.md                 the human front door (content — seeded once)
+├── Makefile                  visible command surface over the hidden scripts
+├── summary.md                RUNTIME: author-scoped retrospective rollup
+├── daily-plan-summary.md     RUNTIME: aggregated plans + "At a glance"
 ├── .gitignore                allowlist
+├── project/                  the workspace's OWN task-system (triage) + status/
 ├── .claude/skills/…          workspace-status (+ task-system) on-demand skills
+├── .github/workflows/…       auto-merge-status.yml · claude.yml
 ├── .workspace/               hidden control plane
-│   ├── config.yml            name · git_author(s) · generator version
-│   ├── repos.yml             membership registry (standard | worktree)
+│   ├── config.yml            name · git_author(s) · generator_version
+│   ├── repos.yml             membership lockfile (standard | worktree)
 │   ├── status-guide.md       the operating reference the kernel points at
 │   ├── plans/<repo>/…        this developer's daily-plans (per-dev, private)
+│   ├── prompts/…             the summariser prompts fed to `claude -p`
+│   ├── templates/…           the commit kernel injected into child repos
 │   ├── state/…               state.json + dated plan archive (runtime)
 │   └── scripts/…             the workspace verbs
 └── <child repos>/            managed checkouts — git-ignored
 ```
 
+Instructions for the emitted workspace follow a three-layer split: a small
+always-on `CLAUDE.md` kernel, the `workspace-status` skill for on-demand loading,
+and `.workspace/status-guide.md` holding the procedure exactly once.
+
 ## Workspace steps
 
-### 1. Generate a workspace — `setup.sh` 🔧
+### 1. Generate a workspace — `setup.sh` ✅
 ```bash
-git clone git@github.com:cornjacket/create-git-workspace.git
-cd create-git-workspace
-./setup.sh <target-dir> --name my-workspace [--remote <url>]
+./setup.sh <target-dir> [--name NAME] [--author EMAIL] [--remote URL]
+                        [--no-tasks] [--no-status] [--no-commit] [--force]
 ```
-Creates the wrapper (machinery + seeded `repos.yml`/`config.yml`), `git init`s it,
-and injects the managed `CLAUDE.md` block without touching any file you already had.
+Creates the wrapper, `git init`s it, writes the machinery, seeds the content
+(`repos.yml`, `config.yml`, plans, `README.md`), injects the managed `CLAUDE.md`
+block without touching any file you already had, installs the task-system, and
+makes the initial commit.
 
-### 2. Add / remove / mute repos 🔧
+`--author` seeds `git_author` in `config.yml`, falling back to
+`git config user.email`; if neither resolves it writes a placeholder and warns
+loudly, and the status run later **refuses to start** rather than produce an
+empty rollup. `--no-status` currently only records the intent (see `tasks/018`).
+
+### 2. Add / remove / mute repos ✅
 ```bash
-.workspace/scripts/add-repo    <url> [--branch b] [--priority n]
-.workspace/scripts/delete-repo <name>          # refuses a dirty/unpushed checkout
-.workspace/scripts/mute-repo   <name> [--skip]  # hide on quiet days, or skip entirely
+python3 .workspace/scripts/add-repo.py    <url> [--name N] [--branch B] [--priority N]
+python3 .workspace/scripts/delete-repo.py <name>            # refuses a dirty/unpushed checkout
+python3 .workspace/scripts/mute-repo.py   <name> [--skip]   # hide on quiet days, or skip entirely
 ```
-`add-repo` also injects the commit-telemetry kernel into the child repo's `CLAUDE.md`.
+Or `make add-repo ARGS="<url>"`. `add-repo` clones *before* registering (a bad
+URL leaves the registry untouched), seeds the repo's plan slot, and injects the
+commit-telemetry kernel into the child's `CLAUDE.md` — without committing inside
+the child, so the change lands with your identity and that repo's hooks.
 
-### 3. Materialize the working set — `bootstrap.sh` ✅ (template)
+`delete-repo` refuses a dirty tree, an unpushed branch, a branch with no
+upstream, a stash, or a detached HEAD — and reports every reason at once.
+
+**`repos.yml` is a lockfile, not a config file you author.** The verbs write it
+as *text*, so its comments and ordering survive; `bootstrap.sh` replays it.
+
+### 3. Materialize the working set — `bootstrap.sh` ✅
 ```bash
-.workspace/scripts/bootstrap.sh    # clone standard repos, then git worktree add worktrees; idempotent
+make bootstrap    # clone standard repos, then git worktree add worktrees; idempotent
 ```
 
-### 4. Check state — `status.sh` ✅ (template)
+### 4. Check state — `status.sh` ✅
 ```bash
-.workspace/scripts/status.sh       # branch + clean/dirty per managed checkout
+make status       # branch + clean/dirty per managed checkout
 ```
 
-### 5. Guard the index — `guard.sh` ✅ (template)
+### 5. Guard the index — `guard.sh` ✅
 ```bash
-.workspace/scripts/guard.sh        # fail if a child repo/.git/worktree pointer was staged; use as pre-commit hook
+make guard        # fail if a child repo / .git dir / worktree pointer was staged
 ```
+Installing it as the workspace's pre-commit hook is still manual (task `016`).
 
-### 6. Daily status loop — push up / pull down 🔧
-Per-developer status, multi-dev-safe (plans are per-workspace; the summary is
-filtered to your git author):
-- **Remote routine** (Claude `/schedule`, daily): reads your plans + author-scoped
-  git logs, runs `claude -p`, writes `summary.md` + `daily-plan-summary.md`, lands
-  them on `main` via a side branch + auto-merge workflow.
-- **Local morning trigger**: `.workspace/scripts/pull.sh` → `git pull --ff-only`
-  brings the aggregates down. Fast-forwards cleanly or safely declines (never
-  force). Keep it clean by pushing your workspace edits before the routine runs.
+### 6. Daily status loop — push up / pull down ✅
+Per-developer status, multi-dev-safe: plans live per-workspace, and every git
+read is filtered to your `git_author`, so ACTIVE means "*you* committed".
 
-### 7. Upgrade machinery — `update.sh` 🔧
+- **Locally:** `make run` (or `make run-dry` for a deterministic, LLM-free pass)
+  summarizes → aggregates → advances state.
+- **Remote routine** (Claude `/schedule`, daily) runs `.workspace/scripts/daily.sh`:
+  reads your plans + author-scoped git logs, runs `claude -p`, writes
+  `summary.md` + `daily-plan-summary.md`, and lands them on `main` via a dated
+  side branch plus the auto-merge workflow (the routine's GitHub App identity
+  cannot push to the default branch).
+- **Local morning trigger:** `make pull` → `git pull --ff-only`. It advances or
+  it declines and tells you which — never merges, rebases, or forces. Exit 1 is
+  "you are ahead or diverged", exit 2 is "misconfigured", so a trigger can alert
+  on breakage without nagging about unpushed work.
+
+Two steps the generator cannot install for you — creating the `/schedule`
+routine, and adding each tracked repo to its `sources` pre-clone list — are
+documented in the emitted `.workspace/status-guide.md` (§5).
+
+### 7. Upgrade machinery — `update.sh` ✅
 ```bash
-cd create-git-workspace
-./update.sh <target-dir>           # re-apply machinery only; re-inject CLAUDE.md block; never touch your content
+./update.sh <target-dir>    # machinery only; re-injects the CLAUDE.md block; never commits
 ```
-Zero-diff property: re-running over an up-to-date workspace produces no diff.
+**Zero-diff property:** re-running over an up-to-date workspace produces no diff,
+with no `--force`. It also delegates to the vendored `create-project-system` so
+the installed task-system upgrades in step, and mirrors its own directories — a
+script dropped from the template is deleted from the workspace and the removal
+announced, so retired machinery cannot linger.
+
+## The machinery / content / runtime split
+
+Regeneration is only safe because every emitted file is classified once. Class is
+per-file and independent of whether it sits inside `.workspace/`.
+
+| Class | Examples | `setup.sh` | `update.sh` |
+|---|---|---|---|
+| **machinery** | `.workspace/scripts/`, `prompts/`, `templates/`, `status-guide.md`, `.claude/skills/workspace-status/`, `.github/workflows/`, `.gitignore`, `Makefile` | write | **overwrite** |
+| **content** | `repos.yml`, `config.yml`, `plans/**`, `README.md`, your tasks | seed if missing | seed if missing; **never overwrite** |
+| **runtime** | `summary.md`, `daily-plan-summary.md`, `.workspace/state/` | — | — |
+| **hybrid** | the `CLAUDE.md` managed block | create-or-inject | replace the block only |
+| **delegated** | the installed task-system | install | upgrade (its own split) |
+
+The runtime class is what keeps zero-diff honest: `setup`/`update` never race the
+daily routine's files. `config.yml` is content except for the one
+`generator_version` key the generator owns — the same hybrid rule at single-line
+granularity, so version telemetry cannot go stale.
+
+## Inside this repo
+
+```
+setup.sh · update.sh     the two entry points
+lib/generator.sh         every byte of machinery is written here, so both
+                         entry points emit identical output (this is what
+                         makes zero-diff hold)
+template/                the skeleton that gets emitted
+  ├── CLAUDE.md          the managed block (kernel)
+  ├── gitignore          → .gitignore (dotless so it stays inert here)
+  ├── github/            → .github/
+  ├── claude/            → .claude/ (the workspace-status skill)
+  └── workspace/         → .workspace/
+vendor/                  create-project-system, copied in verbatim
+tools/revendor.sh        refresh that copy from an upstream checkout
+tests/run-tests.sh       the acceptance suite
+sandbox/                 throwaway generated workspaces (git-ignored)
+```
 
 ## Testing
 
@@ -96,13 +183,28 @@ Zero-diff property: re-running over an up-to-date workspace produces no diff.
 ./tests/run-tests.sh --remote   # additionally run the GitHub round-trip
 ```
 
-Every test generates throwaway workspaces into `sandbox/` (git-ignored) — never a
-real repo. The suite covers the emitted tree and allowlist, the generated scripts,
-**zero-diff regeneration**, machinery overwrite + stale pruning, content/runtime
-preservation, all CLAUDE.md injection paths (including malformed markers), the
-version stamp, every refusal path, and a push/ff-only-pull round-trip against a
-local bare remote.
+219 local assertions. Every test generates throwaway workspaces into `sandbox/`
+(git-ignored) — never a real repo. The suite covers the emitted tree and
+allowlist, the generated scripts, **zero-diff regeneration**, machinery overwrite
++ stale pruning, content/runtime preservation, all `CLAUDE.md` injection paths
+(including four malformed-marker shapes), the version stamp, every refusal path,
+the task-system delegation, the status pipeline against a stubbed `claude` on
+`PATH`, the repo verbs, the kernel/guide/skill split, and a push + ff-only-pull
+round-trip against a local bare remote.
+
+CI (`.github/workflows/tests.yml`) runs the suite on every push to `main` and
+every PR, so the zero-diff invariant is protected by the repo rather than by
+remembering. A failed run uploads `sandbox/` as an artifact — the generated
+workspaces are the evidence.
 
 The GitHub round-trip against the disposable `cornjacket/git-workspace-test`
-remote is opt-in (`--remote`) and skips cleanly when the fixture is absent; the
-routine scripts it exercises land in tasks 010–011. See `PLAN.md` → "Testing".
+remote is opt-in (`--remote`) and skips cleanly when the fixture is absent, since
+that sibling checkout does not exist on a runner. See `PLAN.md` → "Testing".
+
+## Vendoring
+
+`vendor/create-project-system/` is a verbatim copy of the task-system generator
+(`generate.sh` + `src/` only), so a fresh clone can stamp a fully task-tracked
+workspace with nothing external to fetch — self-containment over DRY. Refresh it
+with `./tools/revendor.sh [path-to-create-project-system]`, which re-stamps the
+version and leaves the diff for review. See [`vendor/README.md`](vendor/README.md).

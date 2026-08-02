@@ -601,11 +601,15 @@ discovered during the build rather than planned up front. The generator skeleton
       `.claude/skills/workspace-status/` surfaces it on demand, and the
       `CLAUDE.md` block shrank from ~150 lines to a 47-line kernel — a test now
       caps it at 60 and fails if it re-absorbs the mechanics.)*
-- [ ] `015` — generator `README.md` (keep in sync as steps land).
+- [ ] `015` — generator `README.md` (keep in sync as steps land). *(Standing —
+      closes when the build does. Current through `014`/`017`; see the sync log
+      in the task file.)*
 - [ ] `016` — optional extras: `gh repo create`, guard pre-commit hook.
 - [x] `017` — **CI**: run the acceptance suite on push/PR (`tests.yml`). *(Not in
       the original breakdown — added once it was clear commits were landing on
       `main` with no automated verification.)*
+- [ ] `018` — `setup.sh --no-status` is accepted but never honored: honor it or
+      remove it. *(Surfaced by `015` — the flag has been inert since `002`.)*
 
 ---
 
