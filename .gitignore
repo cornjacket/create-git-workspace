@@ -1,0 +1,9 @@
+# create-git-workspace — the generator repo itself.
+#
+# Test workspaces are generated into sandbox/ (see PLAN.md "Testing"). They are
+# throwaway output — never commit them. This follows the workspace hygiene rule
+# "scratch lives in a gitignored sandbox/ inside the repo that produces it."
+/sandbox/
+
+# OS / editor noise
+.DS_Store
