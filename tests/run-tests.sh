@@ -85,6 +85,23 @@ ws_clean() { # a workspace with no diff AND no untracked/modified files
   [ -z "$(git -C "$1" status --porcelain 2>/dev/null)" ]
 }
 
+# The suite runs on both macOS and Linux CI, so no BSD-only idioms.
+# `sed -i ''` is a syntax error under GNU sed, and `shasum` is not guaranteed.
+file_hash() {
+  if command -v shasum >/dev/null 2>&1; then shasum "$1" | cut -d' ' -f1
+  elif command -v sha1sum >/dev/null 2>&1; then sha1sum "$1" | cut -d' ' -f1
+  else cksum "$1" | cut -d' ' -f1
+  fi
+}
+
+subst_in_file() { # subst_in_file <file> <literal-from> <literal-to>
+  python3 - "$@" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+p.write_text(p.read_text().replace(sys.argv[2], sys.argv[3]))
+PY
+}
+
 # ours <ws> — tracked files this generator owns, excluding the delegated
 # task-system and the routine-owned deliverables.
 ours() {
@@ -271,9 +288,9 @@ test_claude_md() {
   assert_eq   "user content stays first"   "# Mine" "$(head -1 "$d/CLAUDE.md")"
   assert_grep "block appended at the end"  '<!-- git-workspace:end -->' "$d/CLAUDE.md"
   local before after
-  before=$(shasum "$d/CLAUDE.md" | cut -d' ' -f1)
+  before=$(file_hash "$d/CLAUDE.md")
   "$GEN_ROOT/setup.sh" "$d" --name wsclaude --author "$TEST_AUTHOR" --no-commit --force >/dev/null 2>&1
-  after=$(shasum "$d/CLAUDE.md" | cut -d' ' -f1)
+  after=$(file_hash "$d/CLAUDE.md")
   assert_eq "re-injection is byte-identical (idempotent)" "$before" "$after"
 
   # malformed — must abort AND leave the file untouched
@@ -287,11 +304,11 @@ test_claude_md() {
     label=${case%%:*}; body=${case#*:}
     d="$SANDBOX/ws-claude-bad"; rm -rf "$d"; mkdir -p "$d"
     printf '%b' "$body" > "$d/CLAUDE.md"
-    before=$(shasum "$d/CLAUDE.md" | cut -d' ' -f1)
+    before=$(file_hash "$d/CLAUDE.md")
     if "$GEN_ROOT/setup.sh" "$d" --name wsclaude --author "$TEST_AUTHOR" --no-commit >/dev/null 2>&1; then
       bad "$label -> aborts" "setup.sh succeeded on a malformed CLAUDE.md"
     else
-      after=$(shasum "$d/CLAUDE.md" | cut -d' ' -f1)
+      after=$(file_hash "$d/CLAUDE.md")
       assert_eq "$label -> aborts, file untouched" "$before" "$after"
     fi
   done
@@ -440,9 +457,9 @@ test_workspace_plan() {
   assert_eq "replan commits nothing" "2" "$(git -C "$ws" rev-list --count HEAD)"
 
   # Idempotent, and the date is controllable.
-  local before; before=$(shasum "$plan" | cut -d' ' -f1)
+  local before; before=$(file_hash "$plan")
   "$ws/.workspace/scripts/replan.sh" >/dev/null 2>&1
-  assert_eq "a second replan changes nothing" "$before" "$(shasum "$plan" | cut -d' ' -f1)"
+  assert_eq "a second replan changes nothing" "$before" "$(file_hash "$plan")"
   "$ws/.workspace/scripts/replan.sh" --date 2026-12-25 >/dev/null 2>&1
   assert_eq "--date sets the header" "# Daily plan — 2026-12-25" "$(head -1 "$plan")"
   assert_fails "an unparseable --date is rejected" \
@@ -542,9 +559,9 @@ test_status_subsystem() {
     *) bad "a teammate's commit does not make it ACTIVE for you" "$out" ;; esac
 
   # An unresolved author would silently produce an empty rollup — refuse instead.
-  sed -i '' "s|$TEST_AUTHOR|CHANGEME@example.invalid|" "$ws/.workspace/config.yml"
+  subst_in_file "$ws/.workspace/config.yml" "$TEST_AUTHOR" "CHANGEME@example.invalid"
   assert_fails "a placeholder git_author hard-fails the run" python3 "$S/run.py" --dry-run
-  sed -i '' "s|CHANGEME@example.invalid|$TEST_AUTHOR|" "$ws/.workspace/config.yml"
+  subst_in_file "$ws/.workspace/config.yml" "CHANGEME@example.invalid" "$TEST_AUTHOR"
 
   # enabled: false drops the repo entirely.
   printf '    enabled: false\n' >> "$ws/.workspace/repos.yml"
@@ -747,7 +764,10 @@ main() {
   test_local_remote
   test_github_remote
 
-  if [ "$KEEP" -eq 1 ]; then
+  # Keep the generated workspaces when anything failed: they ARE the evidence,
+  # and wiping them forces a local reproduction to see what went wrong (in CI,
+  # where reproducing is expensive, they get uploaded as an artifact).
+  if [ "$KEEP" -eq 1 ] || [ "$FAIL" -gt 0 ]; then
     printf "\n${D}sandbox kept at %s${X}\n" "$SANDBOX"
   else
     rm -rf "$SANDBOX"; mkdir -p "$SANDBOX"

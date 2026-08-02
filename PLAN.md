@@ -268,6 +268,22 @@ Generation is exercised against throwaway targets — never against a real repo.
 > (persistent sibling + remote) covers the **remote round-trip** — a scheduled
 > routine + ff-only pull can only run against a real, persistent remote.
 
+### Continuous integration (task `017`)
+
+`.github/workflows/tests.yml` runs `./tests/run-tests.sh` on every push to `main`
+and on every PR, so the zero-diff invariant is protected by the repo rather than
+by remembering to run the suite. It installs PyYAML (the emitted workspace's only
+third-party dependency), configures a git identity — without one `setup.sh` takes
+its "stage but do not commit" path and every git-reading assertion fails — and
+runs **without** `--remote`, since the `git-workspace-test` sibling checkout does
+not exist on a runner; that section skips itself with a reason. A failed run
+keeps `sandbox/` and uploads it as an artifact, because the generated workspaces
+are the evidence.
+
+> Adding CI surfaced that the suite was macOS-only (`sed -i ''`, `shasum`). Both
+> are now portable. Worth remembering: the suite is *emitted-shell* discipline
+> applied to the harness itself — it must run wherever the generator is tested.
+
 Test flow (acceptance harness, task `005`):
 1. `./setup.sh sandbox/ws1 --name ws1` → assert the emitted tree + allowlist.
 2. `./update.sh sandbox/ws1` → assert **zero git diff** (the regeneration test).
@@ -525,7 +541,8 @@ track and retires — by obsolescence, not amputation:
 
 ## Task breakdown (see `tasks/`)
 
-Numbered in **build order** — `001` first, `016` last. The generator skeleton
+Numbered in **build order** — `001` first, `016` last; `017`+ are additions
+discovered during the build rather than planned up front. The generator skeleton
 (001–005) comes first; the status subsystem (006–016) builds on the proven base.
 
 - [x] `001` — restructure `template/` into `template/workspace/` (hidden `.workspace/`
@@ -560,6 +577,9 @@ Numbered in **build order** — `001` first, `016` last. The generator skeleton
 - [ ] `014` — on-demand status guide/skill (durable home for routine-setup directions).
 - [ ] `015` — generator `README.md` (keep in sync as steps land).
 - [ ] `016` — optional extras: `gh repo create`, guard pre-commit hook.
+- [x] `017` — **CI**: run the acceptance suite on push/PR (`tests.yml`). *(Not in
+      the original breakdown — added once it was clear commits were landing on
+      `main` with no automated verification.)*
 
 ---
 

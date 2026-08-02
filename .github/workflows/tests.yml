@@ -1,0 +1,52 @@
+name: tests
+
+# The acceptance suite is the contract for this generator — above all the
+# zero-diff regeneration invariant. Run it on every push and PR so a broken
+# invariant is caught by the push that broke it, not by the next person to run
+# the suite by hand.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      # PyYAML is the generated workspace's only third-party dependency: both
+      # the repos.yml parser and the status subsystem import it.
+      - name: Install PyYAML
+        run: python3 -m pip install --quiet pyyaml
+
+      # The suite generates workspaces and setup.sh commits them. Without an
+      # identity, setup.sh takes its "no git identity -> stage but do not
+      # commit" path and every assertion that reads git history fails.
+      - name: Configure a git identity for the generated workspaces
+        run: |
+          git config --global user.email "ci@example.invalid"
+          git config --global user.name  "create-git-workspace CI"
+          git config --global init.defaultBranch main
+
+      # No --remote: the GitHub round-trip needs the ../git-workspace-test
+      # sibling checkout, which does not exist here. That section skips itself
+      # with a reason rather than failing.
+      - name: Run the acceptance suite
+        run: ./tests/run-tests.sh
+
+      # A failing run leaves its generated workspaces behind; keeping them makes
+      # a red build debuggable without reproducing it locally.
+      - name: Upload the sandbox on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sandbox
+          path: sandbox/
+          retention-days: 7
+          if-no-files-found: ignore
