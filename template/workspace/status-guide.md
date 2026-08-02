@@ -62,7 +62,7 @@ real interface and read better for anything with arguments.
 
 | Command | Script | What it does |
 |---|---|---|
-| `make status` | `status.sh` | branch + clean/dirty for every managed checkout |
+| `make status` | `status.py` | branch + **uncommitted and unpushed** work for every managed checkout, and for the workspace itself. `ARGS="--all"` also sweeps unregistered checkouts; `-v` lists each finding |
 | `make bootstrap` | `bootstrap.sh` | replay `repos.yml` onto this machine: clone every `standard` repo, `git worktree add` every `worktree`. Idempotent |
 | `make guard` | `guard.sh` | fail if a child repo, a `.git` dir, or a worktree `.git` pointer was staged into the wrapper index |
 | `make hook` | `install-hooks.sh` | install `guard.sh` as this clone's pre-commit hook (`hook-check` reports status; `--uninstall` removes it) |

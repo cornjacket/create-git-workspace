@@ -63,7 +63,7 @@ EXPECTED_TRACKED="\
 .workspace/scripts/render-readme.py
 .workspace/scripts/replan.sh
 .workspace/scripts/run.py
-.workspace/scripts/status.sh
+.workspace/scripts/status.py
 .workspace/scripts/sync.py
 .workspace/status-guide.md
 .workspace/templates/commit-kernel.md
@@ -142,7 +142,7 @@ test_emitted_tree() {
   assert_empty "nothing is left untracked by the allowlist" "$(git -C "$ws" status --porcelain)"
 
   assert_file "hidden control plane exists"      "$ws/.workspace"
-  assert_exec "scripts are executable"           "$ws/.workspace/scripts/status.sh"
+  assert_exec "scripts are executable"           "$ws/.workspace/scripts/status.py"
   assert_grep "allowlist ignores the root"       '^/\*$' "$ws/.gitignore"
   assert_grep "allowlist un-ignores .workspace/" '^!/\.workspace/$' "$ws/.gitignore"
   assert_no_grep "no placeholders survive in CLAUDE.md" '\{\{' "$ws/CLAUDE.md"
@@ -176,19 +176,26 @@ repos:
     branch: main
     url: https://example.invalid/childrepo.git
 YML
+  # The workspace is a row in its own report, so its edits must be committed or
+  # the sweep correctly calls them pending.
+  git -C "$ws" add -A; git -C "$ws" commit -qm "register childrepo"
 
   # Run from an unrelated cwd: the scripts must not depend on the caller's pwd.
   local out rc
-  out=$(cd / && "$ws/.workspace/scripts/status.sh" 2>&1); rc=$?
-  assert_eq "status.sh exits 0 with a clean child" "0" "$rc"
+  out=$(cd / && "$ws/.workspace/scripts/status.py" 2>&1); rc=$?
+  assert_eq "status exits 0 when nothing is pending" "0" "$rc"
   case "$out" in
-    *childrepo*clean*) ok "status.sh reports the child clean" ;;
-    *) bad "status.sh reports the child clean" "$out" ;;
+    *childrepo*clean*) ok "status reports the child clean" ;;
+    *) bad "status reports the child clean" "$out" ;;
+  esac
+  case "$out" in
+    *"(this workspace)"*) ok "the workspace itself is a row" ;;
+    *) bad "the workspace itself is a row" "$out" ;;
   esac
 
   echo dirty > "$ws/childrepo/f.txt"
-  (cd / && "$ws/.workspace/scripts/status.sh" >/dev/null 2>&1)
-  assert_eq "status.sh exits non-zero when a child is dirty" "1" "$?"
+  (cd / && "$ws/.workspace/scripts/status.py" >/dev/null 2>&1)
+  assert_eq "status exits non-zero when a child is dirty" "1" "$?"
 
   out=$(cd / && "$ws/.workspace/scripts/guard.sh" 2>&1); rc=$?
   assert_eq "guard.sh passes on a clean wrapper index" "0" "$rc"
@@ -219,14 +226,14 @@ test_machinery() {
   section "4. Machinery: restored and pruned"
   local ws; ws=$(new_ws ws-machinery)
 
-  echo 'echo VANDALIZED' >> "$ws/.workspace/scripts/status.sh"
+  echo 'echo VANDALIZED' >> "$ws/.workspace/scripts/status.py"
   echo '#!/bin/sh' > "$ws/.workspace/scripts/retired.sh"
   echo '# vandalized' >> "$ws/Makefile"
   git -C "$ws" add -A
   git -C "$ws" commit -qm "vandalize machinery"
 
   "$GEN_ROOT/update.sh" "$ws" >/dev/null 2>&1
-  assert_no_grep "vandalized status.sh is restored" 'VANDALIZED' "$ws/.workspace/scripts/status.sh"
+  assert_no_grep "vandalized status.sh is restored" 'VANDALIZED' "$ws/.workspace/scripts/status.py"
   assert_no_grep "vandalized Makefile is restored"  'vandalized' "$ws/Makefile"
   assert_no_file "a script dropped from the template is pruned" "$ws/.workspace/scripts/retired.sh"
 
@@ -1281,6 +1288,79 @@ test_optional_extras() {
 }
 
 # ---------------------------------------------------------------------------
+# 8n. The pending sweep (dogfood 01)
+#
+# The dangerous case: a repo you COMMITTED but never PUSHED looks perfectly
+# clean to `git status`. Only a sweep at this level can see it. The detector is
+# shared with delete-repo, so this also pins that the two never disagree.
+# ---------------------------------------------------------------------------
+test_pending_sweep() {
+  section "8n. Pending work sweep (uncommitted + unpushed)"
+  local ws; ws=$(new_ws ws-pending)
+  local st="$ws/.workspace/scripts/status.py"
+
+  # A child with a real upstream, so "ahead" is meaningful.
+  local bare="$SANDBOX/pending-remote.git"; rm -rf "$bare"; git init -q --bare "$bare"
+  git -C "$ws" -c init.defaultBranch=main clone -q "$bare" "$ws/kid" 2>/dev/null
+  git -C "$ws/kid" -c user.email=t@t -c user.name=t commit -q --allow-empty -m seed
+  git -C "$ws/kid" push -q -u origin HEAD:main 2>/dev/null
+  cat > "$ws/.workspace/repos.yml" <<'YML'
+repos:
+  - name: kid
+    path: kid
+    type: standard
+    branch: main
+    url: https://example.invalid/kid.git
+YML
+  git -C "$ws" add -A; git -C "$ws" commit -qm "register kid"
+
+  local out
+  out=$("$st" 2>&1)
+  case "$out" in *kid*clean*) ok "a pushed child reads clean" ;;
+                 *) bad "a pushed child reads clean" "$out" ;; esac
+  assert_eq "...and the sweep exits 0" "0" "$("$st" >/dev/null 2>&1; echo $?)"
+
+  # THE case: committed, not pushed. `git status` in that repo says nothing.
+  git -C "$ws/kid" -c user.email=t@t -c user.name=t commit -q --allow-empty -m "local work"
+  assert_empty "git status in the child still reports nothing" \
+    "$(git -C "$ws/kid" status --porcelain)"
+  out=$("$st" 2>&1)
+  case "$out" in *kid*unpushed*) ok "the sweep catches the unpushed commit" ;;
+                 *) bad "the sweep catches the unpushed commit" "$out" ;; esac
+  assert_eq "...and exits non-zero" "1" "$("$st" >/dev/null 2>&1; echo $?)"
+  out=$("$st" -v 2>&1)
+  case "$out" in *"1 commit(s) ahead"*) ok "-v names the finding" ;;
+                 *) bad "-v names the finding" "$out" ;; esac
+
+  # A repo with NO remote is local by design, not forgotten work.
+  mkdir -p "$ws/solo" && git -C "$ws/solo" init -q
+  git -C "$ws/solo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m only
+  out=$("$st" --all 2>&1)
+  case "$out" in *solo*"local-only"*) ok "a remoteless repo reads clean (local-only)" ;;
+                 *) bad "a remoteless repo reads clean (local-only)" "$out" ;; esac
+
+  # --all surfaces a checkout nobody registered; the default view does not.
+  case "$out" in *solo*unregistered*) ok "--all flags an unregistered checkout" ;;
+                 *) bad "--all flags an unregistered checkout" "$out" ;; esac
+  out=$("$st" 2>&1)
+  case "$out" in *solo*) bad "the default view omits unregistered repos" "$out" ;;
+                 *) ok "the default view omits unregistered repos" ;; esac
+
+  # The workspace's own uncommitted work is the easiest to forget.
+  echo "scratch" >> "$ws/README.md"
+  out=$("$st" 2>&1)
+  case "$out" in *"(this workspace)"*dirty*) ok "the workspace's own dirt is reported" ;;
+                 *) bad "the workspace's own dirt is reported" "$out" ;; esac
+  git -C "$ws" checkout -q -- README.md
+
+  # Shared detector: delete-repo must agree with what status just reported.
+  local del
+  del=$( (cd "$ws" && python3 .workspace/scripts/delete-repo.py kid) 2>&1 )
+  case "$del" in *unpushed*) ok "delete-repo refuses on the same finding" ;;
+                 *) bad "delete-repo refuses on the same finding" "$del" ;; esac
+}
+
+# ---------------------------------------------------------------------------
 # 8m. The living README (task 019)
 #
 # README.md is the second hybrid: the generator owns the git-workspace-roster
@@ -1585,6 +1665,7 @@ main() {
   test_guide_and_skill
   test_optional_extras
   test_living_readme
+  test_pending_sweep
   test_local_remote
   test_github_remote
 

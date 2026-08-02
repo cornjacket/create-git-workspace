@@ -345,6 +345,76 @@ def git(args, cwd=None, check=True):
     )
 
 
+# ---------------------------------------------------------------------------
+# Pending work — the shared detector
+#
+# ONE implementation, two callers with different severities:
+#
+#   status.py     reports it. "Did I forget to push?" — the question a working
+#                 tree cannot answer, because a repo you committed but never
+#                 pushed looks perfectly clean to `git status`.
+#   delete-repo   refuses on it. Removing a checkout destroys anything that
+#                 exists only there.
+#
+# They must never disagree. A second copy of this logic — in bash, say — is how
+# you get "status says clean" and "delete-repo refuses" in the same minute.
+# ---------------------------------------------------------------------------
+
+# A repo with NO remotes at all is a different animal from a repo whose branch
+# forgot its upstream: the first is local by design, the second is work you meant
+# to push. status.py ignores LOCAL_ONLY; delete-repo blocks on it, because
+# "exists nowhere else" is exactly what makes a deletion unrecoverable.
+LOCAL_ONLY = "local-only"
+
+
+def pending_findings(d):
+    """Everything about checkout `d` that is not safely on a remote.
+
+    Returns a list of (kind, message). Kinds: dirty, stashed, ahead,
+    no-upstream, detached, local-only. Messages are human-facing and are the
+    strings delete-repo prints, so they read as refusal reasons.
+    """
+    findings = []
+
+    porcelain = git(["status", "--porcelain"], cwd=d, check=False).stdout.strip()
+    if porcelain:
+        n = len(porcelain.splitlines())
+        findings.append(("dirty", f"dirty — {n} uncommitted or untracked file(s)"))
+
+    stashes = git(["stash", "list"], cwd=d, check=False).stdout.strip()
+    if stashes:
+        n = len(stashes.splitlines())
+        findings.append(("stashed",
+                         f"stashed — {n} stash entr{'y' if n == 1 else 'ies'} "
+                         f"exist{'s' if n == 1 else ''} only in this checkout"))
+
+    has_remote = bool(git(["remote"], cwd=d, check=False).stdout.strip())
+
+    branches = [b.strip() for b in git(
+        ["for-each-ref", "--format=%(refname:short)", "refs/heads/"], cwd=d, check=False
+    ).stdout.splitlines() if b.strip()]
+
+    for b in branches:
+        up = git(["rev-parse", "--abbrev-ref", f"{b}@{{upstream}}"], cwd=d, check=False)
+        if up.returncode != 0 or not up.stdout.strip():
+            kind = "no-upstream" if has_remote else LOCAL_ONLY
+            findings.append((kind, f"unpushed — branch '{b}' has no upstream"))
+            continue
+        ahead = git(["rev-list", "--count", f"{up.stdout.strip()}..{b}"],
+                    cwd=d, check=False).stdout.strip()
+        if ahead and ahead != "0":
+            findings.append(("ahead",
+                             f"unpushed — branch '{b}' is {ahead} commit(s) ahead of "
+                             f"{up.stdout.strip()}"))
+
+    # Detached HEAD: commits reachable only from here are just as lost.
+    if git(["symbolic-ref", "-q", "HEAD"], cwd=d, check=False).returncode != 0:
+        if not git(["branch", "-r", "--contains", "HEAD"], cwd=d, check=False).stdout.strip():
+            findings.append(("detached", "unpushed — detached HEAD is on no remote branch"))
+
+    return findings
+
+
 def author_args(authors):
     """`--author` flags. git ORs repeated --author, which is what we want for a
     developer who commits under more than one email."""

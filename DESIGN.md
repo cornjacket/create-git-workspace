@@ -710,19 +710,22 @@ tier, which then needs its own managed workspace).
 
 ## 11. Open gaps — designed for, not built
 
-**Two commands `project-status` has and a workspace does not.** Both are
-retirement blockers (§8.9): the old tracker cannot be switched off while it is
-the only thing that can answer them.
+**One command `project-status` has and a workspace does not.** It is a
+retirement blocker (§8.9): the old tracker cannot be switched off while it is the
+only thing that can answer it.
 
-- **"Did I forget to push?"** `status.sh` reports branch and clean/dirty, which
-  misses the dangerous case — *a repo you committed but never pushed looks
-  perfectly clean*. The detection already exists as `delete-repo.py`'s
-  `unsafe_reasons()` (ahead of upstream, no upstream at all, stashes, detached
-  HEAD); it wants extracting into `_status_lib` and exposing as a floor-wide
-  sweep.
 - **Per-repo plan drafting.** `replan.sh` redrafts only the `_workspace` plan.
   `project-status`'s `replan.py` fans out one `claude -p` per tracked repo. Today
   every per-repo plan under `.workspace/daily-plans/` is hand-written.
+
+> **Closed:** the pending sweep. `status.py` now reports *unpushed* alongside
+> uncommitted — the dangerous case, since a repo you committed but never pushed
+> looks perfectly clean to `git status`. The detector
+> (`_status_lib.pending_findings`) is shared verbatim with `delete-repo`, so a
+> report and a refusal can never disagree; the two differ only in severity, with
+> deletion blocking on `local-only` and the report treating it as fact. `--all`
+> extends the sweep to unregistered checkouts, and the workspace itself is a row,
+> since its own uncommitted plans are the easiest of all to forget.
 
 **Dogfooding.** No real workspace has been stamped yet — the generator is tested
 but not lived in. This is the next effort, and it is mostly migration rather than

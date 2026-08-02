@@ -9,11 +9,11 @@ effort.
 
 ## Where I left off
 
-- **current task** — none started; plan just drafted
-- **next concrete step** — settle the open questions below, then `01` (unpushed sweep)
+- **current task** — `01` done; `02` (per-repo replan) is next but needs a design decision
+- **next concrete step** — pick a replan shape (A–D below), or skip to `03` and
+  create `dev-workspace`, which is unblocked
 - **files mid-edit** — none
-- **uncommitted / unpushed** — this file is untracked; **7 commits** on `main`
-  are unpushed (`f4c8aa0` … `f8ef93f`)
+- **uncommitted / unpushed** — task `01`'s changes are uncommitted
 - **open questions** — see the section at the bottom; per-repo replan is the big one
 
 ## Scope
@@ -48,7 +48,7 @@ In order. Acceptance is one line each until these are extracted into files.
 
 | # | Task | Status |
 |---|---|---|
-| 01 | `make status` also reports unpushed work; `--all` mode | todo |
+| 01 | `make status` also reports unpushed work; `--all` mode | **done** |
 | 02 | per-repo replan — **design undecided**, see open questions | todo |
 | 03 | create `dev-workspace` locally, push it to a new remote | todo |
 | 04 | move the first repos in and register them | todo |
@@ -57,10 +57,16 @@ In order. Acceptance is one line each until these are extracted into files.
 | 07 | strip `project-status` from each migrated repo | todo |
 | 08 | retire `project-status`: hook, umbrella `CLAUDE.md`, the repo | todo |
 
-**01** — extract `delete-repo.py`'s `unsafe_reasons()` into `_status_lib`, have
-`status.sh` report ahead-of-upstream / no-upstream / stashes / detached HEAD
-alongside dirty, and add `--all` to sweep unregistered repos too (honouring
-`.project-status-ignore`). Tests for both modes.
+**01 — done.** `unsafe_reasons()` became `_status_lib.pending_findings()`,
+shared verbatim with `delete-repo` so a report and a refusal cannot disagree.
+`status.sh` was rewritten as `status.py` rather than duplicating the detector in
+bash. Three judgement calls worth keeping: a repo with **no remote at all** reads
+`clean (local-only)` rather than "unpushed", because local-by-design is not
+forgotten work — while `delete-repo` still blocks on it, since "exists nowhere
+else" is what makes a deletion unrecoverable; the **workspace itself is a row**,
+as its own uncommitted plans are the easiest to forget and the routine's
+fast-forward depends on them being pushed; and `--all` sweeps unregistered
+checkouts with no ignore-file yet (see the open question). §8n, 291 assertions.
 
 **02** — blocked on the design question below.
 
@@ -99,6 +105,11 @@ delete `cornjacket/CLAUDE.md` and `gen-umbrella-claude.py`, and archive the
   needs the read-only/draft-only/skip-if-dated guardrails.
 - **C — A by default, `--ai` to enrich.**
 - **D — one call for all repos.** Cheapest LLM option, most fragile.
+
+**Should `--all` honour an ignore file?** `project-status`'s sweep skips repos
+carrying `.project-status-ignore`. The workspace sweep currently has no opt-out,
+on the grounds that an unregistered checkout is exactly what you want flagged.
+Revisit if the floor gets noisy — the hygiene audit will want the same answer.
 
 Either way: **where does a child's task system live?** `<repo>/project/tasks` or
 `<repo>/tasks` depending on how it was stamped — needs a convention or a

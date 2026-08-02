@@ -17,7 +17,7 @@ Run `make` from this directory (the wrapper root) for the full list:
 
 | Command | What it does |
 |---------|--------------|
-| `make status` | branch + clean/dirty for every managed checkout |
+| `make status` | branch + uncommitted/unpushed for every checkout |
 | `make bootstrap` | clone/attach every repo in `.workspace/repos.yml` |
 | `make run` | the full daily status run (uses `claude -p`) |
 | `make pull` | bring the routine's aggregates down (ff-only) |

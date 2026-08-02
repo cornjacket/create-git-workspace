@@ -47,7 +47,7 @@ repo is ignored, so the wrapper can never swallow one.
 │   ├── config.yml            name · git_author(s) · generator_version
 │   ├── repos.yml             membership lockfile (standard | worktree)
 │   ├── status-guide.md       the operating reference the kernel points at
-│   ├── plans/<repo>/…        this developer's daily-plans (per-dev, private)
+│   ├── daily-plans/<repo>/…  this developer's daily plans (per-dev, private)
 │   ├── prompts/…             the summariser prompts fed to `claude -p`
 │   ├── templates/…           the commit kernel injected into child repos
 │   ├── state/…               state.json + dated plan archive (runtime)
@@ -120,9 +120,10 @@ worktrees, so a registry copy of it would drift into a lie.
 make bootstrap    # clone standard repos, then git worktree add worktrees; idempotent
 ```
 
-### 4. Check state — `status.sh` ✅
+### 4. Check state — `status.py` ✅
 ```bash
-make status       # branch + clean/dirty per managed checkout
+make status       # branch + uncommitted/unpushed per checkout
+make status ARGS="--all"   # also sweep unregistered checkouts on the floor
 ```
 
 ### 5. Guard the index — `guard.sh` ✅

@@ -24,46 +24,19 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import _repos_edit as R  # noqa: E402
 from _status_lib import (  # noqa: E402
-    REPOS_YML, WORKSPACE_DIR, WORKSPACE_ROOT, git, load_repos, refresh_readme,
+    REPOS_YML, WORKSPACE_DIR, WORKSPACE_ROOT, git, load_repos, pending_findings,
+    refresh_readme,
 )
 
 
 def unsafe_reasons(d):
-    """Every reason this checkout must not be deleted, as human-readable lines."""
-    reasons = []
+    """Every reason this checkout must not be deleted, as human-readable lines.
 
-    if git(["status", "--porcelain"], cwd=d, check=False).stdout.strip():
-        n = len(git(["status", "--porcelain"], cwd=d, check=False).stdout.strip().splitlines())
-        reasons.append(f"dirty — {n} uncommitted or untracked file(s)")
-
-    if git(["stash", "list"], cwd=d, check=False).stdout.strip():
-        n = len(git(["stash", "list"], cwd=d, check=False).stdout.strip().splitlines())
-        reasons.append(f"stashed — {n} stash entr{'y' if n == 1 else 'ies'} "
-                       f"exist{'s' if n == 1 else ''} only in this checkout")
-
-    branches = [b.strip() for b in git(
-        ["for-each-ref", "--format=%(refname:short)", "refs/heads/"], cwd=d, check=False
-    ).stdout.splitlines() if b.strip()]
-
-    for b in branches:
-        up = git(["rev-parse", "--abbrev-ref", f"{b}@{{upstream}}"], cwd=d, check=False)
-        if up.returncode != 0 or not up.stdout.strip():
-            reasons.append(f"unpushed — branch '{b}' has no upstream")
-            continue
-        ahead = git(["rev-list", "--count", f"{up.stdout.strip()}..{b}"],
-                    cwd=d, check=False).stdout.strip()
-        if ahead and ahead != "0":
-            reasons.append(f"unpushed — branch '{b}' is {ahead} commit(s) ahead of "
-                           f"{up.stdout.strip()}")
-
-    # Detached HEAD: commits reachable only from here are just as lost.
-    head = git(["symbolic-ref", "-q", "HEAD"], cwd=d, check=False)
-    if head.returncode != 0:
-        contained = git(["branch", "-r", "--contains", "HEAD"], cwd=d, check=False).stdout.strip()
-        if not contained:
-            reasons.append("unpushed — detached HEAD is on no remote branch")
-
-    return reasons
+    Deletion blocks on **every** finding, including `local-only` — a repo that
+    exists nowhere else is precisely the one whose removal cannot be undone.
+    `status.py` shares the detector but treats that kind as informational.
+    """
+    return [message for _kind, message in pending_findings(d)]
 
 
 def remove_checkout(repo, d):

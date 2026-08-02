@@ -22,8 +22,8 @@ help: ## show this help
 guide: ## print the operating reference (.workspace/status-guide.md)
 	@cat .workspace/status-guide.md
 
-status: ## branch + clean/dirty for every managed checkout
-	@$(SCRIPTS)/status.sh
+status: ## branch + uncommitted/unpushed for every managed checkout
+	@python3 $(SCRIPTS)/status.py $(ARGS)
 
 bootstrap: ## clone/attach every repo listed in .workspace/repos.yml
 	@$(SCRIPTS)/bootstrap.sh
