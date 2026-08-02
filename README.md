@@ -88,6 +88,19 @@ Zero-diff property: re-running over an up-to-date workspace produces no diff.
 
 ## Testing
 
-Test workspaces are generated into `sandbox/` (git-ignored). The disposable remote
-`cornjacket/git-workspace-test` exercises the push/pull round-trip and is deleted
-afterward. See `PLAN.md` → "Testing".
+```bash
+./tests/run-tests.sh            # full local suite; wipes sandbox/ afterward
+./tests/run-tests.sh --keep     # leave the generated workspaces for inspection
+./tests/run-tests.sh --remote   # additionally run the GitHub round-trip
+```
+
+Every test generates throwaway workspaces into `sandbox/` (git-ignored) — never a
+real repo. The suite covers the emitted tree and allowlist, the generated scripts,
+**zero-diff regeneration**, machinery overwrite + stale pruning, content/runtime
+preservation, all CLAUDE.md injection paths (including malformed markers), the
+version stamp, every refusal path, and a push/ff-only-pull round-trip against a
+local bare remote.
+
+The GitHub round-trip against the disposable `cornjacket/git-workspace-test`
+remote is opt-in (`--remote`) and skips cleanly when the fixture is absent; the
+routine scripts it exercises land in tasks 010–011. See `PLAN.md` → "Testing".

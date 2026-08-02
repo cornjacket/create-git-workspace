@@ -528,8 +528,11 @@ Numbered in **build order** — `001` first, `016` last. The generator skeleton
 - [x] `003` — implement `update.sh` (machinery-only + delegate to create-project-system;
       **zero-diff** regeneration test). *(delegation wired but inert until `006`.)*
 - [x] `004` — `CLAUDE.md` marker-block injection (append when no markers; version echo).
-- [ ] `005` — test harness: `sandbox/` determinism + zero-diff + `git-workspace-test`
-      round-trip + teardown.
+- [x] `005` — test harness: `sandbox/` determinism + zero-diff + `git-workspace-test`
+      round-trip + teardown. *(`tests/run-tests.sh`, 61 assertions; the GitHub
+      round-trip is opt-in `--remote` and still unexercised — the fixture repo
+      does not exist and its scripts land in `010`–`011`. A local bare-remote
+      push/ff-only-pull round-trip stands in.)*
 - [ ] `006` — vendor `create-project-system`; wire `setup.sh --with-tasks` (default)
       + `add-repo`; document re-vendor.
 - [ ] `007` — workspace task-system + `_workspace/daily-plan.md` (aggregated first);

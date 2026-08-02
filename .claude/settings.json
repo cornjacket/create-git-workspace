@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__second-brain__search_second_brain",
+      "mcp__second-brain__get_note",
+      "mcp__second-brain__get_note_template",
+      "mcp__second-brain__list_glossary_terms",
+      "mcp__second-brain__search_pdf_passages",
+      "mcp__second-brain__list_inbox_pdfs",
+      "Bash(git config user.email)",
+      "Bash(git config core.hooksPath)",
+      "Bash(./setup.sh sandbox/*)",
+      "Bash(./update.sh sandbox/*)"
+    ]
+  }
+}
