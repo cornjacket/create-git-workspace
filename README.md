@@ -34,7 +34,7 @@ repo is ignored, so the wrapper can never swallow one.
 ```
 <workspace>/
 ├── CLAUDE.md                 always-on kernel (managed marker-block) + your directives
-├── README.md                 the human front door (content — seeded once)
+├── README.md                 the human front door: generated roster block + your prose
 ├── Makefile                  visible command surface over the hidden scripts
 ├── summary.md                RUNTIME: author-scoped retrospective rollup
 ├── daily-plan-summary.md     RUNTIME: aggregated plans + "At a glance"
@@ -103,6 +103,17 @@ upstream, a stash, or a detached HEAD — and reports every reason at once.
 **`repos.yml` is a lockfile, not a config file you author.** The verbs write it
 as *text*, so its comments and ordering survive; `bootstrap.sh` replays it.
 
+Each verb also refreshes the workspace `README.md`'s **roster block** — the
+tracked repos with a one-line description each, their paths, and whether they are
+muted, skipped, or not checked out on this machine, plus the deliverable links
+and the scheduled routine's status. `add-repo` seeds a repo's description from
+the best available source — `--description`, else the repo's own **GitHub
+description** (`gh repo view`), else the first prose paragraph of its
+`README.md`/`CLAUDE.md` with badges and headings skipped — and stores it in
+`repos.yml`, where you can correct it. `make readme` re-renders by hand, `make readme-check` reports staleness.
+There is no branch column on purpose: a branch is mutable and per-checkout for
+worktrees, so a registry copy of it would drift into a lie.
+
 ### 3. Materialize the working set — `bootstrap.sh` ✅
 ```bash
 make bootstrap    # clone standard repos, then git worktree add worktrees; idempotent
@@ -163,7 +174,7 @@ per-file and independent of whether it sits inside `.workspace/`.
 | **machinery** | `.workspace/scripts/`, `prompts/`, `templates/`, `status-guide.md`, `.claude/skills/workspace-status/`, `.github/workflows/`, `.gitignore`, `Makefile` | write | **overwrite** |
 | **content** | `repos.yml`, `config.yml`, `plans/**`, `README.md`, your tasks | seed if missing | seed if missing; **never overwrite** |
 | **runtime** | `summary.md`, `daily-plan-summary.md`, `.workspace/state/` | — | — |
-| **hybrid** | the `CLAUDE.md` managed block | create-or-inject | replace the block only |
+| **hybrid** | the `CLAUDE.md` managed block, `README.md`'s roster block | create-or-inject | replace the block only |
 | **delegated** | the installed task-system | install | upgrade (its own split) |
 
 The runtime class is what keeps zero-diff honest: `setup`/`update` never race the
@@ -198,15 +209,15 @@ sandbox/                 throwaway generated workspaces (git-ignored)
 ./tests/run-tests.sh --remote   # additionally run the GitHub round-trip
 ```
 
-244 local assertions. Every test generates throwaway workspaces into `sandbox/`
+276 local assertions. Every test generates throwaway workspaces into `sandbox/`
 (git-ignored) — never a real repo. The suite covers the emitted tree and
 allowlist, the generated scripts, **zero-diff regeneration**, machinery overwrite
 + stale pruning, content/runtime preservation, all `CLAUDE.md` injection paths
 (including four malformed-marker shapes), the version stamp, every refusal path,
 the task-system delegation, the status pipeline against a stubbed `claude` on
 `PATH`, the repo verbs, the kernel/guide/skill split, the opt-in extras
-(including a real blocked commit through the installed hook), and a push +
-ff-only-pull round-trip against a local bare remote.
+(including a real blocked commit through the installed hook), the living README
+roster, and a push + ff-only-pull round-trip against a local bare remote.
 
 CI (`.github/workflows/tests.yml`) runs the suite on every push to `main` and
 every PR, so the zero-diff invariant is protected by the repo rather than by

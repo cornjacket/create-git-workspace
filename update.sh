@@ -83,6 +83,11 @@ seed_content_file "$TEMPLATE_DIR/workspace/plans/_workspace/daily-plan.md" \
 
 stamp_generator_version "$target"
 
+# The README roster block. This is how a workspace stamped by an older generator
+# GAINS the block — the renderer is machinery that was just (re)installed above,
+# and it only rewrites between its own markers, so the user's README survives.
+render_readme_block "$target"
+
 # The vendored create-project-system owns the installed task-system's own
 # machinery/content split; delegate its upgrade to it rather than reimplementing.
 # Only upgrade what is already installed — update.sh must never ADD a subsystem

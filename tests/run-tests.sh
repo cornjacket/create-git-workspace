@@ -60,6 +60,7 @@ EXPECTED_TRACKED="\
 .workspace/scripts/mute-repo.py
 .workspace/scripts/new-work.py
 .workspace/scripts/pull.sh
+.workspace/scripts/render-readme.py
 .workspace/scripts/replan.sh
 .workspace/scripts/run.py
 .workspace/scripts/status.sh
@@ -628,10 +629,16 @@ test_aggregation() {
   python3 "$ws/.workspace/scripts/aggregate-plans.py" >/dev/null 2>&1
   assert_grep "a missing plan is reported, not skipped" 'no plan' "$sum"
 
-  # Deliverables are runtime: regeneration must not touch them.
+  # Deliverables are runtime: regeneration must not touch them. Scoped to those
+  # paths on purpose — this fixture hand-writes repos.yml (bypassing the verbs),
+  # so README.md's roster IS legitimately stale and update.sh refreshes it. That
+  # catch-up is asserted below rather than being allowed to look like a leak.
   git -C "$ws" add -A; git -C "$ws" commit -qm "status output"
   "$GEN_ROOT/update.sh" "$ws" >/dev/null 2>&1
-  assert_empty "update.sh leaves the deliverables alone" "$(git -C "$ws" status --porcelain)"
+  assert_empty "update.sh leaves the deliverables alone" \
+    "$(git -C "$ws" status --porcelain -- summary.md daily-plan-summary.md .workspace/state)"
+  assert_grep "...but does refresh a roster stale from a hand-edited repos.yml" \
+    '\*\*childrepo\*\*' "$ws/README.md"
 }
 
 # ---------------------------------------------------------------------------
@@ -1274,6 +1281,149 @@ test_optional_extras() {
 }
 
 # ---------------------------------------------------------------------------
+# 8m. The living README (task 019)
+#
+# README.md is the second hybrid: the generator owns the git-workspace-roster
+# block, the user owns every other byte. The block must track membership without
+# being remembered — so the verbs refresh it — and must stay byte-stable, or
+# zero-diff dies.
+# ---------------------------------------------------------------------------
+test_living_readme() {
+  section "8m. Living README (roster block)"
+  local ws; ws=$(new_ws ws-readme)
+  local rm="$ws/README.md"
+
+  assert_grep "the roster block is emitted"    'git-workspace-roster:begin' "$rm"
+  assert_grep "an empty workspace says so"     'No repos tracked yet'       "$rm"
+  assert_grep "the deliverables are linked"    '\(daily-plan-summary\.md\)' "$rm"
+  assert_grep "the archive is linked"          'state/archive/'             "$rm"
+  assert_grep "an unset routine is called out" 'Not set up yet'             "$rm"
+  assert_no_grep "the seed placeholder is replaced" 'renders here on the first' "$rm"
+
+  # A child repo whose README opens with a badge — the classic false positive.
+  local seed="$SANDBOX/readme-seed"; rm -rf "$seed"; mkdir -p "$seed"
+  git -C "$seed" init -q
+  printf '# alpha\n\n[![build](img.svg)](ci)\n\nAlpha turns webhooks into pizza orders for a demo. Second sentence.\n' \
+    > "$seed/README.md"
+  git -C "$seed" add -A
+  git -C "$seed" -c user.email=t@t -c user.name=t commit -qm init
+
+  ( cd "$ws" && python3 .workspace/scripts/add-repo.py "$seed" --name alpha ) >/dev/null 2>&1
+  assert_grep "add-repo scrapes a description into repos.yml" \
+    'description: "Alpha turns webhooks' "$ws/.workspace/repos.yml"
+  assert_no_grep "...and skips the badge line" 'description: "\[!\[' "$ws/.workspace/repos.yml"
+
+  # GitHub's own description outranks the scrape — a human wrote it *as* a
+  # one-liner. Stubbed on PATH so the suite never touches the network.
+  local ghbin="$SANDBOX/gh-stub"; rm -rf "$ghbin"; mkdir -p "$ghbin"
+  cat > "$ghbin/gh" <<'STUB'
+#!/bin/sh
+[ "$1" = "repo" ] && [ "$2" = "view" ] && { echo "The canonical GitHub blurb."; exit 0; }
+exit 1
+STUB
+  chmod 755 "$ghbin/gh"
+  ( cd "$ws" && PATH="$ghbin:$PATH" python3 .workspace/scripts/add-repo.py "$seed" --name ghrepo ) >/dev/null 2>&1
+  assert_grep "the GitHub description wins over the README scrape" \
+    'description: "The canonical GitHub blurb\."' "$ws/.workspace/repos.yml"
+
+  # gh present but failing (not GitHub, not authed, no description) must fall
+  # through to the scrape rather than leaving the repo undescribed.
+  cat > "$ghbin/gh" <<'STUB'
+#!/bin/sh
+exit 1
+STUB
+  chmod 755 "$ghbin/gh"
+  ( cd "$ws" && PATH="$ghbin:$PATH" python3 .workspace/scripts/add-repo.py "$seed" --name ghfail ) >/dev/null 2>&1
+  assert_grep "a failing gh falls back to the README scrape" \
+    'name: ghfail' "$ws/.workspace/repos.yml"
+  assert_eq "...with the scraped text, not an empty description" "2" \
+    "$(grep -c 'description: "Alpha turns webhooks' "$ws/.workspace/repos.yml" | tr -d ' ')"
+  ( cd "$ws" && python3 .workspace/scripts/delete-repo.py ghrepo ) >/dev/null 2>&1
+  ( cd "$ws" && python3 .workspace/scripts/delete-repo.py ghfail ) >/dev/null 2>&1
+  assert_grep "the roster lists the repo"      '\*\*alpha\*\*'        "$rm"
+  assert_grep "...with its description"        'Alpha turns webhooks' "$rm"
+  assert_no_grep "...and no longer says empty" 'No repos tracked yet' "$rm"
+
+  # An explicit description must survive YAML round-tripping unmangled.
+  ( cd "$ws" && python3 .workspace/scripts/add-repo.py "$seed" --name beta \
+      --description 'Beta: has a colon, a "quote", a #hash and a | pipe.' ) >/dev/null 2>&1
+  assert_grep "--description round-trips through repos.yml" \
+    'a #hash and a' "$ws/.workspace/repos.yml"
+  assert_grep "...and a pipe is escaped so the table survives" \
+    'a \\\| pipe' "$rm"
+
+  # Registered but not checked out: the roster must say so, not omit it.
+  ( cd "$ws" && python3 .workspace/scripts/add-repo.py "$seed" --name gamma --no-clone ) >/dev/null 2>&1
+  assert_grep "an unmaterialized repo is flagged" 'not checked out' "$rm"
+  assert_grep "...with the bootstrap nudge"       'make bootstrap'  "$rm"
+
+  # The verbs keep it in sync without being asked.
+  ( cd "$ws" && python3 .workspace/scripts/mute-repo.py beta ) >/dev/null 2>&1
+  assert_grep "mute-repo refreshes the roster" 'muted' "$rm"
+  ( cd "$ws" && python3 .workspace/scripts/mute-repo.py gamma --skip ) >/dev/null 2>&1
+  assert_grep "--skip shows as skipped" 'skipped' "$rm"
+  ( cd "$ws" && python3 .workspace/scripts/delete-repo.py gamma ) >/dev/null 2>&1
+  assert_no_grep "delete-repo drops the row" 'gamma' "$rm"
+
+  # routine_url turns the nudge into a link.
+  printf 'routine_url: https://claude.ai/code/routines/trig_TEST\n' >> "$ws/.workspace/config.yml"
+  ( cd "$ws" && python3 .workspace/scripts/render-readme.py ) >/dev/null 2>&1
+  assert_grep "a configured routine is linked" 'trig_TEST' "$rm"
+  assert_no_grep "...and the nudge is gone"    'Not set up yet' "$rm"
+
+  # Byte-stability: the whole zero-diff invariant rides on this.
+  local before after
+  before=$(file_hash "$rm")
+  ( cd "$ws" && python3 .workspace/scripts/render-readme.py ) >/dev/null 2>&1
+  after=$(file_hash "$rm")
+  assert_eq "re-rendering is byte-identical" "$before" "$after"
+  ( cd "$ws" && python3 .workspace/scripts/render-readme.py --check ) >/dev/null 2>&1
+  assert_eq "--check passes when current" "0" "$?"
+
+  # The user's own text is content and must survive every render.
+  printf '\n## My notes\n\nDo not lose this.\n' >> "$rm"
+  ( cd "$ws" && python3 .workspace/scripts/add-repo.py "$seed" --name delta ) >/dev/null 2>&1
+  assert_grep "text outside the markers survives a refresh" 'Do not lose this\.' "$rm"
+  assert_grep "...and the new repo still landed"            '\*\*delta\*\*'      "$rm"
+
+  git -C "$ws" add -A; git -C "$ws" commit -qm "roster"
+  "$GEN_ROOT/update.sh" "$ws" >/dev/null 2>&1
+  assert_empty "update.sh over a rendered workspace: still zero diff" \
+    "$(git -C "$ws" status --porcelain)"
+
+  # A README with no markers (an older workspace, or the user's own) gains the
+  # block by APPEND — update.sh is how an existing workspace catches up.
+  local old; old=$(new_ws ws-readme-old)
+  python3 - "$old/README.md" <<'PY'
+import pathlib, re, sys
+p = pathlib.Path(sys.argv[1])
+t = p.read_text()
+i, j = t.find("<!-- git-workspace-roster:begin"), t.find("<!-- git-workspace-roster:end -->")
+p.write_text(t[:i] + t[j + len("<!-- git-workspace-roster:end -->"):])
+PY
+  git -C "$old" add -A; git -C "$old" commit -qm "strip the block"
+  "$GEN_ROOT/update.sh" "$old" >/dev/null 2>&1
+  assert_grep "update.sh back-fills a missing block" 'git-workspace-roster:begin' "$old/README.md"
+  git -C "$old" add -A; git -C "$old" commit -qm "back-filled"
+  "$GEN_ROOT/update.sh" "$old" >/dev/null 2>&1
+  assert_empty "...and settles at zero diff" "$(git -C "$old" status --porcelain)"
+
+  # Malformed markers: refuse to guess, leave the file alone — but do NOT take
+  # the machinery upgrade down with it. A dashboard is not a kernel.
+  local bad; bad=$(new_ws ws-readme-bad)
+  printf '# Mine\n\n<!-- git-workspace-roster:begin -->\nhalf open\n' > "$bad/README.md"
+  before=$(file_hash "$bad/README.md")
+  # No cd needed: the renderer resolves the workspace from its own location, not
+  # from cwd — and `env -C` is not portable to the BSD env on macOS.
+  assert_fails "a half-open block is refused" \
+    python3 "$bad/.workspace/scripts/render-readme.py"
+  assert_eq "...leaving the README untouched" "$before" "$(file_hash "$bad/README.md")"
+  "$GEN_ROOT/update.sh" "$bad" >/dev/null 2>&1
+  assert_eq "...and update.sh still succeeds (warns, does not abort)" "0" "$?"
+  assert_eq "...still untouched afterwards" "$before" "$(file_hash "$bad/README.md")"
+}
+
+# ---------------------------------------------------------------------------
 # 9. Push round-trip against a LOCAL bare remote (no network)
 # ---------------------------------------------------------------------------
 test_local_remote() {
@@ -1434,6 +1584,7 @@ main() {
   test_claude_pipeline
   test_guide_and_skill
   test_optional_extras
+  test_living_readme
   test_local_remote
   test_github_remote
 

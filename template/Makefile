@@ -7,8 +7,9 @@ SCRIPTS := .workspace/scripts
 
 .DEFAULT_GOAL := help
 
-.PHONY: help guide status bootstrap guard hook hook-check replan new-work run run-dry \
-        aggregate pull add-repo delete-repo mute-repo inject-kernel kernel-check
+.PHONY: help guide status bootstrap guard hook hook-check readme readme-check replan \
+        new-work run run-dry aggregate pull add-repo delete-repo mute-repo \
+        inject-kernel kernel-check
 
 help: ## show this help
 	@echo "{{WORKSPACE_NAME}} — workspace commands"
@@ -35,6 +36,12 @@ hook: ## install guard.sh as this clone's pre-commit hook (re-run after a clone)
 
 hook-check: ## report whether the pre-commit hook is installed and current
 	@$(SCRIPTS)/install-hooks.sh --check
+
+readme: ## refresh README.md's roster block from repos.yml + config.yml
+	@python3 $(SCRIPTS)/render-readme.py
+
+readme-check: ## report whether that roster block is stale (writes nothing)
+	@python3 $(SCRIPTS)/render-readme.py --check
 
 replan: ## redraft the workspace daily plan from project/tasks (draft only)
 	@$(SCRIPTS)/replan.sh

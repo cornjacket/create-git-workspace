@@ -66,6 +66,7 @@ real interface and read better for anything with arguments.
 | `make bootstrap` | `bootstrap.sh` | replay `repos.yml` onto this machine: clone every `standard` repo, `git worktree add` every `worktree`. Idempotent |
 | `make guard` | `guard.sh` | fail if a child repo, a `.git` dir, or a worktree `.git` pointer was staged into the wrapper index |
 | `make hook` | `install-hooks.sh` | install `guard.sh` as this clone's pre-commit hook (`hook-check` reports status; `--uninstall` removes it) |
+| `make readme` | `render-readme.py` | refresh `README.md`'s roster block from `repos.yml` + `config.yml` (`readme-check` reports staleness) |
 | `make replan` | `replan.sh` | redraft `.workspace/plans/_workspace/daily-plan.md` from `project/tasks`. **Draft-only** — it writes the file and stops, never commits |
 | `make new-work` | `new-work.py` | what *you* committed per repo since the last run |
 | `make run` | `run.py` | the daily run: summarize → aggregate → advance state, via `claude -p` |
@@ -105,7 +106,34 @@ so its comments and ordering survive.
   from the run entirely. `--unmute` restores both.
 
 `repos.yml` entries also carry `priority`, which orders the "At a glance" table
-in `daily-plan-summary.md`.
+in `daily-plan-summary.md`, and `description` — one line of "what is this repo",
+seeded at registration and shown in `README.md`'s roster. Three sources, best
+first: `add-repo --description "…"`; the repo's own **GitHub description** via
+`gh repo view` (the one field a human already wrote *as* a one-liner); then the
+first prose paragraph of its `README.md`/`CLAUDE.md`, which is a guess. No `gh`,
+not GitHub, or no description set simply falls through.
+
+It is **stored, not re-derived**: a render stays stable when a child edits its
+README, still works for a repo that is registered but not checked out here, and
+a bad guess is fixed by editing that one line.
+
+### The README roster
+
+`README.md` is a **hybrid**, like `CLAUDE.md`: everything outside the
+`git-workspace-roster` markers is yours, and the block between them is generated
+from `repos.yml` + `config.yml`. It lists every tracked repo with its
+description, path, and whether it is muted, skipped, or not checked out on this
+machine; links the deliverables; and reports the scheduled routine.
+
+All three verbs refresh it, so it cannot drift from the registry — a roster you
+have to remember to update is one that is wrong. `make readme` refreshes it by
+hand (after a `routine_url` change, or a `repos.yml` you edited despite the
+warnings), and `update.sh` back-fills the block into a workspace stamped before
+it existed.
+
+It deliberately shows **no branch column**: a branch is mutable and, for a
+worktree, per-checkout — a value copied from the registry would drift into a
+lie. Use `make status` for the live answer.
 
 ## 4. The daily loop — push up, pull down
 
@@ -226,19 +254,22 @@ routine does **not** need it — `auto-merge-status.yml` runs on the default
 
 ## 6. Who writes what
 
-Three classes, and the boundary is what keeps regeneration safe:
+Three classes plus a hybrid, and the boundary is what keeps regeneration safe:
 
 - **machinery** — `.workspace/scripts/`, `.workspace/prompts/`,
   `.workspace/templates/`, this guide, the `workspace-status` skill,
-  `.github/workflows/`, `.gitignore`, `Makefile`, and the managed block in
-  `CLAUDE.md`. The generator overwrites all of it on `update.sh`; edits are lost.
+  `.github/workflows/`, `.gitignore`, `Makefile`. The generator overwrites all of
+  it on `update.sh`; edits are lost.
 - **content** — `.workspace/repos.yml`, `.workspace/config.yml`,
-  `.workspace/plans/**`, `README.md`, your tasks, and anything you write
-  *outside* the `CLAUDE.md` markers. Created if missing, never overwritten.
+  `.workspace/plans/**`, your tasks. Created if missing, never overwritten.
 - **runtime** — `summary.md`, `daily-plan-summary.md`, `.workspace/state/`. The
   daily run owns them. They are committed (they are the durable record), but
   `setup.sh` and `update.sh` never touch them, so a regeneration can never race
   the routine.
+- **hybrid** — `CLAUDE.md` and `README.md`: a generated block inside a file you
+  own. The generator rewrites only what is between the markers
+  (`git-workspace` / `git-workspace-roster`); every other byte is yours and
+  survives every update.
 
 ### The rollup is author-scoped
 

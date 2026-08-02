@@ -23,7 +23,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import _repos_edit as R  # noqa: E402
-from _status_lib import REPOS_YML  # noqa: E402
+from _status_lib import REPOS_YML, refresh_readme  # noqa: E402
 
 
 def main():
@@ -59,6 +59,7 @@ def main():
     R.validate(text)
     REPOS_YML.write_text(text)
     print(f"[mute-repo] {msg}")
+    refresh_readme()
     return 0
 
 

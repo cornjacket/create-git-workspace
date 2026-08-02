@@ -26,6 +26,9 @@ implemented (standing request).
   `.workspace/status/` → `state/`.
 - Documenting `setup.sh --no-status` surfaced that it is accepted but never
   honored → filed as `018`; the README says so rather than implying it works.
+- **Current through `019`.** README.md is now described as a hybrid, the roster
+  block and `description` seeding are documented under the repo verbs, and the
+  assertion count is 276.
 - **Current through `016`/`018`.** Removed the `--no-status` mention, added
   `--create-remote` / `--public` / `--with-hook` and `make hook` to step 5, and
   refreshed the assertion count (244). Implementation-status note now says the

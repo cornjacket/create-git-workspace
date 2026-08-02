@@ -299,6 +299,40 @@ PY
   esac
 }
 
+# render_readme_block <target> — refresh README.md's managed roster block.
+#
+# README.md is the second HYBRID (after CLAUDE.md): the generator owns the
+# git-workspace-roster block, the user owns every other byte. The renderer itself
+# lives in the WORKSPACE (.workspace/scripts/render-readme.py) rather than here,
+# because the membership verbs and `make readme` must run the identical code —
+# same reasoning as install-hooks.sh. This function only invokes it, so both
+# entry points and all three verbs render byte-identical output.
+#
+# Deterministic (it reads repos.yml + config.yml), so re-rendering an unchanged
+# workspace writes nothing and the zero-diff invariant survives.
+render_readme_block() {
+  local target=$1 out rc
+  local script="$target/.workspace/scripts/render-readme.py"
+  [ -f "$script" ] || return 0
+
+  # `out=$(...)` takes the substitution's exit status, so under `set -e` a
+  # non-zero render would abort the caller before the case below could downgrade
+  # it — the exact opposite of the intent. Capture it in an if/else instead.
+  if out=$(python3 "$script" 2>&1); then rc=0; else rc=$?; fi
+  case "$rc" in
+    0) step "hybrid:    README.md — ${out#*] }" ;;
+    3)
+      # Malformed markers: the user's file is in a shape we refuse to guess at.
+      # Warn and carry on — unlike the CLAUDE.md kernel, which carries rules an
+      # agent must obey and therefore aborts, a stale dashboard must never take
+      # down a machinery upgrade.
+      warn "README.md roster block not refreshed:"
+      printf '%s\n' "$out" >&2
+      ;;
+    *) warn "README.md roster render failed (exit $rc):"; printf '%s\n' "$out" >&2 ;;
+  esac
+}
+
 # stamp_generator_version <target> — rewrite the ONE generator-owned key in the
 # otherwise user-owned config.yml.
 #

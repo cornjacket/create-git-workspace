@@ -25,6 +25,11 @@
 #   branch            branch to checkout (standard) / attach the worktree to
 #   parent_repo_path  worktree ONLY — path of the repo the worktree hangs off
 #   tags              freeform labels for filtering (e.g. app, generator)
+#   description       one line of "what is this repo", shown in README.md's
+#                     roster. `add-repo` seeds it from the repo's GitHub
+#                     description, falling back to the first paragraph of its
+#                     README/CLAUDE.md; it is stored (not re-derived) so the
+#                     render is stable and you can correct a bad guess here.
 #
 # Status flags (all optional) — read by the daily status run
 # ----------------------------------------------------------
@@ -44,6 +49,7 @@
 #       path: my-app
 #       type: standard
 #       branch: main
+#       description: The customer-facing web app.
 #       tags: [app]
 #
 #     # ---- worktrees ----

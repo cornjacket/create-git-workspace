@@ -10,6 +10,7 @@ is the replay path — it turns the resulting manifest back into checkouts on a
 new machine.
 """
 import argparse
+import json
 import os
 import re
 import sys
@@ -17,7 +18,10 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import _repos_edit as R  # noqa: E402
-from _status_lib import REPOS_YML, WORKSPACE_DIR, WORKSPACE_ROOT, git  # noqa: E402
+from _status_lib import (  # noqa: E402
+    REPOS_YML, WORKSPACE_DIR, WORKSPACE_ROOT, describe_checkout, describe_remote,
+    git, refresh_readme,
+)
 
 
 def name_from_url(url):
@@ -36,6 +40,10 @@ def main():
     ap.add_argument("--branch", default="main", help="branch to check out (default: main)")
     ap.add_argument("--priority", type=int, help="band, 1 = highest (default: unset -> 3)")
     ap.add_argument("--tags", help="comma-separated labels, e.g. app,generator")
+    ap.add_argument("--description",
+                    help="one line of 'what is this repo' for the README roster "
+                         "(default: the repo's GitHub description, else the "
+                         "first paragraph of its README/CLAUDE.md)")
     ap.add_argument("--no-clone", action="store_true",
                     help="register only; leave the checkout to `make bootstrap`")
     args = ap.parse_args()
@@ -71,12 +79,29 @@ def main():
     elif (dest / ".git").exists():
         print(f"[add-repo] {path} is already checked out — registering it as is")
 
+    # Seeded ONCE, then stored. Re-deriving on every render would make the roster
+    # change whenever a child edits its README, and would come up empty for a repo
+    # that is registered but not checked out here.
+    #
+    # Three sources, best first: what you passed; the repo's own GitHub
+    # description (a human already wrote it *as* a one-liner); then the first
+    # prose paragraph of its README/CLAUDE.md, which is a guess.
+    description = ((args.description or "").strip()
+                   or describe_remote(args.url)
+                   or describe_checkout(dest))
+    if not description:
+        print("[add-repo] no description found — add one to repos.yml "
+              "(or pass --description) so the README roster reads well")
+
     entry = R.render_entry([
         ("name", name),
         ("url", args.url),
         ("path", path),
         ("type", "standard"),
         ("branch", args.branch),
+        # Prose needs quoting: a colon, '#', or quote in a bare scalar is a
+        # YAML syntax error. json.dumps emits a valid double-quoted YAML scalar.
+        ("description", json.dumps(description) if description else None),
         ("priority", args.priority),
         ("tags", f"[{', '.join(t.strip() for t in args.tags.split(','))}]" if args.tags else None),
     ])
@@ -115,6 +140,8 @@ def main():
         elif "already current" not in r.stdout:
             kernel_note = (f"  * Commit the kernel inside the child: cd {path} && "
                            "git add CLAUDE.md && git commit")
+
+    refresh_readme()
 
     print()
     print("Next:")

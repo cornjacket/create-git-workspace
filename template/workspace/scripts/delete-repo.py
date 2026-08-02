@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import _repos_edit as R  # noqa: E402
 from _status_lib import (  # noqa: E402
-    REPOS_YML, WORKSPACE_DIR, WORKSPACE_ROOT, git, load_repos,
+    REPOS_YML, WORKSPACE_DIR, WORKSPACE_ROOT, git, load_repos, refresh_readme,
 )
 
 
@@ -138,6 +138,8 @@ def main():
     elif plan_dir.exists():
         print(f"[delete-repo] kept .workspace/plans/{args.name}/ — it is no longer "
               "aggregated, since only registered repos are")
+
+    refresh_readme()
     return 0
 
 

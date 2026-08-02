@@ -18,6 +18,7 @@ tracker repo:
 import json
 import os
 import subprocess
+import sys
 from datetime import date as _date
 from pathlib import Path
 
@@ -124,6 +125,11 @@ def load_repos():
             "path": r.get("path", name),
             "type": r.get("type", "standard"),
             "branch": r.get("branch", "main"),
+            "parent_repo_path": r.get("parent_repo_path", ""),
+            # One line of "what is this repo", seeded at registration and then
+            # yours. Stored rather than re-scraped so a render is stable and a
+            # bad guess can be corrected by hand.
+            "description": (r.get("description") or "").strip(),
             "enabled": r.get("enabled", True),
             "report_inactivity": r.get("report_inactivity", True),
             # Band, not a rank: ties are expected and fall back to repos.yml
@@ -136,6 +142,154 @@ def load_repos():
 
 def enabled_repos():
     return [r for r in load_repos() if r["enabled"]]
+
+
+# ---------------------------------------------------------------------------
+# Descriptions
+#
+# A repo's one-liner is seeded once, at registration, by reading the child's own
+# prose — and then STORED in repos.yml. Re-scraping on every render would make
+# the README change under you whenever a child edits its README, and would fail
+# outright for a repo that is registered but not checked out on this machine.
+# ---------------------------------------------------------------------------
+DESCRIPTION_MAX = 160
+# Below this a single sentence has usually said nothing ("`foo` is a generator.")
+# — pull in the next one rather than storing a line that carries no signal.
+DESCRIPTION_MIN = 60
+
+
+def summarize_text(text, limit=DESCRIPTION_MAX, floor=DESCRIPTION_MIN):
+    """Leading sentence(s) of `text`, capped at `limit`, cut on a word boundary."""
+    import re
+
+    text = " ".join((text or "").split())
+    if not text:
+        return ""
+    out = ""
+    for sentence in re.split(r"(?<=[.!?])\s+", text):
+        candidate = f"{out} {sentence}".strip()
+        if len(candidate) > limit:
+            if len(out) >= floor:
+                return out
+            cut = candidate[:limit].rsplit(" ", 1)[0]
+            return cut.rstrip(" ,;:—-") + "…"
+        out = candidate
+        if len(out) >= floor:
+            break
+    return out
+
+
+def _is_decoration(line):
+    """True for a badge row: images and links with no prose of their own.
+
+    Badges are the common false positive — `[![build](img)](link)` starts with
+    '[', not '!', so a simple prefix test walks straight past the filter and
+    stores markup as the repo's description. Strip the image/link syntax and ask
+    whether any words survive.
+    """
+    import re
+
+    stripped = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", line)          # ![alt](src)
+    stripped = re.sub(r"\[\s*\]\([^)]*\)", "", stripped)          # []() leftovers
+    return not re.search(r"[A-Za-z]{2}", stripped)
+
+
+def _prose_paragraph(md):
+    """First real prose paragraph of a Markdown doc: no heading, badge, comment,
+    code fence, list, quote, or table row. Those are decoration; we want a
+    sentence a human wrote about the project."""
+    para = []
+    in_fence = in_comment = False
+    for raw in md.splitlines():
+        line = raw.strip()
+        if in_comment:
+            if "-->" in line:
+                in_comment = False
+            continue
+        if line.startswith("<!--"):
+            in_comment = "-->" not in line
+            continue
+        if line.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if not line:
+            if para:
+                break
+            continue
+        if line.startswith(("#", ">", "-", "*", "|", "!", "=")) or _is_decoration(line):
+            if para:
+                break
+            continue
+        para.append(line)
+    return " ".join(para)
+
+
+def refresh_readme():
+    """Re-render README.md's roster block after a membership change.
+
+    Every verb that writes repos.yml calls this, so the README cannot drift from
+    the registry — a roster you have to remember to refresh is one that is
+    wrong. Failures are reported but never fatal: the membership edit already
+    succeeded and must not be rolled back over a dashboard.
+    """
+    script = Path(__file__).resolve().parent / "render-readme.py"
+    if not script.exists():
+        return
+    r = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
+    sys.stdout.write(r.stdout)
+    if r.returncode != 0:
+        sys.stderr.write(r.stderr)
+        sys.stderr.write("       (the membership change itself was written)\n")
+
+
+def describe_remote(url):
+    """GitHub's own one-line description for `url`, or "".
+
+    Preferred over scraping prose, because it is the one field a human already
+    wrote *as* a one-liner — the exact shape the roster wants — instead of a
+    heuristic guess at which paragraph of a README is the summary.
+
+    Returns "" for anything that is not a reachable GitHub repo: no `gh`, not
+    authenticated, not GitHub, or simply no description set. All fall through to
+    the README scrape; none is an error worth interrupting a clone over.
+    """
+    import shutil
+
+    if not url or not shutil.which("gh"):
+        return ""
+    try:
+        r = subprocess.run(
+            ["gh", "repo", "view", url, "--json", "description", "-q", ".description"],
+            capture_output=True, text=True, timeout=20,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    if r.returncode != 0:
+        return ""
+    return summarize_text(r.stdout.strip())
+
+
+def describe_checkout(path):
+    """A one-line description scraped from a checked-out repo, or "".
+
+    README.md first, then CLAUDE.md — README is written for a newcomer, which is
+    exactly the audience of the roster line.
+    """
+    path = Path(path)
+    for candidate in ("README.md", "readme.md", "CLAUDE.md"):
+        f = path / candidate
+        if not f.is_file():
+            continue
+        try:
+            text = f.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        summary = summarize_text(_prose_paragraph(text))
+        if summary:
+            return summary
+    return ""
 
 
 def prebuilt_source_path(name):

@@ -136,6 +136,9 @@ seed_content_file "$TEMPLATE_DIR/workspace/plans/_workspace/daily-plan.md" \
 # generator_version is the one generator-owned key inside that content file.
 stamp_generator_version "$target"
 
+# README.md's roster block — rendered after the content it reads exists.
+render_readme_block "$target"
+
 # ---------------------------------------------------------------------------
 # 5. Remote
 # ---------------------------------------------------------------------------

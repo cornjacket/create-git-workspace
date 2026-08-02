@@ -11,8 +11,14 @@
 #                     git identity to fall back on.
 #   generator_version the create-git-workspace version that stamped this
 #                     workspace (canonical; CLAUDE.md carries a derived echo).
+#   routine_url       OPTIONAL. The Claude /schedule routine that runs the daily
+#                     status job for this workspace. Creating that routine is a
+#                     manual step (status-guide.md §5.1); paste its URL here and
+#                     run `make readme` so the roster block links it instead of
+#                     saying "not set up yet".
 
 name: {{WORKSPACE_NAME}}
 git_author:
   - {{GIT_AUTHOR}}
 generator_version: {{GENERATOR_VERSION}}
+# routine_url: https://claude.ai/code/routines/trig_...

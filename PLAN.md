@@ -62,7 +62,7 @@ Consequences baked into the plan:
           ▼
   <target>/  (the GENERATED git-workspace — manages other repos)
   ├── CLAUDE.md              hybrid: managed block + your content   (visible)
-  ├── README.md              content — links the deliverables        (visible)
+  ├── README.md              hybrid: generated roster + your content (visible)
   ├── summary.md             runtime deliverable                      (visible)
   ├── daily-plan-summary.md  runtime deliverable                      (visible)
   ├── Makefile               command surface (machinery)             (visible)
@@ -125,7 +125,7 @@ live workspace and produce a **zero-line diff** — no `--force`.
 | `.workspace/repos.yml` | **content** | seed if missing | seed if missing²; **never overwrite** |
 | `.workspace/config.yml` | **content** | seed if missing | **leave untouched** except the `generator_version` key¹ |
 | `.workspace/plans/**` | **content** | seed if missing | seed if missing²; **never overwrite** |
-| `README.md` | **content** | seed if missing | seed if missing²; **never overwrite** |
+| `README.md` (roster block) | **hybrid**³ | seed, then render block | **re-render block only** |
 | `.workspace/state/state.json`, `archive/` | **runtime** | — | — |
 | `summary.md`, `daily-plan-summary.md` | **runtime** | — | — |
 
@@ -145,6 +145,18 @@ freezing it at the setup-time value makes it lie after every upgrade. `update.sh
 rewrites **only that line** — the same hybrid rule as `CLAUDE.md`, applied at
 single-line instead of block granularity: the generator owns the key, the user
 owns every other byte of the file. Idempotent, so zero-diff still holds.
+
+³ *Amended in task `019`.* `README.md` started as pure content, which meant it
+described the workspace on the day it was stamped and never again. It is now the
+**second hybrid**: the generator owns a `git-workspace-roster` block (the tracked
+repos with one-line descriptions, the deliverable links, the routine's status),
+the user owns every other byte. The renderer lives in the *workspace*
+(`.workspace/scripts/render-readme.py`, `make readme`) and both entry points plus
+all three membership verbs invoke it, so there is one implementation and the
+roster cannot drift from `repos.yml`. Deterministic, so zero-diff survives. The
+daily run deliberately does **not** call it: membership only changes locally, and
+keeping `README.md` out of `daily.sh`'s commit set preserves the rule that the
+routine and the generator never write the same file.
 
 ² *Amended in task `007`.* The content rule is "never overwrite", **not** "never
 create". `update.sh` seeds a content slot that is *missing* — otherwise a slot
@@ -630,6 +642,11 @@ discovered during the build rather than planned up front. The generator skeleton
 - [x] `017` — **CI**: run the acceptance suite on push/PR (`tests.yml`). *(Not in
       the original breakdown — added once it was clear commits were landing on
       `main` with no automated verification.)*
+- [x] `019` — the generated `README.md` reflects current state: a managed roster
+      block (tracked repos + one-line descriptions from `repos.yml`, deliverable
+      links, routine status). *(Makes `README.md` the second hybrid; `add-repo`
+      seeds each description by scraping the child's own README. No branch
+      column — mutable, and per-checkout for worktrees.)*
 - [x] `018` — `setup.sh --no-status` is accepted but never honored: honor it or
       remove it. *(Surfaced by `015` — the flag had been inert since `002`.
       **Removed**: status is the workspace layer, not an opt-in to it. Also
