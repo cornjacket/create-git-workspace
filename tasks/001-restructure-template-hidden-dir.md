@@ -1,4 +1,4 @@
-# 006 — restructure template into hidden .workspace/ dir
+# 001 — restructure template into hidden .workspace/ dir
 
 Status: blocked (confirm hidden-dir name first — see PLAN.md open question 1)
 

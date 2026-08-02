@@ -1,4 +1,4 @@
-# 002 — implement update.sh
+# 003 — implement update.sh
 
 Status: todo
 

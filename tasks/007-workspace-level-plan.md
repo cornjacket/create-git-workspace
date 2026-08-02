@@ -1,4 +1,4 @@
-# 013 — workspace task-system + daily-plan
+# 007 — workspace task-system + daily-plan
 
 Status: todo
 
@@ -7,7 +7,7 @@ tasks — the triage area for portfolio work with no repo home yet. See PLAN.md
 "Workspace task-system — the triage area".
 
 ## Acceptance
-- Workspace task-system provided by vendored **create-project-system** (task 014),
+- Workspace task-system provided by vendored **create-project-system** (task 006),
   installed into the workspace — same task-system as a tracked repo.
 - Plan slot `.workspace/plans/_workspace/daily-plan.md`, derived from that task
   state (same replan mechanism as per-repo plans).

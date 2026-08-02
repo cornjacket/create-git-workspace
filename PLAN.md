@@ -436,7 +436,7 @@ fully task-tracked workspace with no external generator to fetch.
   it's a *distinct, optional* surface: `project/status/` is hand-written periodic
   reports for **status-review meetings**, whereas the top-level `summary.md` is the
   **automated git-telemetry rollup**. May go unused in a workspace; the status-guide
-  (task 016) must spell out which is which so the two aren't confused.
+  (task 014) must spell out which is which so the two aren't confused.
 
 ### End state: project-status retires
 
@@ -485,7 +485,7 @@ track and retires — by obsolescence, not amputation:
 
 1. ✅ **RESOLVED — Hidden-dir name** = `.workspace/`.
 2. ✅ **RESOLVED — setup.sh remote creation** = local-only default + `--remote <url>`
-   to attach an existing remote; `gh repo create` is an opt-in extra (task 007).
+   to attach an existing remote; `gh repo create` is an opt-in extra (task 016).
 3. ✅ **RESOLVED — git-workspace-test** = persistent local sibling checkout + remote
    (like `second-brain-test`); throwaway, removed when mature. `sandbox/` stays for
    ephemeral determinism tests.
@@ -507,49 +507,33 @@ track and retires — by obsolescence, not amputation:
 
 ## Task breakdown (see `tasks/`)
 
-- [ ] `001` — implement `setup.sh` (create + machinery + seed content, hidden dir).
-- [ ] `002` — implement `update.sh` (machinery-only, zero-diff regeneration test).
-- [ ] `003` — `CLAUDE.md` generation (render `{{WORKSPACE_NAME}}`, version stamp).
-- [ ] `004` — generator `README.md` (how to clone & use create-git-workspace).
-- [ ] `005` — test harness: `sandbox/` generation + zero-diff + `git-workspace-test`
-      remote round-trip + teardown.
-- [ ] `006` — restructure `template/` into `template/workspace/` (hidden-dir layout);
-      fix script `WORKSPACE_ROOT` to `../..`.
-- [ ] `007` — optional: `gh repo create` support, guard pre-commit hook, `Makefile`.
+Numbered in **build order** — `001` first, `016` last. The generator skeleton
+(001–005) comes first; the status subsystem (006–016) builds on the proven base.
 
-### Status subsystem (folds in project-status)
-
-- [ ] `008` — status core: `sync`/`new-work`/`aggregate-plans`/`run`, author-filtered
-      `git log`, `claude -p` prompts (`per-repo`, `polish`), plans under `.workspace/plans/`.
-- [ ] `009` — `add-repo` / `delete-repo` / `mute-repo` verbs (edit `.workspace/repos.yml`;
-      delete refuses a dirty checkout).
+- [ ] `001` — restructure `template/` into `template/workspace/` (hidden `.workspace/`
+      layout); fix script `WORKSPACE_ROOT` to `../..`.
+- [ ] `002` — implement `setup.sh` (create wrapper: machinery, CLAUDE.md block,
+      `config.yml`, `Makefile`; seed content; run tasks by default).
+- [ ] `003` — implement `update.sh` (machinery-only + delegate to create-project-system;
+      **zero-diff** regeneration test).
+- [ ] `004` — `CLAUDE.md` marker-block injection (append when no markers; version echo).
+- [ ] `005` — test harness: `sandbox/` determinism + zero-diff + `git-workspace-test`
+      round-trip + teardown.
+- [ ] `006` — vendor `create-project-system`; wire `setup.sh --with-tasks` (default)
+      + `add-repo`; document re-vendor.
+- [ ] `007` — workspace task-system + `_workspace/daily-plan.md` (aggregated first);
+      triage/graduate flow.
+- [ ] `008` — status core: `sync`/`new-work`/`aggregate`/`run`, author-scoped `git log`,
+      `claude -p` prompts; plans under `.workspace/plans/`.
+- [ ] `009` — `add-repo` / `delete-repo` (refuses dirty) / `mute-repo` verbs.
 - [ ] `010` — remote routine: `daily.sh` + `auto-merge-status.yml` + `claude.yml`
-      workflows + `.workspace/config.yml` (name, git_author, version).
-- [ ] `011` — local morning trigger: `pull.sh` (`git pull --ff-only`, notify-on-decline)
-      + cron/launchd/SessionStart wiring.
-- [ ] `012` — child commit-kernel injection (marker block into each child `CLAUDE.md`),
-      folded from project-status's `setup-new-repo.sh`; drop the daily-plan half.
-- [ ] `013` — workspace-level plan + task-system: `_workspace/daily-plan.md` slot
-      (aggregated first), backed by the workspace task-system; triage/graduate flow.
-- [ ] `014` — vendor `create-project-system` into `create-git-workspace`; wire
-      `setup.sh --with-tasks` (default) + `add-repo` to run it; document re-vendor.
-- [ ] `015` — status-pipeline tests: exercise the deterministic status layer with
-      `claude -p` **stubbed** (project-status's `--dry-run` approach) — classification,
-      author-scoped `git log`, aggregation, ff-only pull; not just wrapper mechanics.
-- [ ] `016` — on-demand status guide/skill: the durable home for the routine-setup
-      directions (create `/schedule`, manage `sources`, daily loop, verbs). Always-on
-      `CLAUDE.md` block carries only a one-line pointer to it.
-
-### Build order
-
-Critical path (tasks aren't listed in build order):
-1. **`006` restructure → `001` setup → `002` update** — the generator skeleton;
-   everything composes on this.
-2. **`003` CLAUDE.md injection + `005` test harness** — lock the zero-diff
-   discipline early.
-3. **`014` vendor → `013` workspace tasks**, then the status subsystem
-   (`008`–`012`, `015`, `016`) — the biggest, riskiest chunk, built last on a
-   proven base. `004` README + `007` extras fill in alongside.
+      + `.workspace/config.yml`.
+- [ ] `011` — local morning trigger: `pull.sh` (ff-only, notify-on-decline) + wiring.
+- [ ] `012` — child commit-kernel injection (commit-discipline only).
+- [ ] `013` — status-pipeline tests (`claude -p` stubbed).
+- [ ] `014` — on-demand status guide/skill (durable home for routine-setup directions).
+- [ ] `015` — generator `README.md` (keep in sync as steps land).
+- [ ] `016` — optional extras: `gh repo create`, guard pre-commit hook.
 
 ---
 

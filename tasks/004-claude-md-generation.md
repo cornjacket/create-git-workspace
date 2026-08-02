@@ -1,4 +1,4 @@
-# 003 — CLAUDE.md marker-block injection
+# 004 — CLAUDE.md marker-block injection
 
 Status: todo
 
