@@ -5,6 +5,10 @@ Status: done (2026-08-01) — task-system install deferred to 006 (warns + skips
 Create `setup.sh <target-dir> [--name NAME] [--author EMAIL] [--remote URL] [--no-tasks] [--no-status]`
 that stamps out a new git-workspace from `template/`. Full-featured by default.
 
+> **Superseded in `018`:** `--no-status` was never honored and has been removed.
+> The status subsystem is the workspace layer, not something a workspace opts
+> into. This line is left as written for the record.
+
 ## Acceptance
 - Refuses to run over an existing workspace (has `.workspace/`) unless `--force`
   (points to `update.sh`).

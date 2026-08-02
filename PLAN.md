@@ -196,9 +196,18 @@ substituted.
 
 ## `setup.sh` — create a new git-workspace
 
-**Usage (proposed):** `./setup.sh <target-dir> [--name NAME] [--author EMAIL] [--remote URL] [--no-tasks] [--no-status]`
-(Full-featured by default; `--no-tasks` / `--no-status` opt out. `--with-tasks`
-runs the vendored `create-project-system`.)
+**Usage:** `./setup.sh <target-dir> [--name NAME] [--author EMAIL] [--remote URL] [--no-tasks] [--no-commit] [--force]`
+(Full-featured by default; `--no-tasks` opts out of the delegated task-system.)
+
+> **Amended in `018`.** The proposed `--no-status` is **gone**. Status is not a
+> layer a workspace opts into — it *is* the workspace layer ("each workspace
+> intrinsically carries what project-status did", below), so the opt-out had no
+> coherent meaning. It shipped in `002` as a parsed-but-inert flag that printed
+> "skipped" and installed the subsystem anyway; an unknown-option error is more
+> honest. `--no-tasks` stays because the task-system is a *separate, delegated*
+> generator with its own split. Re-adding a status-free variant later means
+> threading the opt-out through the emitted tree, allowlist, `Makefile`, kernel,
+> guide, and `EXPECTED_TRACKED` — a deliberate slice of work, not a flag.
 
 1. Resolve `<target-dir>`; refuse if it already looks like a workspace (has
    `.workspace/`) unless `--force` — point at `update.sh` instead.
@@ -608,8 +617,11 @@ discovered during the build rather than planned up front. The generator skeleton
 - [x] `017` — **CI**: run the acceptance suite on push/PR (`tests.yml`). *(Not in
       the original breakdown — added once it was clear commits were landing on
       `main` with no automated verification.)*
-- [ ] `018` — `setup.sh --no-status` is accepted but never honored: honor it or
-      remove it. *(Surfaced by `015` — the flag has been inert since `002`.)*
+- [x] `018` — `setup.sh --no-status` is accepted but never honored: honor it or
+      remove it. *(Surfaced by `015` — the flag had been inert since `002`.
+      **Removed**: status is the workspace layer, not an opt-in to it. Also
+      fixed setup.sh's closing print, which still told you to hand-edit
+      `repos.yml` — the one thing the kernel forbids.)*
 
 ---
 

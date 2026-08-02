@@ -375,6 +375,18 @@ test_refusals() {
     "$GEN_ROOT/setup.sh" "$SANDBOX/ws-badname" --name 'bad name/x'
   assert_no_file "...and leaves no stray directory behind" "$SANDBOX/ws-badname"
 
+  # --no-status was removed in 018 (status IS the workspace layer, not an opt-in).
+  # A flag that prints "skipped" and installs the subsystem anyway is worse than
+  # no flag, so the removal is pinned: it must ERROR, not be silently ignored.
+  rm -rf "$SANDBOX/ws-nostatus"
+  assert_fails "setup.sh rejects the removed --no-status flag" \
+    "$GEN_ROOT/setup.sh" "$SANDBOX/ws-nostatus" --name ws-nostatus --no-status
+  assert_no_file "...and stamps nothing when it does" "$SANDBOX/ws-nostatus"
+  local help="$SANDBOX/setup-help.txt"
+  "$GEN_ROOT/setup.sh" --help > "$help" 2>&1
+  assert_no_grep "--no-status is gone from the usage text" '\-\-no-status' "$help"
+  assert_grep    "...while --no-tasks, which IS honored, remains" '\-\-no-tasks' "$help"
+
   # A rename must not rewrite the workspace name: it comes from config.yml.
   local renamed="$SANDBOX/ws-renamed"
   rm -rf "$renamed"; mv "$ws" "$renamed"

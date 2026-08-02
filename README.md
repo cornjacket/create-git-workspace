@@ -63,7 +63,7 @@ and `.workspace/status-guide.md` holding the procedure exactly once.
 ### 1. Generate a workspace — `setup.sh` ✅
 ```bash
 ./setup.sh <target-dir> [--name NAME] [--author EMAIL] [--remote URL]
-                        [--no-tasks] [--no-status] [--no-commit] [--force]
+                        [--no-tasks] [--no-commit] [--force]
 ```
 Creates the wrapper, `git init`s it, writes the machinery, seeds the content
 (`repos.yml`, `config.yml`, plans, `README.md`), injects the managed `CLAUDE.md`
@@ -73,7 +73,11 @@ makes the initial commit.
 `--author` seeds `git_author` in `config.yml`, falling back to
 `git config user.email`; if neither resolves it writes a placeholder and warns
 loudly, and the status run later **refuses to start** rather than produce an
-empty rollup. `--no-status` currently only records the intent (see `tasks/018`).
+empty rollup.
+
+There is no `--no-status`: the status subsystem is not a layer a workspace opts
+into, it *is* the workspace layer. The task-system is optional (`--no-tasks`)
+because it is a separate, delegated generator.
 
 ### 2. Add / remove / mute repos ✅
 ```bash

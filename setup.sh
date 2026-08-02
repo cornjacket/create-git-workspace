@@ -21,7 +21,6 @@ usage: setup.sh <target-dir> [options]
                   (default: git config user.email)
   --remote URL    git remote add origin URL
   --no-tasks      skip installing the task-system (project/tasks)
-  --no-status     skip the status subsystem
   --no-commit     leave the generated files uncommitted
   --force         proceed even if <target-dir> already looks like a workspace
   -h, --help      show this
@@ -32,15 +31,21 @@ EOF
 # Arguments
 # ---------------------------------------------------------------------------
 target=""; name=""; author=""; remote=""
-with_tasks=1; with_status=1; do_commit=1; force=0
+with_tasks=1; do_commit=1; force=0
 
+# There is deliberately no --no-status. The status subsystem is not a layer a
+# workspace opts into — it IS the workspace layer (PLAN: "each workspace
+# intrinsically carries what project-status did"). The flag existed from 002 to
+# 018 and was never honored; an unknown-option error is more honest than a
+# switch that prints "skipped" and installs the subsystem anyway. If a
+# status-free wrapper ever becomes a real use case, add it back deliberately,
+# with the emitted tree, allowlist, Makefile, kernel, and tests all threaded.
 while [ $# -gt 0 ]; do
   case "$1" in
     --name)     name=${2:-}; shift 2 || die "--name needs a value" ;;
     --author)   author=${2:-}; shift 2 || die "--author needs a value" ;;
     --remote)   remote=${2:-}; shift 2 || die "--remote needs a value" ;;
     --no-tasks)  with_tasks=0; shift ;;
-    --no-status) with_status=0; shift ;;
     --no-commit) do_commit=0; shift ;;
     --force)     force=1; shift ;;
     -h|--help)  usage; exit 0 ;;
@@ -125,12 +130,6 @@ else
   step "tasks:     skipped (--no-tasks)"
 fi
 
-if [ "$with_status" -eq 0 ]; then
-  step "status:    skipped (--no-status)"
-fi
-# NOTE: the status subsystem (scripts, prompts, workflows) lands in tasks 008-010;
-# until then --no-status only records the intent.
-
 # ---------------------------------------------------------------------------
 # 7. Initial commit — makes the zero-diff regeneration test meaningful
 # ---------------------------------------------------------------------------
@@ -174,14 +173,16 @@ $(printf '%b' "$_B")Workspace '$name' is ready.$(printf '%b' "$_X")
 
 Next:
   1. cd $target
-  2. Edit .workspace/repos.yml — add the repos/worktrees this workspace manages.
-  3. make bootstrap    # clone/attach them
-     make status       # verify
+  2. make add-repo ARGS="<url>"   # register + clone each repo this manages
+     (repos.yml is a lockfile the verbs write — do not hand-edit it)
+  3. make status                  # verify
+     make                         # list every command
 
 Two steps the generator cannot do for you (the routine seams):
-  * Create the Claude /schedule routine and point it at the daily status script.
+  * Create the Claude /schedule routine and point it at .workspace/scripts/daily.sh.
   * Add every tracked repo to that routine's 'sources' pre-clone list, or the
     remote run cannot read its git log.
+  Both are written up in .workspace/status-guide.md (section 5).
 EOF
 
 if [ "$author" = "$AUTHOR_PLACEHOLDER" ]; then
