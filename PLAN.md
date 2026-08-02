@@ -572,8 +572,9 @@ discovered during the build rather than planned up front. The generator skeleton
       *(`delete-repo` also refuses unpushed branches, no-upstream branches,
       stashes, and a detached HEAD; `repos.yml` is edited as text so its
       comments survive.)*
-- [ ] `010` — remote routine: `daily.sh` + `auto-merge-status.yml` + `claude.yml`
-      + `.workspace/config.yml`.
+- [x] `010` — remote routine: `daily.sh` + `auto-merge-status.yml` + `claude.yml`
+      + `.workspace/config.yml`. *(`daily.sh` commits explicit routine-owned
+      paths, never `git add -A`, so it cannot sweep up your working edits.)*
 - [ ] `011` — local morning trigger: `pull.sh` (ff-only, notify-on-decline) + wiring.
 - [ ] `012` — child commit-kernel injection (commit-discipline only).
 - [ ] `013` — status-pipeline tests (`claude -p` stubbed).

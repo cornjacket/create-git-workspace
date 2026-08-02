@@ -47,15 +47,33 @@ The scripts themselves live in `.workspace/scripts/`. The wrapper manages the
 *set* of repos; do real code work inside the owning child repo, from a session
 rooted there.
 
-## Setting up the daily routine (two manual steps)
+## Setting up the daily routine (manual steps)
 
-The generator emits the machinery but cannot install the remote routine for you:
+The generator emits every piece of machinery, but three steps need you:
 
 1. **Create the Claude `/schedule` routine** — a one-time interactive step in the
    Claude app. Point it at `.workspace/scripts/daily.sh`.
 2. **Add every tracked repo to the routine's `sources`** — the remote sandbox has
    no checkouts of its own, so a repo missing from that pre-clone list cannot
    have its git log read. `add-repo` reprints this reminder each time.
+3. **Set the `CLAUDE_CODE_OAUTH_TOKEN` repository secret** if you want to mention
+   `@claude` on issues and PRs here (`.github/workflows/claude.yml`). The daily
+   routine does not need it.
+
+### How the push side works
+
+The routine cannot commit to `main` directly: the GitHub App identity it runs
+under is blocked from pushing to the default branch, and the error it produces is
+a misleading "non-fast-forward". So `daily.sh` pushes `auto/status-YYYY-MM-DD`,
+and `.github/workflows/auto-merge-status.yml` fast-forwards that onto `main` and
+deletes it.
+
+`daily.sh` commits **only** `summary.md`, `daily-plan-summary.md`, and
+`.workspace/state/` — never your plans, `repos.yml`, or a child repo. Your
+in-progress edits stay in the working tree where you left them.
+
+Keep the fast-forward clean by pushing your own workspace edits *before* the
+routine runs, so remote `main` is your commits with the rollup on top.
 
 ## This file is yours
 

@@ -69,6 +69,12 @@ The status subsystem (Python, run via `make`):
 - `aggregate-plans.py` — rebuild `daily-plan-summary.md` from `.workspace/plans/`.
 - `sync.py` — report which repos are readable. Read-only; it never clones.
 - `_status_lib.py` — shared config/membership/git-telemetry helpers.
+- `daily.sh` — the scheduled REMOTE routine's entry point. Runs the pipeline,
+  then commits **only** `summary.md`, `daily-plan-summary.md`, and
+  `.workspace/state/` onto a dated side branch `auto/status-YYYY-MM-DD` and
+  pushes it. The side branch exists because the routine's GitHub App identity
+  cannot push to the default branch; `.github/workflows/auto-merge-status.yml`
+  fast-forwards it onto `main`. It never commits your plans or `repos.yml`.
 
 ### The rollup is author-scoped
 

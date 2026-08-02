@@ -38,6 +38,8 @@ done
 # re-vendor look like a regression in our tree. `ours()` filters them out and
 # test_task_system asserts them by contract instead.
 EXPECTED_TRACKED="\
+.github/workflows/auto-merge-status.yml
+.github/workflows/claude.yml
 .gitignore
 .workspace/config.yml
 .workspace/plans/_workspace/daily-plan.md
@@ -49,6 +51,7 @@ EXPECTED_TRACKED="\
 .workspace/scripts/add-repo.py
 .workspace/scripts/aggregate-plans.py
 .workspace/scripts/bootstrap.sh
+.workspace/scripts/daily.sh
 .workspace/scripts/delete-repo.py
 .workspace/scripts/guard.sh
 .workspace/scripts/lib.sh
@@ -705,6 +708,91 @@ test_repo_verbs() {
 }
 
 # ---------------------------------------------------------------------------
+# 8g. The remote status routine (daily.sh + the side-branch dance)
+# ---------------------------------------------------------------------------
+test_daily_routine() {
+  section "8g. Remote status routine (daily.sh)"
+  local bare="$SANDBOX/origin-daily.git"
+  rm -rf "$bare"; git init -q --bare "$bare"
+  local ws; ws=$(new_ws ws-daily --remote "$bare")
+  git -C "$ws" push -q -u origin main
+
+  assert_file "auto-merge workflow is emitted" "$ws/.github/workflows/auto-merge-status.yml"
+  assert_file "claude workflow is emitted"     "$ws/.github/workflows/claude.yml"
+
+  # A child repo with one of the developer's commits, so the run has work to do.
+  mkdir -p "$ws/child"; git -C "$ws/child" init -q
+  echo x > "$ws/child/f.txt"; git -C "$ws/child" add -A
+  git -C "$ws/child" -c user.email="$TEST_AUTHOR" -c user.name=Dev commit -qm "feat(x): work
+
+- [Context]: give the routine something to summarize.
+- [Impact]: adds f.txt."
+  cat > "$ws/.workspace/repos.yml" <<'YML'
+repos:
+  - name: child
+    url: git@github.com:cornjacket/child.git
+    path: child
+    type: standard
+    branch: main
+YML
+  git -C "$ws" add -A; git -C "$ws" commit -qm "register child"; git -C "$ws" push -q origin main
+
+  # Leave uncommitted edits lying around: a routine that swept these up would
+  # commit the developer's half-finished work behind their back.
+  echo "# my in-progress plan edit" >> "$ws/.workspace/plans/_workspace/daily-plan.md"
+
+  ( cd "$ws" && ./.workspace/scripts/daily.sh --dry-run ) >/dev/null 2>&1
+  local branch; branch="auto/status-$(date -u +%Y-%m-%d)"
+
+  assert_eq "the run pushes a dated side branch" "$branch" \
+    "$(git -C "$ws" rev-parse --abbrev-ref HEAD)"
+  case "$(git -C "$bare" for-each-ref --format='%(refname:short)' refs/heads/)" in
+    *"$branch"*) ok "the side branch reached origin" ;;
+    *) bad "the side branch reached origin" "not found on the remote" ;;
+  esac
+
+  # Only the routine's own files, and it must be a fast-forward or the
+  # auto-merge workflow (--ff-only) would fail.
+  local committed; committed=$(git -C "$ws" show --pretty=format: --name-only HEAD | grep -v '^$' | sort | tr '\n' ' ')
+  assert_eq "it commits exactly the routine-owned files" \
+    ".workspace/state/archive/$(date +%Y-%m-%d).md .workspace/state/state.json daily-plan-summary.md summary.md " \
+    "$committed"
+  assert_grep "the developer's plan edit is still uncommitted" \
+    '# my in-progress plan edit' "$ws/.workspace/plans/_workspace/daily-plan.md"
+  case "$(git -C "$ws" status --porcelain)" in
+    *"plans/_workspace/daily-plan.md"*) ok "...and shows as a working-tree change" ;;
+    *) bad "...and shows as a working-tree change" "the routine swept it up" ;;
+  esac
+
+  if git -C "$ws" merge-base --is-ancestor origin/main HEAD; then
+    ok "the side branch fast-forwards onto main"
+  else
+    bad "the side branch fast-forwards onto main" "auto-merge --ff-only would fail"
+  fi
+
+  # A second run the same day must reuse the branch, not die on "already exists".
+  echo y >> "$ws/child/f.txt"; git -C "$ws/child" add -A
+  git -C "$ws/child" -c user.email="$TEST_AUTHOR" -c user.name=Dev commit -qm "feat(x): more
+
+- [Context]: second run.
+- [Impact]: more."
+  if ( cd "$ws" && ./.workspace/scripts/daily.sh --dry-run ) >/dev/null 2>&1; then
+    ok "a same-day re-run reuses the branch"
+  else
+    bad "a same-day re-run reuses the branch" "daily.sh failed on the second run"
+  fi
+
+  # Running the Python scripts drops bytecode inside the tracked control plane.
+  assert_file "running the scripts creates __pycache__" "$ws/.workspace/scripts/__pycache__"
+  case "$(git -C "$ws" status --porcelain)" in
+    *__pycache__*) bad "bytecode is ignored, not tracked" "__pycache__ showed up in git status" ;;
+    *) ok "bytecode is ignored, not tracked" ;;
+  esac
+  assert_eq "no bytecode was ever committed" "0" \
+    "$(git -C "$ws" ls-files | grep -c pycache)"
+}
+
+# ---------------------------------------------------------------------------
 # 9. Push round-trip against a LOCAL bare remote (no network)
 # ---------------------------------------------------------------------------
 test_local_remote() {
@@ -859,6 +947,7 @@ main() {
   test_status_subsystem
   test_aggregation
   test_repo_verbs
+  test_daily_routine
   test_local_remote
   test_github_remote
 

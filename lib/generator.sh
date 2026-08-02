@@ -125,6 +125,25 @@ install_machinery() {
   done
   step "machinery: .workspace/prompts/"
 
+  # Workflows are stored as template/github/ (no leading dot) so they stay inert
+  # inside the generator repo, then land at .github/ in the workspace — the same
+  # trick as template/gitignore.
+  mkdir -p "$target/.github/workflows"
+  for f in "$TEMPLATE_DIR/github/workflows/"*.yml; do
+    [ -f "$f" ] || continue
+    base=$(basename "$f")
+    render "$f" "$target/.github/workflows/$base" "$name"
+    chmod 644 "$target/.github/workflows/$base"
+  done
+  for f in "$target/.github/workflows/"*.yml; do
+    [ -f "$f" ] || continue
+    base=$(basename "$f")
+    [ -e "$TEMPLATE_DIR/github/workflows/$base" ] || {
+      rm -f "$f"; step "machinery: removed stale .github/workflows/$base"
+    }
+  done
+  step "machinery: .github/workflows/"
+
   render "$TEMPLATE_DIR/gitignore" "$target/.gitignore" "$name"
   chmod 644 "$target/.gitignore"
   step "machinery: .gitignore (allowlist)"
