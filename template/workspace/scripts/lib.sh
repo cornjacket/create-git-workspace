@@ -2,9 +2,11 @@
 # lib.sh — shared helpers for the Meta-State Workspace Wrapper scripts.
 # Source this; do not execute it.
 
-# Absolute path to the workspace root (the dir that contains this scripts/ dir).
-WORKSPACE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-REPOS_YML="${REPOS_YML:-$WORKSPACE_ROOT/repos.yml}"
+# These scripts live at <workspace>/.workspace/scripts/, so the workspace root is
+# TWO levels up, not one. WORKSPACE_DIR is the hidden control plane itself.
+WORKSPACE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORKSPACE_ROOT="$(cd "$WORKSPACE_DIR/.." && pwd)"
+REPOS_YML="${REPOS_YML:-$WORKSPACE_DIR/repos.yml}"
 
 # parse_repos — emit one TAB-separated record per repo, in a fixed field order:
 #   name  type  path  branch  parent_repo_path  url  tags(csv)

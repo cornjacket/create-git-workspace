@@ -56,4 +56,4 @@ while IFS=$'\t' read -r name type path branch parent url tags; do
   git -C "$parent_dir" worktree add "$dest" "$branch"
 done < <(parse_repos)
 
-log "Bootstrap complete. Run scripts/status.sh to verify."
+log "Bootstrap complete. Run .workspace/scripts/status.sh to verify."

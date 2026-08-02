@@ -1,8 +1,8 @@
 # repos.yml — Meta-State Workspace membership registry
 #
 # The single source of truth for *what repos physically live in this workspace*.
-# `scripts/bootstrap.sh` reconstitutes the whole workspace from this file; it is
-# also the roster `scripts/status.sh` and `scripts/guard.sh` iterate over.
+# `.workspace/scripts/bootstrap.sh` reconstitutes the whole workspace from this
+# file; it is also the roster `status.sh` and `guard.sh` iterate over.
 #
 # Each entry is one managed checkout. Two kinds:
 #

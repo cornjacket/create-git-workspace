@@ -510,7 +510,7 @@ track and retires — by obsolescence, not amputation:
 Numbered in **build order** — `001` first, `016` last. The generator skeleton
 (001–005) comes first; the status subsystem (006–016) builds on the proven base.
 
-- [ ] `001` — restructure `template/` into `template/workspace/` (hidden `.workspace/`
+- [x] `001` — restructure `template/` into `template/workspace/` (hidden `.workspace/`
       layout); fix script `WORKSPACE_ROOT` to `../..`.
 - [ ] `002` — implement `setup.sh` (create wrapper: machinery, CLAUDE.md block,
       `config.yml`, `Makefile`; seed content; run tasks by default).
