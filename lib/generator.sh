@@ -8,7 +8,7 @@
 # each rendered their own copy, they would drift and `update.sh` would produce a
 # diff on an already-current workspace.
 #
-# Three file classes (see PLAN.md):
+# Three file classes (see DESIGN.md §7.3):
 #   machinery — generator-owned, always overwritten     (install_machinery)
 #   content   — user-owned, seeded if missing only      (seed_content_file)
 #   runtime   — routine-owned, never touched here       (no function; by design)

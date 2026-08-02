@@ -63,3 +63,9 @@ that stamps out a new git-workspace from `template/`. Full-featured by default.
 - Content is never overwritten: a hand-edited `repos.yml` survives a re-run.
 - `--author` / `--remote` / default-name-from-basename / refusal without
   `--force` / invalid name rejected before any directory is created.
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [x] `002` — implement `setup.sh` (create wrapper: machinery, CLAUDE.md block, `config.yml`, `Makefile`; seed content; run tasks by default). *(task-system install deferred to `006`; setup warns and skips.)*

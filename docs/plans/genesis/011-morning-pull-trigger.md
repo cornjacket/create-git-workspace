@@ -55,3 +55,9 @@ Up-to-date exits 0; a routine-landed rollup fast-forwards and the script names
 `summary.md` as arriving; being purely ahead exits 1 and prints the exact
 `git push` to run; a diverged history exits 1, leaves local HEAD untouched, and
 creates **no merge commit**; a workspace with no origin exits 2.
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [x] `011` — local morning trigger: `pull.sh` (ff-only, notify-on-decline) + wiring. *(three exit codes — 0 advanced, 1 declined, 2 misconfigured — so a trigger can alert on breakage without nagging about unpushed work.)*

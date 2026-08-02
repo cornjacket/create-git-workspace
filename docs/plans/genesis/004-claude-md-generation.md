@@ -42,3 +42,9 @@ machinery — see PLAN.md "CLAUDE.md: marker-block injection".
 - No `{{PLACEHOLDER}}` survives; `{{WORKSPACE_NAME}}` lands in the layout tree.
 - Block content covers wrapper role, hidden `.workspace/` layout, all four
   scripts, and both worktree rules (`cd` into the target; `[ -e .git ]`).
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [x] `004` — `CLAUDE.md` marker-block injection (append when no markers; version echo).

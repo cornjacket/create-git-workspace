@@ -84,3 +84,9 @@ was checking `git status` wholesale. That fixture hand-writes `repos.yml`, so th
 roster is legitimately stale and `update.sh` legitimately refreshes it. Narrowed
 the assertion to the runtime paths it was actually about, and added one asserting
 the catch-up happens — the behaviour is now pinned instead of looking like a leak.
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [x] `019` — the generated `README.md` reflects current state: a managed roster block (tracked repos + one-line descriptions from `repos.yml`, deliverable links, routine status). *(Makes `README.md` the second hybrid; `add-repo` seeds each description by scraping the child's own README. No branch column — mutable, and per-checkout for worktrees.)*

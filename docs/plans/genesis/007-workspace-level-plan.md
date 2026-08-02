@@ -64,3 +64,9 @@ written.
 must honor it (`aggregate-plans`) is `008`. Building half an aggregator here
 would have duplicated it. Per-repo plan slots (`.workspace/plans/<repo>/`) land
 there too; `replan.sh` is written to grow a `--repo` flag.
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [x] `007` — workspace task-system + `_workspace/daily-plan.md` (aggregated first); triage/graduate flow. *(plan slot + `replan.sh` + triage docs landed; "aggregated first" is an ordering contract the aggregator in `008` implements.)*

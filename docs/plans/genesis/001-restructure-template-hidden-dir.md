@@ -26,3 +26,9 @@ shows only CLAUDE.md / README / child repos.
 - The allowlist keeps `!/.gitignore` (PLAN's layout listing omits it): `/*` matches
   the `.gitignore` itself, so without the `!` line the allowlist would never be
   committed into a fresh workspace.
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [x] `001` — restructure `template/` into `template/workspace/` (hidden `.workspace/` layout); fix script `WORKSPACE_ROOT` to `../..`.

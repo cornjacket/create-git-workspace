@@ -67,3 +67,9 @@ See PLAN.md "Vendoring create-project-system".
 - A real task created via `new-user-task.sh` survives `update.sh`.
 - `--no-tasks` installs nothing, and `update.sh` does not add it later — update
   upgrades what is installed, it never adds a subsystem the user declined.
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [x] `006` — vendor `create-project-system`; wire `setup.sh --with-tasks` (default) + `add-repo`; document re-vendor. *(`add-repo` half deferred to `009`, which is where that verb is built.)*

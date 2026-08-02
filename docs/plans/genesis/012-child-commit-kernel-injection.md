@@ -59,3 +59,9 @@ workspace/developer name in the block; left uncommitted in the child, which
 still has only its own commit; re-injection byte-identical; `--check` passes when
 current and fails on drift; `--all` refreshes a mangled block while keeping the
 repo's own text.
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [x] `012` — child commit-kernel injection (commit-discipline only). *(marker `git-workspace-commits`, distinct from project-status's block so both can coexist during migration; the kernel names no workspace or developer, since it is committed to a shared repo.)*

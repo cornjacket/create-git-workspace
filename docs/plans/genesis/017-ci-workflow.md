@@ -38,3 +38,9 @@ two real, different hashes).
 only with `--keep`). The generated workspaces are the evidence; wiping them
 forces a local reproduction to see what broke. This is what makes the CI
 artifact upload useful.
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [x] `017` — **CI**: run the acceptance suite on push/PR (`tests.yml`). *(Not in the original breakdown — added once it was clear commits were landing on `main` with no automated verification.)*

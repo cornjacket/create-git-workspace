@@ -68,3 +68,9 @@ Fixture: a child repo with two commits by the test author and one by a teammate.
 - Aggregation: workspace row and section first, focus bullet and linkified URL in
   the table, embedded headings demoted, stale flagged, missing reported.
 - The deliverables are **runtime**: `update.sh` leaves them untouched.
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [x] `008` — status core: `sync`/`new-work`/`aggregate`/`run`, author-scoped `git log`, `claude -p` prompts; plans under `.workspace/plans/`. *(ACTIVE now means "you committed", not "the repo moved"; `_workspace` aggregates first.)*

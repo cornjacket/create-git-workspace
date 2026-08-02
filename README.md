@@ -5,13 +5,14 @@ repo that manages a set of other repos (standard clones and worktrees) — with 
 built-in, per-developer status subsystem (the evolution of `project-status`) and
 its own task-system for the work that belongs to no single repo.
 
-- Design & rationale: [`PLAN.md`](PLAN.md)
-- Workspace-architecture model: [`docs/roadmap-2026-07-31.md`](docs/roadmap-2026-07-31.md)
-- Build tracker: [`tasks/`](tasks/)
+- Design & rationale: [`DESIGN.md`](DESIGN.md) — the workspace model, the file
+  classes, and every settled decision
+- How work is planned here: [`docs/plans/README.md`](docs/plans/README.md)
+- The effort that built this: [`docs/plans/genesis/`](docs/plans/genesis/)
 
 > **Implementation status.** Every step below is built and covered by the
-> acceptance suite. Task `015` (keeping this README current) stays open by
-> design; everything else in [`tasks/`](tasks/) is done.
+> acceptance suite. The `genesis` effort is closed; there is no active `PLAN.md`
+> until the next one starts.
 
 ## Quick start
 
@@ -185,6 +186,11 @@ granularity, so version telemetry cannot go stale.
 ## Inside this repo
 
 ```
+DESIGN.md                the durable design: the model, the file classes,
+                         every settled decision
+docs/plans/              finished efforts + their task files; README.md there
+                         describes the plan → tasks → graduate-to-DESIGN cycle
+docs/templates/          PLAN.md.template, copied to the root to start an effort
 setup.sh · update.sh     the two entry points
 lib/generator.sh         every byte of machinery is written here, so both
                          entry points emit identical output (this is what
@@ -226,7 +232,7 @@ workspaces are the evidence.
 
 The GitHub round-trip against the disposable `cornjacket/git-workspace-test`
 remote is opt-in (`--remote`) and skips cleanly when the fixture is absent, since
-that sibling checkout does not exist on a runner. See `PLAN.md` → "Testing".
+that sibling checkout does not exist on a runner. See [`DESIGN.md`](DESIGN.md) §7.8.
 
 ## Vendoring
 

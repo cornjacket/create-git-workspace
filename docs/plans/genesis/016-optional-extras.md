@@ -56,3 +56,9 @@ child repo with `git add -f`, and require the commit to **fail**. Plus the
 foreign-hook refusals, `--force`, `--uninstall`, idempotency, and the
 `--create-remote` contract up to (never through) the network call — including
 that a missing `gh` leaves no half-stamped workspace.
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [x] `016` — optional extras: `gh repo create`, guard pre-commit hook. *(`--create-remote` is private-by-default and pre-flights `gh`'s presence and auth **before** stamping, so a missing tool cannot leave a half-configured workspace. The hook installer ships inside the workspace — hooks are per-clone and untracked — and refuses to overwrite or remove a pre-commit hook it did not write.)*

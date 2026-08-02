@@ -58,3 +58,9 @@ verbs all forbid. It now points at `make add-repo`, says outright that
 `repos.yml` is a lockfile, and cites `status-guide.md` §5 for the routine seams.
 Same class of defect as the flag: the generator telling the user something untrue
 about itself.
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [x] `018` — `setup.sh --no-status` is accepted but never honored: honor it or remove it. *(Surfaced by `015` — the flag had been inert since `002`. **Removed**: status is the workspace layer, not an opt-in to it. Also fixed setup.sh's closing print, which still told you to hand-edit `repos.yml` — the one thing the kernel forbids.)*

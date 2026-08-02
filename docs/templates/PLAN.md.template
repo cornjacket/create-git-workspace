@@ -1,0 +1,66 @@
+# PLAN — {{EFFORT_NAME}}
+
+**{{ONE_LINE_GOAL}}**
+
+Started {{DATE}}. Task files: `docs/plans/{{EFFORT_NAME}}/`.
+Durable design lives in `DESIGN.md`; this file is only this effort.
+
+<!-- Copy this to PLAN.md at the repo root when an effort starts. One active
+     plan at a time. See docs/plans/README.md for the full cycle. -->
+
+## Where I left off
+
+_Rewritten wholesale by `/wrap` at the end of each session — state, not a log.
+Never append a new dated entry; overwrite._
+
+- **current task** —
+- **next concrete step** —
+- **files mid-edit** —
+- **uncommitted / unpushed** —
+- **open questions** —
+
+## Scope
+
+What this effort covers, and — more usefully — what it does not. A boundary
+written down is a boundary you can point at when something tries to creep in.
+
+**In:**
+
+**Out:**
+
+## Tasks
+
+In build order. One line of intent each, pointing at the task file — the file
+owns the acceptance criteria, the notes, and the canonical status. Do not restate
+a task here; two copies of "done" is one too many.
+
+| # | Task | Status |
+|---|---|---|
+| [001](docs/plans/{{EFFORT_NAME}}/001-slug.md) | one line of intent | todo |
+| [002](docs/plans/{{EFFORT_NAME}}/002-slug.md) | one line of intent | todo |
+
+_A small effort can start with tasks drafted inline here and extract them into
+files once they stop moving._
+
+## Decisions
+
+Made during this effort, newest last. One line each: what was chosen, what it
+rules out, why. On finishing, the durable ones **graduate into `DESIGN.md`** and
+the transferable ones into the second-brain — a decision left only here is one
+the next effort will re-litigate.
+
+## Open questions
+
+Things needing a human answer before they can be built. Move each to
+**Decisions** once resolved, with the reasoning, rather than deleting it.
+
+## Done when
+
+The condition that ends this effort — a passing test, a shipped artifact, a
+migration completed. Written now, while it is still honest.
+
+---
+
+_On finishing: review every task file against `DESIGN.md`, graduate the durable
+conclusions, slim this file to pointers, and move it into
+`docs/plans/{{EFFORT_NAME}}/`._

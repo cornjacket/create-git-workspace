@@ -56,3 +56,9 @@ buy noise. The remote routine end-to-end stays a manual exercise against
 `git-workspace-test` (§10).
 
 ## Verified — 195 local / 204 with `--remote`
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [x] `013` — status-pipeline tests (`claude -p` stubbed). *(§8j drives the real prompt path with a stub `claude` on PATH — the code `--dry-run` skips.)*

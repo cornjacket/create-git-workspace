@@ -33,3 +33,9 @@ implemented (standing request).
   `--create-remote` / `--public` / `--with-hook` and `make hook` to step 5, and
   refreshed the assertion count (244). Implementation-status note now says the
   build is done apart from this standing task.
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [ ] `015` — generator `README.md` (keep in sync as steps land). *(Standing — closes when the build does. Current through `014`/`017`; see the sync log in the task file.)*

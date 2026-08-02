@@ -64,3 +64,9 @@ path removes entry, checkout, and plan slot and restores `repos: []`;
 ## Not in scope (stays in 012)
 Injecting the commit-telemetry kernel into the child's `CLAUDE.md`. `add-repo`
 prints the routine-`sources` reminder; the kernel injection is task 012's.
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [x] `009` — `add-repo` / `delete-repo` (refuses dirty) / `mute-repo` verbs. *(`delete-repo` also refuses unpushed branches, no-upstream branches, stashes, and a detached HEAD; `repos.yml` is edited as text so its comments survive.)*

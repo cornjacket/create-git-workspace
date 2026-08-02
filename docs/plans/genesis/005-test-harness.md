@@ -75,3 +75,9 @@ broken and the suite confirmed to catch it:
 One mutation initially "passed" — patching `seed_content_file` to delete before
 writing. That was an invalid mutation, not a gap: `update.sh` never calls that
 function. Replaced with the misclassification bug above, which the suite catches.
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [x] `005` — test harness: `sandbox/` determinism + zero-diff + `git-workspace-test` round-trip + teardown. *(`tests/run-tests.sh` — 61 local assertions, 70 with `--remote`. The GitHub round-trip against `git-workspace-test` is live: push → routine writes the aggregates → `pull --ff-only` lands them, plus the diverged-history decline path.)*

@@ -45,3 +45,9 @@ an existing git-workspace without touching user content.
 - Rename-safe: `mv ws1 renamed-dir` then update keeps the name `ws1` recovered
   from `config.yml` — CLAUDE.md is not rewritten to the new directory name.
 - Refuses a non-workspace directory (points at `setup.sh`) and a missing path.
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [x] `003` — implement `update.sh` (machinery-only + delegate to create-project-system; **zero-diff** regeneration test). *(delegation wired but inert until `006`.)*

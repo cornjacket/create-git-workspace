@@ -42,3 +42,9 @@ uses:
 Also: `README.md` (content, seeded once) shed the mechanics that would drift and
 now points at the guide; `add-repo.py`'s reminder cites §5.2; `make guide` prints
 it; `make help` names it.
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [x] `014` — on-demand status guide/skill (durable home for routine-setup directions). *(three layers: `.workspace/status-guide.md` holds the procedure, `.claude/skills/workspace-status/` surfaces it on demand, and the `CLAUDE.md` block shrank from ~150 lines to a 47-line kernel — a test now caps it at 60 and fails if it re-absorbs the mechanics.)*

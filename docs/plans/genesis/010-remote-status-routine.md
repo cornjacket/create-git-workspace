@@ -66,3 +66,9 @@ working-tree change; the branch fast-forwards onto `main` (so the workflow's
 ## Still manual (by design — documented in the README, and in `014`)
 Creating the `/schedule` routine, listing every tracked repo as a routine
 `source`, and setting `CLAUDE_CODE_OAUTH_TOKEN` for `claude.yml`.
+
+## Plan note
+
+_Verbatim from the genesis `PLAN.md` task breakdown, kept here so the plan could be slimmed to pointers without losing it._
+
+- [x] `010` — remote routine: `daily.sh` + `auto-merge-status.yml` + `claude.yml` + `.workspace/config.yml`. *(`daily.sh` commits explicit routine-owned paths, never `git add -A`, so it cannot sweep up your working edits.)*
