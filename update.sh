@@ -71,14 +71,10 @@ stamp_generator_version "$target"
 
 # The vendored create-project-system owns the installed task-system's own
 # machinery/content split; delegate its upgrade to it rather than reimplementing.
-vendor_gen="$GEN_ROOT/vendor/create-project-system/generate.sh"
+# Only upgrade what is already installed — update.sh must never ADD a subsystem
+# the user opted out of with --no-tasks.
 if [ -d "$target/project/tasks" ]; then
-  if [ -x "$vendor_gen" ]; then
-    log "Upgrading the task-system (vendored create-project-system)"
-    "$vendor_gen" "$target" --tasks-dir project/tasks --with-skill --with-status
-  else
-    warn "project/tasks exists but vendor/create-project-system is not vendored yet (task 006) — task-system left as is."
-  fi
+  install_task_system "$target"
 fi
 
 echo

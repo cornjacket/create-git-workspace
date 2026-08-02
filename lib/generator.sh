@@ -242,6 +242,32 @@ PY
   esac
 }
 
+# install_task_system <target> — delegate to the vendored create-project-system.
+#
+# DELEGATED class: that generator owns its own machinery/content split (it
+# overwrites its scripts and never touches your tasks), so both setup and update
+# call it with the identical command and let it decide what to rewrite. Its
+# CLAUDE.md kernel is a SEPARATE marker block (task-system:begin) from ours
+# (git-workspace:begin) — task capture vs workspace machinery, no overlap.
+install_task_system() {
+  local target=$1
+  local gen="$GEN_ROOT/vendor/create-project-system/generate.sh"
+  if [ ! -x "$gen" ]; then
+    # Return 0, not 1: callers run under `set -e`, so a non-zero return here
+    # would abort setup.sh mid-stamp and leave a half-built workspace with no
+    # initial commit. A missing vendor means "no task-system", which is a
+    # legitimate state (--no-tasks produces it) — warn and carry on.
+    warn "task-system skipped: vendor/create-project-system/generate.sh is missing."
+    warn "run ./tools/revendor.sh to restore it."
+    return 0
+  fi
+  log "Task-system (vendored create-project-system)"
+  "$gen" --target-repo "$target" \
+         --tasks-dir project/tasks \
+         --with-skill --with-status --inject-claude-md \
+    | sed 's/^/    /'
+}
+
 # workspace_name <target> — recover the name from .workspace/config.yml, so a
 # directory rename never breaks regeneration (PLAN Q7).
 workspace_name() {

@@ -117,14 +117,8 @@ fi
 # ---------------------------------------------------------------------------
 # 6. Task-system (vendored create-project-system) — default on
 # ---------------------------------------------------------------------------
-vendor_gen="$GEN_ROOT/vendor/create-project-system/generate.sh"
 if [ "$with_tasks" -eq 1 ]; then
-  if [ -x "$vendor_gen" ]; then
-    log "Installing the task-system (vendored create-project-system)"
-    "$vendor_gen" "$target" --tasks-dir project/tasks --with-skill --with-status
-  else
-    warn "task-system skipped: vendor/create-project-system is not vendored yet (task 006)."
-  fi
+  install_task_system "$target"
 else
   step "tasks:     skipped (--no-tasks)"
 fi

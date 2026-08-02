@@ -29,8 +29,14 @@ for arg in "$@"; do
   esac
 done
 
-# The emitted tree. Update this list deliberately when a task adds a file —
-# a surprise here means the generator started emitting something unplanned.
+# The files THIS generator emits. Update deliberately when a task adds one — a
+# surprise here means the generator started emitting something unplanned.
+#
+# Deliberately excludes the delegated task-system (project/, .claude/) and the
+# routine-owned deliverables: those sets are owned by the vendored generator and
+# the daily run, so pinning their exact paths here would make an upstream
+# re-vendor look like a regression in our tree. `ours()` filters them out and
+# test_task_system asserts them by contract instead.
 EXPECTED_TRACKED="\
 .gitignore
 .workspace/config.yml
@@ -69,6 +75,13 @@ ws_clean() { # a workspace with no diff AND no untracked/modified files
   [ -z "$(git -C "$1" status --porcelain 2>/dev/null)" ]
 }
 
+# ours <ws> — tracked files this generator owns, excluding the delegated
+# task-system and the routine-owned deliverables.
+ours() {
+  git -C "$1" ls-files \
+    | grep -v -E '^(project/|\.claude/|summary\.md$|daily-plan-summary\.md$)'
+}
+
 new_ws() { # new_ws <name> [extra setup.sh args...] -> path on stdout
   local name=$1; shift
   local d="$SANDBOX/$name"
@@ -85,7 +98,8 @@ test_emitted_tree() {
   local ws; ws=$(new_ws ws-tree)
 
   assert_eq "tracked file set is exactly the emitted tree" \
-    "$EXPECTED_TRACKED" "$(git -C "$ws" ls-files)"
+    "$EXPECTED_TRACKED" "$(ours "$ws")"
+  assert_empty "nothing is left untracked by the allowlist" "$(git -C "$ws" status --porcelain)"
 
   assert_file "hidden control plane exists"      "$ws/.workspace"
   assert_exec "scripts are executable"           "$ws/.workspace/scripts/status.sh"
@@ -270,7 +284,8 @@ test_version_stamp() {
   # Work from a COPY of the generator so bumping VERSION never dirties the repo.
   local gen="$SANDBOX/gen-copy"
   rm -rf "$gen"; mkdir -p "$gen"
-  cp -R "$GEN_ROOT/template" "$GEN_ROOT/lib" "$GEN_ROOT/setup.sh" "$GEN_ROOT/update.sh" "$GEN_ROOT/VERSION" "$gen/"
+  cp -R "$GEN_ROOT/template" "$GEN_ROOT/lib" "$GEN_ROOT/vendor" \
+        "$GEN_ROOT/setup.sh" "$GEN_ROOT/update.sh" "$GEN_ROOT/VERSION" "$gen/"
 
   local ws="$SANDBOX/ws-version"; rm -rf "$ws"
   "$gen/setup.sh" "$ws" --name ws-version --author "$TEST_AUTHOR" >/dev/null 2>&1
@@ -329,6 +344,52 @@ test_refusals() {
 }
 
 # ---------------------------------------------------------------------------
+# 8b. Delegated task-system (vendored create-project-system)
+# ---------------------------------------------------------------------------
+test_task_system() {
+  section "8b. Task-system (delegated to the vendored generator)"
+  local ws; ws=$(new_ws ws-tasks)
+
+  # Asserted by contract, not by exact file list: the vendored generator owns
+  # which files it emits, so pinning them would turn a re-vendor into a failure.
+  assert_file "project/ deliverable installed"      "$ws/project/README.md"
+  assert_file "task mount is project/tasks"         "$ws/project/tasks/scripts/new-user-task.sh"
+  assert_file "--with-status stamped project/status" "$ws/project/status/README.md"
+  assert_file "--with-skill stamped the skill"      "$ws/.claude/skills/task-system/SKILL.md"
+  assert_empty "the allowlist tracks all of it (nothing untracked)" \
+    "$(git -C "$ws" status --porcelain)"
+
+  # The two kernels are distinct blocks and must coexist untouched.
+  assert_grep "our managed block is present"        '<!-- git-workspace:begin' "$ws/CLAUDE.md"
+  assert_grep "the task-system kernel is present"   '<!-- task-system:begin -->' "$ws/CLAUDE.md"
+  assert_eq   "exactly one of our begin markers" "1" \
+    "$(grep -c 'git-workspace:begin' "$ws/CLAUDE.md" | tr -d ' ')"
+  assert_eq   "exactly one task-system begin marker" "1" \
+    "$(grep -c 'task-system:begin' "$ws/CLAUDE.md" | tr -d ' ')"
+
+  # A real task must survive regeneration — this is the delegated generator's
+  # own content class, and update.sh must not disturb it.
+  "$ws/project/tasks/scripts/new-user-task.sh" --folder draft --name harness-task >/dev/null 2>&1
+  local task_dir
+  task_dir=$(find "$ws/project/tasks/main/draft" -maxdepth 1 -type d -name "*harness-task*" | head -1)
+  git -C "$ws" add -A; git -C "$ws" commit -qm "add a task"
+
+  "$GEN_ROOT/update.sh" "$ws" >/dev/null 2>&1
+  assert_file  "a real task survives update.sh" "$task_dir"
+  assert_empty "zero diff WITH the task-system installed" "$(git -C "$ws" status --porcelain)"
+  assert_eq    "both kernels still exactly once after update" "1 1" \
+    "$(grep -c 'git-workspace:begin' "$ws/CLAUDE.md" | tr -d ' ') $(grep -c 'task-system:begin' "$ws/CLAUDE.md" | tr -d ' ')"
+
+  # --no-tasks must stay opted out: update.sh upgrades what is installed, it
+  # never adds a subsystem the user declined.
+  local nots; nots=$(new_ws ws-notasks --no-tasks)
+  assert_no_file "--no-tasks installs no project/" "$nots/project"
+  "$GEN_ROOT/update.sh" "$nots" >/dev/null 2>&1
+  assert_no_file "update.sh does not add it later" "$nots/project"
+  assert_empty   "...and stays at zero diff"       "$(git -C "$nots" status --porcelain)"
+}
+
+# ---------------------------------------------------------------------------
 # 9. Push round-trip against a LOCAL bare remote (no network)
 # ---------------------------------------------------------------------------
 test_local_remote() {
@@ -348,7 +409,7 @@ test_local_remote() {
     local clone="$SANDBOX/ws-remote-clone"
     rm -rf "$clone"; git clone -q "$bare" "$clone"
     assert_eq "the clone carries exactly the emitted tree" \
-      "$EXPECTED_TRACKED" "$(git -C "$clone" ls-files)"
+      "$EXPECTED_TRACKED" "$(ours "$clone")"
     assert_no_file "the child repo did NOT ride along" "$clone/childrepo"
 
     # Simulate the routine landing an aggregate remotely, then pull it down.
@@ -392,9 +453,20 @@ test_github_remote() {
     return
   fi
 
-  # (a) the fixture is a real workspace and regeneration is a no-op on it
+  # (a) Bring the fixture up to the current machinery, then assert that a SECOND
+  # update is a no-op. The invariant is idempotence, not "the fixture happens to
+  # be current" — a genuine machinery upgrade landing here is expected and gets
+  # committed, exactly as a maintainer would.
   "$GEN_ROOT/update.sh" "$fixture" >/dev/null 2>&1
-  assert_empty "fixture: update.sh leaves zero diff" "$(git -C "$fixture" status --porcelain)"
+  if [ -n "$(git -C "$fixture" status --porcelain)" ]; then
+    git -C "$fixture" add -A
+    git -C "$fixture" commit -qm "workspace(machinery): re-apply generator machinery
+
+- [Context]: acceptance run against the current create-git-workspace.
+- [Impact]: brings the fixture's machinery up to date."
+  fi
+  "$GEN_ROOT/update.sh" "$fixture" >/dev/null 2>&1
+  assert_empty "fixture: a second update.sh leaves zero diff" "$(git -C "$fixture" status --porcelain)"
 
   git -C "$fixture" push -q origin main 2>/dev/null
 
@@ -406,7 +478,7 @@ test_github_remote() {
     return
   fi
   assert_eq "clone: emitted tree arrived over the wire" \
-    "$EXPECTED_TRACKED" "$(git -C "$clone" ls-files | grep -v -e '^summary\.md$' -e '^daily-plan-summary\.md$')"
+    "$EXPECTED_TRACKED" "$(ours "$clone")"
 
   # (c) the routine writes both deliverables and lands them on main.
   # No `git add -f`: if the allowlist ignores them, this test fails — which is
@@ -467,6 +539,7 @@ main() {
   test_claude_md
   test_version_stamp
   test_refusals
+  test_task_system
   test_local_remote
   test_github_remote
 

@@ -533,8 +533,9 @@ Numbered in **build order** — `001` first, `016` last. The generator skeleton
       with `--remote`. The GitHub round-trip against `git-workspace-test` is
       live: push → routine writes the aggregates → `pull --ff-only` lands them,
       plus the diverged-history decline path.)*
-- [ ] `006` — vendor `create-project-system`; wire `setup.sh --with-tasks` (default)
-      + `add-repo`; document re-vendor.
+- [x] `006` — vendor `create-project-system`; wire `setup.sh --with-tasks` (default)
+      + `add-repo`; document re-vendor. *(`add-repo` half deferred to `009`,
+      which is where that verb is built.)*
 - [ ] `007` — workspace task-system + `_workspace/daily-plan.md` (aggregated first);
       triage/graduate flow.
 - [ ] `008` — status core: `sync`/`new-work`/`aggregate`/`run`, author-scoped `git log`,
