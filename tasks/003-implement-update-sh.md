@@ -1,6 +1,6 @@
 # 003 — implement update.sh
 
-Status: todo
+Status: done (2026-08-01) — both open questions resolved (below)
 
 Create `update.sh <target-dir>` that re-applies the generator's **machinery** to
 an existing git-workspace without touching user content.
@@ -17,12 +17,31 @@ an existing git-workspace without touching user content.
 - Reuse `lib/generator.sh` verbatim (`install_machinery` + `inject_claude_block`
   + `workspace_name`); do NOT re-render anything locally, or the two scripts
   drift and zero-diff dies.
-- **Open (raised in 002):** `generator_version` lives in `.workspace/config.yml`,
-  which is *content* ("leave untouched"), so after an update the canonical stamp
-  lies. Proposed fix: `update.sh` rewrites that one generator-owned key in place
-  — the CLAUDE.md hybrid pattern applied to a single line. Idempotent, so
-  zero-diff survives. Decide before implementing.
-- **Also open:** stale machinery. If a script is dropped from the template, a
-  copy-each-file update leaves the old one behind. Mirror `.workspace/scripts/`
-  (delete extras) or accept the drift.
+- **RESOLVED — `generator_version` staleness.** `config.yml` is content, but that
+  one key is version telemetry that would lie after every upgrade. `update.sh`
+  rewrites **only that line** (`stamp_generator_version`) — the CLAUDE.md hybrid
+  rule applied at single-line granularity: the generator owns the key, the user
+  owns every other byte. Idempotent, so zero-diff survives. `setup.sh` calls it
+  too, so both paths agree.
+- **RESOLVED — stale machinery.** `.workspace/scripts/` is **mirrored**: a `*.sh`
+  in the workspace with no counterpart in the template is deleted and the removal
+  is announced. Otherwise retired scripts linger and every workspace slowly
+  accretes a different set. Scoped to `*.sh` directly in that one directory.
+- `update.sh` **never commits** — it leaves a reviewable diff. Committing would
+  make the acceptance test vacuous.
 - If a normal upgrade ever needs `--force`, the split is wrong — fix the split.
+
+## Verified (sandbox, then wiped)
+- **Zero-diff (headline):** `setup.sh` → `update.sh` → `git diff` and
+  `git status --porcelain` both empty. No `--force` anywhere.
+- Machinery is restored: a vandalized `status.sh` comes back byte-exact; a
+  planted `retired.sh` is pruned. Those were the *only* two paths in the diff.
+- Content survives: hand-edited `repos.yml`, `README.md`, and user directives
+  appended below the CLAUDE.md markers all intact.
+- Runtime survives: `.workspace/state/state.json` and `summary.md` untouched.
+- Version bump propagates and then settles: `VERSION` 0.1.0 → 0.2.0 moves exactly
+  two lines (the `config.yml` key + the CLAUDE.md echo); the next `update.sh` is
+  a zero diff.
+- Rename-safe: `mv ws1 renamed-dir` then update keeps the name `ws1` recovered
+  from `config.yml` — CLAUDE.md is not rewritten to the new directory name.
+- Refuses a non-workspace directory (points at `setup.sh`) and a missing path.

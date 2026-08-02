@@ -12,8 +12,6 @@ set -euo pipefail
 GEN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$GEN_ROOT/lib/generator.sh"
 
-AUTHOR_PLACEHOLDER="CHANGEME@example.invalid"
-
 usage() {
   cat <<EOF
 usage: setup.sh <target-dir> [options]
@@ -65,18 +63,9 @@ if [ -d "$target/.workspace" ] && [ "$force" -eq 0 ]; then
        Use './update.sh $target' to re-apply the machinery, or --force to overwrite."
 fi
 
-# git_author resolution: --author -> git config user.email -> placeholder + warn.
-# Setup still succeeds on a placeholder; the STATUS RUN is what hard-fails on it,
-# because an empty/wrong author silently corrupts the author-scoped summary.
-if [ -z "$author" ]; then
-  author=$(git config user.email 2>/dev/null || true)
-fi
-if [ -z "$author" ]; then
-  author=$AUTHOR_PLACEHOLDER
-  warn "no git author found (--author / git config user.email both unset)."
-  warn "seeding .workspace/config.yml with the placeholder '$AUTHOR_PLACEHOLDER'."
-  warn "the daily status run will REFUSE to run until you replace it."
-fi
+# Setup still succeeds on a placeholder author; the STATUS RUN is what hard-fails
+# on it, because an empty/wrong author silently corrupts the author-scoped summary.
+author=$(resolve_author "$author")
 
 log "Creating git-workspace '$name' at $target"
 
@@ -109,6 +98,9 @@ inject_claude_block "$target" "$name"
 seed_content_file "$TEMPLATE_DIR/workspace/config.yml" "$target/.workspace/config.yml" "$name" "$author"
 seed_content_file "$TEMPLATE_DIR/workspace/repos.yml"  "$target/.workspace/repos.yml"  "$name" "$author"
 seed_content_file "$TEMPLATE_DIR/README.md"            "$target/README.md"             "$name" "$author"
+
+# generator_version is the one generator-owned key inside that content file.
+stamp_generator_version "$target"
 
 # ---------------------------------------------------------------------------
 # 5. Remote

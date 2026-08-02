@@ -123,7 +123,7 @@ live workspace and produce a **zero-line diff** — no `--force`.
 | installed task-system (via `create-project-system`) | **delegated** | install | upgrade |
 | `CLAUDE.md` (managed block) | **hybrid** | create-or-inject block | **replace block only** |
 | `.workspace/repos.yml` | **content** | seed if missing | **leave untouched** |
-| `.workspace/config.yml` | **content** | seed if missing | **leave untouched** |
+| `.workspace/config.yml` | **content** | seed if missing | **leave untouched** except the `generator_version` key¹ |
 | `.workspace/plans/**` | **content** | seed if missing | **leave untouched** |
 | `README.md` | **content** | seed if missing | leave untouched |
 | `.workspace/state/state.json`, `archive/` | **runtime** | — | — |
@@ -139,6 +139,16 @@ The three classes:
   committed (it's the durable record + the deliverables) but neither seeded by
   setup nor touched by update — the routine owns it. This is the class that keeps
   the zero-diff property honest: setup/update never race the routine's files.
+
+¹ *Amended in task `003`.* `generator_version` is canonical version telemetry, so
+freezing it at the setup-time value makes it lie after every upgrade. `update.sh`
+rewrites **only that line** — the same hybrid rule as `CLAUDE.md`, applied at
+single-line instead of block granularity: the generator owns the key, the user
+owns every other byte of the file. Idempotent, so zero-diff still holds.
+
+Also decided in `003`: `.workspace/scripts/` is **mirrored**, not merely copied
+over — a script dropped from the template is deleted from the workspace (and the
+removal announced), so retired machinery cannot linger.
 
 `CLAUDE.md` is the one **hybrid** — a machinery block inside a content file (§5).
 The task-system the vendored `create-project-system` installs follows *its own*
@@ -515,8 +525,8 @@ Numbered in **build order** — `001` first, `016` last. The generator skeleton
 - [x] `002` — implement `setup.sh` (create wrapper: machinery, CLAUDE.md block,
       `config.yml`, `Makefile`; seed content; run tasks by default).
       *(task-system install deferred to `006`; setup warns and skips.)*
-- [ ] `003` — implement `update.sh` (machinery-only + delegate to create-project-system;
-      **zero-diff** regeneration test).
+- [x] `003` — implement `update.sh` (machinery-only + delegate to create-project-system;
+      **zero-diff** regeneration test). *(delegation wired but inert until `006`.)*
 - [ ] `004` — `CLAUDE.md` marker-block injection (append when no markers; version echo).
 - [ ] `005` — test harness: `sandbox/` determinism + zero-diff + `git-workspace-test`
       round-trip + teardown.

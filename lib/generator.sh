@@ -18,6 +18,10 @@
 GEN_ROOT="${GEN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 TEMPLATE_DIR="$GEN_ROOT/template"
 
+# The loud stand-in written into config.yml when no git author can be resolved.
+# Setup tolerates it; the status run must hard-fail on it.
+AUTHOR_PLACEHOLDER="CHANGEME@example.invalid"
+
 if [ -t 2 ]; then
   _B=$'\033[1m'; _R=$'\033[31m'; _Y=$'\033[33m'; _D=$'\033[2m'; _X=$'\033[0m'
 else
@@ -53,8 +57,28 @@ render() {
       "$src" > "$dst"
 }
 
+# resolve_author [explicit] — --author -> git config user.email -> placeholder.
+# Warns (to stderr) when it falls through to the placeholder; the caller decides
+# what that means. Shared so setup.sh and update.sh cannot disagree.
+resolve_author() {
+  local a=${1:-}
+  [ -n "$a" ] || a=$(git config user.email 2>/dev/null || true)
+  if [ -z "$a" ]; then
+    a=$AUTHOR_PLACEHOLDER
+    warn "no git author found (--author / git config user.email both unset)."
+    warn "using the placeholder '$AUTHOR_PLACEHOLDER' — the daily status run will"
+    warn "REFUSE to run until you replace it in .workspace/config.yml."
+  fi
+  printf '%s\n' "$a"
+}
+
 # install_machinery <target> <name> — write every generator-owned file.
 # Always overwrites; safe to re-run. This is the function update.sh calls.
+#
+# .workspace/scripts/ is MIRRORED, not merely copied over: a script dropped from
+# the template is deleted from the workspace. Otherwise retired machinery lingers
+# forever and every workspace slowly accretes a different set of scripts. Only
+# *.sh directly in that directory is touched, and every removal is announced.
 install_machinery() {
   local target=$1 name=$2 f base
 
@@ -63,6 +87,14 @@ install_machinery() {
     base=$(basename "$f")
     cp "$f" "$target/.workspace/scripts/$base"
     chmod 755 "$target/.workspace/scripts/$base"
+  done
+  for f in "$target/.workspace/scripts/"*.sh; do
+    [ -e "$f" ] || continue
+    base=$(basename "$f")
+    if [ ! -e "$TEMPLATE_DIR/workspace/scripts/$base" ]; then
+      rm -f "$f"
+      step "machinery: removed stale .workspace/scripts/$base"
+    fi
   done
   step "machinery: .workspace/scripts/ ($(ls -1 "$TEMPLATE_DIR/workspace/scripts" | wc -l | tr -d ' ') scripts)"
 
@@ -151,6 +183,47 @@ PY
     replace)   step "hybrid:    CLAUDE.md — managed block refreshed" ;;
     append)    step "hybrid:    CLAUDE.md — no markers found, block appended" ;;
     unchanged) step "hybrid:    CLAUDE.md — managed block already current" ;;
+  esac
+}
+
+# stamp_generator_version <target> — rewrite the ONE generator-owned key in the
+# otherwise user-owned config.yml.
+#
+# config.yml is content ("never overwritten"), but `generator_version` is
+# canonical version telemetry — leaving it frozen at the setup-time value makes
+# it lie after every upgrade. So this applies the CLAUDE.md hybrid rule at
+# single-line granularity: the generator owns exactly this key, the user owns
+# every other byte. Idempotent, so the zero-diff invariant survives.
+stamp_generator_version() {
+  local target=$1 result
+  result=$(python3 - "$target/.workspace/config.yml" "$(generator_version)" <<'PY'
+import pathlib, re, sys
+
+path = pathlib.Path(sys.argv[1])
+version = sys.argv[2]
+if not path.exists():
+    print("missing")
+    raise SystemExit
+
+cur = path.read_text()
+line = "generator_version: %s" % version
+new, n = re.subn(r"(?m)^generator_version:.*$", line.replace("\\", "\\\\"), cur)
+if n == 0:
+    sep = "" if cur.endswith("\n") else "\n"
+    new = cur + sep + line + "\n"
+
+if new == cur:
+    print("unchanged")
+else:
+    path.write_text(new)
+    print("stamped")
+PY
+  ) || die "could not stamp generator_version into .workspace/config.yml"
+
+  case "$result" in
+    stamped)   step "stamp:     .workspace/config.yml generator_version -> $(generator_version)" ;;
+    unchanged) step "stamp:     .workspace/config.yml generator_version already $(generator_version)" ;;
+    missing)   warn ".workspace/config.yml not found — version stamp skipped" ;;
   esac
 }
 
