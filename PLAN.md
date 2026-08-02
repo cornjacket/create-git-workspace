@@ -527,7 +527,7 @@ Numbered in **build order** — `001` first, `016` last. The generator skeleton
       *(task-system install deferred to `006`; setup warns and skips.)*
 - [x] `003` — implement `update.sh` (machinery-only + delegate to create-project-system;
       **zero-diff** regeneration test). *(delegation wired but inert until `006`.)*
-- [ ] `004` — `CLAUDE.md` marker-block injection (append when no markers; version echo).
+- [x] `004` — `CLAUDE.md` marker-block injection (append when no markers; version echo).
 - [ ] `005` — test harness: `sandbox/` determinism + zero-diff + `git-workspace-test`
       round-trip + teardown.
 - [ ] `006` — vendor `create-project-system`; wire `setup.sh --with-tasks` (default)

@@ -140,10 +140,25 @@ BEGIN = "<!-- git-workspace:begin"
 END = "<!-- git-workspace:end -->"
 
 def region(text, what):
+    """Locate the managed block, or None. Refuses to guess at anything malformed:
+    a half-open block or a duplicated one means a human (or an older buggy run)
+    left the file in a state where any edit we make could silently destroy
+    content. Better to stop and say so than to mangle a CLAUDE.md."""
+    nbegin, nend = text.count(BEGIN), text.count(END)
+    if nbegin > 1 or nend > 1:
+        sys.exit("%s contains %d begin / %d end markers — expected at most one "
+                 "managed block. Delete the extras, then re-run." % (what, nbegin, nend))
     i = text.find(BEGIN)
-    j = text.find(END, i) if i >= 0 else -1
+    j = text.find(END)
     if i >= 0 and j < 0:
-        sys.exit("%s has a begin marker but no end marker — refusing to guess" % what)
+        sys.exit("%s has a begin marker but no end marker — refusing to guess "
+                 "where the managed block ends." % what)
+    if j >= 0 and i < 0:
+        sys.exit("%s has an end marker but no begin marker — refusing to guess "
+                 "where the managed block starts." % what)
+    if i >= 0 and j < i:
+        sys.exit("%s has its end marker before its begin marker — refusing to "
+                 "guess." % what)
     return (i, j + len(END)) if i >= 0 else None
 
 span = region(rendered, "template CLAUDE.md")
@@ -175,7 +190,7 @@ else:
     dst.write_text(new)
     print(action)
 PY
-  ) || { rm -f "$rendered"; die "CLAUDE.md injection failed"; }
+  ) || { rm -f "$rendered"; die "CLAUDE.md injection aborted (see above) — the file was left untouched"; }
   rm -f "$rendered"
 
   case "$action" in
