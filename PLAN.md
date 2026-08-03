@@ -9,12 +9,17 @@ effort.
 
 ## Where I left off
 
-- **current task** — `01`–`03` done; `04` (move repos in) is next
-- **next concrete step** — push `dev-workspace` (`git push -u origin main`), then
-  pick the first repo to move and confirm the loop before moving the rest
+- **current task** — `04`, move the first repos into `dev-workspace`. Not started.
+- **next concrete step** — pick one low-stakes repo, `mv` its checkout into
+  `~/src/github.com/cornjacket/dev-workspace/`, then
+  `make add-repo ARGS="<url>"` to register it as-is. Confirm the loop before
+  moving the rest.
 - **files mid-edit** — none
-- **uncommitted / unpushed** — `create-git-workspace`: 2 commits unpushed (`a4b3cc0`, `29dd07d`) plus this file. `dev-workspace`: initial commit unpushed.
-- **open questions** — see the section at the bottom; per-repo replan is the big one
+- **uncommitted / unpushed** — nothing. Both `create-git-workspace` and
+  `dev-workspace` are clean and in sync with origin (verified).
+- **open questions** — per-repo replan couples to child task-system internals
+  (see Open questions); `.project-status-ignore` may not have been needed →
+  task `09`; workspace membership still TBD.
 
 ## Scope
 
@@ -56,6 +61,7 @@ In order. Acceptance is one line each until these are extracted into files.
 | 06 | run a full day: routine writes, `make pull` lands it | todo |
 | 07 | strip `project-status` from each migrated repo | todo |
 | 08 | retire `project-status`: hook, umbrella `CLAUDE.md`, the repo | todo |
+| 09 | discuss whether `.project-status-ignore` was needed at all | todo |
 
 **01 — done.** `unsafe_reasons()` became `_status_lib.pending_findings()`,
 shared verbatim with `delete-repo` so a report and a refusal cannot disagree.
@@ -114,6 +120,13 @@ cleanup: remove that repo's `ai-project-status` block, root `daily-plan.md`,
 delete `cornjacket/CLAUDE.md` and `gen-umbrella-claude.py`, and archive the
 `project-status` repo.
 
+**09** — `dev-workspace` got a `.project-status-ignore` to silence the
+SessionStart nag. Question the premise: the hook is deleted in `08` anyway, so
+the file may buy a few days of quiet in exchange for an artifact to remember to
+remove. Alternatives: delete the hook now and skip `08`'s half; or leave the nag
+and let it die with the hook. Decide before `08`, and if the file stays, note
+that it is untracked by design.
+
 ## Open questions
 
 **Per-repo replan couples to the child's task-system internals (revisits `02`).**
@@ -136,6 +149,11 @@ Lean: **(e) now** to close the silent-failure hole, **(a)** as the real fix, and
 let dogfooding decide whether **(c)** was right all along. Not **(d)** until a
 real repo without a task-system exists.
 
+**Precedent for (c):** under `project-status` every repo's `daily-plan.md` was
+**hand-written**, and that worked. The aggregator only ever needed a plan file to
+exist, not a tool to generate it. Deferred by agreement — revisit after `04`,
+with real repos in the workspace.
+
 **Should `--all` honour an ignore file?** `project-status`'s sweep skips repos
 carrying `.project-status-ignore`. The workspace sweep currently has no opt-out,
 on the grounds that an unregistered checkout is exactly what you want flagged.
@@ -151,6 +169,22 @@ at task `04`; revisit the tier question once the generators stop changing daily.
 repo. Deleting it is presumably right once nothing reads it, but confirm no
 unpushed work is sitting in one of those clones first — which is exactly what
 `01` is for.
+
+## Decisions
+
+- Plans are a **report**, not an act of planning → deterministic replan, no model
+  call. Rules out inventing work that was never chosen (task `02`, DESIGN §8.3b).
+- `status.py` replaces `status.sh` → one shared pending-detector with
+  `delete-repo`. Rules out a bash copy that could disagree with a refusal (`01`).
+- A repo with no remote reads `clean (local-only)`, not "unpushed" — local by
+  design is not forgotten work. `delete-repo` still blocks on it (`01`).
+- The workspace is a row in its own `status` output; its uncommitted plans are
+  the easiest to forget and the routine's fast-forward depends on them (`01`).
+- Child task-system is **probed**, not declared in `repos.yml` — no config field
+  to keep true. Under review: see Open questions (`02`).
+- `.project-status-ignore` left **untracked** — a transitional artifact of a
+  retiring system does not belong in the emitted allowlist (`03`, `09`).
+- `dev-workspace` created **private** — it carries plans and a rollup (`03`).
 
 ## Done when
 
