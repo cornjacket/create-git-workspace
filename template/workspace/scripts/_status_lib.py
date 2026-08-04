@@ -132,6 +132,11 @@ def load_repos():
             "description": (r.get("description") or "").strip(),
             "enabled": r.get("enabled", True),
             "report_inactivity": r.get("report_inactivity", True),
+            # Phase two of registration — see routine_registered() below. ABSENT
+            # MEANS INCOMPLETE: the default is False, not True, so a repo
+            # registered before this field existed reads as outstanding (which
+            # it is) instead of silently claiming to be done.
+            "routine_registered": bool(r.get("routine_registered", False)),
             # Band, not a rank: ties are expected and fall back to repos.yml
             # order. Lower = more important; unset sorts last rather than
             # silently claiming the top band.
@@ -142,6 +147,49 @@ def load_repos():
 
 def enabled_repos():
     return [r for r in load_repos() if r["enabled"]]
+
+
+# ---------------------------------------------------------------------------
+# Routine registration — the second, un-automatable half of `add-repo`
+#
+# Registering a repo is TWO phases and only the first can be automated:
+#
+#   1. `add-repo` writes repos.yml, clones, injects the kernel  — automatic
+#   2. the repo is added to the scheduled routine's `sources`   — by hand, in
+#      the Claude app, because neither setup.sh (no session) nor add-repo (no
+#      API handle) can edit a routine
+#
+# Phase two is what makes the repo readable to the remote run: the sandbox has
+# no checkouts and its egress proxy blocks anything not pre-declared. Skip it
+# and the run does not fail — it reports the repo as unreadable and quietly
+# omits it from the rollup (guide §5.2). A printed reminder does not survive a
+# scrollback, so the outstanding state lives in repos.yml, where bootstrap
+# replays it onto the next machine.
+#
+# ONE SOURCE OF TRUTH, RENDERED TWICE: the flag is authoritative; the `status`
+# row and the `daily-plan-summary.md` banner are projections recomputed on every
+# run. `routine-registered.py` is the only writer of a `true`.
+# ---------------------------------------------------------------------------
+ROUTINE_FLAG = "routine_registered"
+
+
+def routine_pending(repos=None):
+    """Enabled repos whose phase-two registration is still outstanding.
+
+    Scoped to *enabled* repos: a repo with `enabled: false` is out of the run
+    entirely, so it cannot be silently omitted from a rollup it never joins.
+    Re-enabling it brings the flag back into view, because this is recomputed
+    rather than stored.
+    """
+    repos = enabled_repos() if repos is None else repos
+    return [r for r in repos if not r.get(ROUTINE_FLAG)]
+
+
+def routine_hint(name):
+    """The one wording of "here is how to clear it", shared by every reporter."""
+    return (f"add '{name}' to the scheduled routine's `sources` "
+            f"(.workspace/status-guide.md §5.2), then run: "
+            f"make routine-registered ARGS=\"{name}\"")
 
 
 # ---------------------------------------------------------------------------

@@ -601,13 +601,56 @@ The remote routine is **not self-installing**, and both gaps are silent:
 These live durably in the on-demand status guide; `add-repo`'s print and the
 README roster are the just-in-time nudges.
 
+#### Seam 2 is tracked, because a print is not a record
+
+Registration is therefore **two-phase, and only phase one is automatable**. Every
+`add-repo` lands in an in-between state, and a line of terminal output is not
+where that belongs — it scrolls away, and it does not survive a fresh clone on
+another machine. So the state is a field in the lockfile:
+
+- **`repos.yml` carries `routine_registered`.** It goes there because that is
+  what `bootstrap.sh` replays. **Absent means outstanding, not done** — the
+  default fails loud, and for every repo registered before the field existed it
+  is simply true.
+- **`routine-registered.py` is the only writer of a `true`.** Hand-editing the
+  lockfile is forbidden everywhere else; an exit from this state that required it
+  would be the one exception that hollows out the rule. `add-repo` writes only
+  `false`, including when back-filling.
+- **`make status` is the enforcement.** A repo with the flag unset reads
+  `routine not registered` and status exits non-zero, exactly as for unpushed
+  work. It is reported there but is *not* a git finding, so `delete-repo` does
+  not refuse over it — nothing is at risk of being lost.
+- **`daily-plan-summary.md` opens with a banner** naming every outstanding repo.
+  That file is what actually gets read each morning; a flag nobody looks at is
+  not tracking. It sits above the table because those repos are missing from
+  everything below it.
+
+**One source of truth, rendered twice.** The flag is authoritative; the status
+row and the banner are projections recomputed on every run. Same rule as
+`replan`: derived output is rewritten, never hand-maintained.
+
+**Deliberately not a task.** An earlier design had `add-repo` file a task in the
+workspace's task-system. Dropped: that is a third copy of one fact, hand-closable
+and therefore driftable. The task-system is for work you *chose*; this is a debt
+the tool knows about with certainty, and the gate enforces it with nothing to
+reconcile (§8.7's rule, from the other side).
+
 ### 8.6 Membership verbs
 
 `add-repo` (clone, register, seed the plan slot, inject the kernel, seed the
 description), `delete-repo` (refuses a dirty tree, an unpushed branch, a branch
 with no upstream, a stash, or a detached HEAD — reporting *every* reason at
 once), `mute-repo` (`report_inactivity: false` to hide on quiet days, `--skip`
-for `enabled: false`).
+for `enabled: false`), `routine-registered` (§8.5).
+
+**`add-repo` is idempotent: re-running it reconciles.** Over an already-
+registered repo it back-fills whatever is missing and produces a zero-line diff
+when nothing is — the same regeneration property `update.sh` promises, one level
+down. Without it the only way to repair a registered repo is to unregister it
+first, which means deleting a checkout to fix a missing field. It refuses only to
+*repoint* an entry (a different `url` or `--path` under an existing name), since
+that is a re-registration and would leave the manifest and the checkout
+describing two different repos.
 
 **`repos.yml` is a lockfile, not a config file you author.** The verbs write it
 as *text*, so comments and ordering survive; `bootstrap.sh` replays it onto a new
@@ -725,6 +768,8 @@ lines by a test, which fails if the mechanics creep back in.
 | 12 | The workspace root **is a git repo**, so `CLAUDE.md`, `README.md`, and tooling are versioned — you cannot bisect a regression in unversioned docs. |
 | 13 | Status is intrinsic to a workspace, not an opt-in layer — hence no `--no-status`. |
 | 14 | Descriptions in `repos.yml` are **stored, not re-derived**: seeded from the repo's GitHub description, else a README scrape. |
+| 15 | An **un-automatable step is tracked in the lockfile, not printed**: `routine_registered` in `repos.yml`, where absent means outstanding, enforced by the `status` gate and rendered again as a `daily-plan-summary.md` banner. Never a task. |
+| 16 | Membership verbs are **re-runnable**: `add-repo` over a registered repo reconciles (back-fill what is missing, zero-line diff when nothing is) rather than refusing. |
 
 ### Triggers that would end the "one workspace" simplification
 

@@ -13,6 +13,12 @@ missing:
     never pushed looks perfectly *clean* to `git status`, which is exactly why
     it needs a sweep at this level.
 
+Plus one piece of pending *setup*: a repo registered here but never added to the
+scheduled routine's `sources` reads `routine not registered`. That is a debt the
+tool knows about with certainty, and this gate is its whole enforcement — see
+`_status_lib.routine_pending`. It is reported here but is NOT a git finding, so
+`delete-repo` does not refuse over it: nothing is at risk of being lost.
+
 Exits non-zero if anything is missing or pending, so it works as a pre-flight
 check before you close the laptop.
 
@@ -32,8 +38,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _status_lib import (  # noqa: E402
-    LOCAL_ONLY, WORKSPACE_ROOT, load_repos, pending_findings,
+    LOCAL_ONLY, WORKSPACE_ROOT, load_repos, pending_findings, routine_hint,
 )
+
+# Reported alongside the git findings, but produced here rather than by
+# pending_findings(): that detector is shared verbatim with delete-repo, and an
+# unregistered routine is not a reason to refuse a deletion.
+ROUTINE = "routine"
 
 WORKSPACE_LABEL = "(this workspace)"
 
@@ -72,9 +83,10 @@ def summarize(findings):
         return "clean (local-only)", False
 
     parts = []
-    for kind in ("dirty", "stashed", "ahead", "no-upstream", "detached"):
+    for kind in ("dirty", "stashed", "ahead", "no-upstream", "detached", ROUTINE):
         if kind in real:
-            label = {"ahead": "unpushed", "no-upstream": "no upstream"}.get(kind, kind)
+            label = {"ahead": "unpushed", "no-upstream": "no upstream",
+                     ROUTINE: "routine not registered"}.get(kind, kind)
             parts.append(f"{label} ({real[kind]})" if real[kind] > 1 else label)
     return ", ".join(parts), True
 
@@ -88,8 +100,14 @@ def rows(include_all):
     for repo in load_repos():
         d = WORKSPACE_ROOT / repo["path"]
         registered_paths.add(repo["path"].strip("/"))
+        findings = pending_findings(d) if is_checkout(d) else None
+        # A repo switched off with `enabled: false` is out of the run entirely,
+        # so it cannot be silently omitted from a rollup — no debt to report.
+        if findings is not None and repo["enabled"] and not repo["routine_registered"]:
+            findings = findings + [(ROUTINE, f"routine not registered — "
+                                             f"{routine_hint(repo['name'])}")]
         out.append((repo["name"], repo["type"], current_branch(d) if is_checkout(d) else "-",
-                    pending_findings(d) if is_checkout(d) else None))
+                    findings))
 
     if include_all:
         # Only the workspace's own floor — depth 1. Anything nested deeper

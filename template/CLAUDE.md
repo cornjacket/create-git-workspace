@@ -31,8 +31,8 @@ running the status pipeline.
   catches). Do real code work in the owning child repo, from a session rooted
   there; this wrapper manages the *set* of repos, not their contents.
 - **Never hand-edit `.workspace/repos.yml`.** It is a lockfile maintained by
-  `add-repo.py` / `delete-repo.py` / `mute-repo.py` and replayed by
-  `bootstrap.sh`. `make` (no target) lists every verb.
+  `add-repo.py` / `delete-repo.py` / `mute-repo.py` / `routine-registered.py`
+  and replayed by `bootstrap.sh`. `make` (no target) lists every verb.
 - **Never hand-write `summary.md`, `daily-plan-summary.md`, or
   `.workspace/state/`.** They are *runtime* files owned by the daily status run,
   which overwrites the day.

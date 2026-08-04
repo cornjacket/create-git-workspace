@@ -62,6 +62,7 @@ EXPECTED_TRACKED="\
 .workspace/scripts/pull.sh
 .workspace/scripts/render-readme.py
 .workspace/scripts/replan.sh
+.workspace/scripts/routine-registered.py
 .workspace/scripts/run.py
 .workspace/scripts/status.py
 .workspace/scripts/sync.py
@@ -175,7 +176,12 @@ repos:
     type: standard
     branch: main
     url: https://example.invalid/childrepo.git
+    routine_registered: true
 YML
+  # `routine_registered: true` above is load-bearing: without it the repo is in
+  # the manifest but not in the routine's `sources`, which status correctly
+  # reports as pending. 8p covers that gate; here it must be out of the way.
+  #
   # The workspace is a row in its own report, so its edits must be committed or
   # the sweep correctly calls them pending.
   git -C "$ws" add -A; git -C "$ws" commit -qm "register childrepo"
@@ -686,8 +692,10 @@ test_repo_verbs() {
   # would silently delete every comment in it.
   assert_eq "the file's comments survive the edit" \
     "$header_before" "$(grep -c '^#' "$ws/.workspace/repos.yml")"
-  assert_fails "adding the same name twice is refused" \
-    python3 "$S/add-repo.py" "$bare" --name alpha
+  # Re-running is a reconcile, not a refusal — but repointing an entry is not.
+  # (8p covers the reconcile in full; this pins the refusal that guards it.)
+  assert_fails "re-adding under a DIFFERENT url is refused" \
+    python3 "$S/add-repo.py" "$SANDBOX/other.git" --name alpha
 
   # add-repo injects the commit kernel and deliberately leaves it UNCOMMITTED —
   # the workspace never commits inside a child repo. Land it the way a user
@@ -1406,6 +1414,7 @@ repos:
     type: standard
     branch: main
     url: https://example.invalid/kid.git
+    routine_registered: true
 YML
   git -C "$ws" add -A; git -C "$ws" commit -qm "register kid"
 
@@ -1453,6 +1462,125 @@ YML
   del=$( (cd "$ws" && python3 .workspace/scripts/delete-repo.py kid) 2>&1 )
   case "$del" in *unpushed*) ok "delete-repo refuses on the same finding" ;;
                  *) bad "delete-repo refuses on the same finding" "$del" ;; esac
+}
+
+# ---------------------------------------------------------------------------
+# 8p. Routine registration — the second, un-automatable phase (dogfood 10)
+#
+# `add-repo` can do everything except the one step that makes a repo readable to
+# the remote run: adding it to the routine's `sources`, which lives in the Claude
+# app. Skipping it fails SILENTLY — the run reports the repo as unreadable and
+# omits it. So the outstanding state is a field in repos.yml, and the whole point
+# of these assertions is that the two things that render it (the status gate and
+# the summary banner) are projections which cannot disagree with that field.
+# ---------------------------------------------------------------------------
+test_routine_registration() {
+  section "8p. Routine registration (phase two)"
+  local ws; ws=$(new_ws ws-routine)
+  local S="$ws/.workspace/scripts"
+  local yml="$ws/.workspace/repos.yml"
+  local sum="$ws/daily-plan-summary.md"
+  local bare="$SANDBOX/origin-routine.git"
+  bare_origin "$bare"
+
+  # The workspace is a row in its own status output, so every membership edit
+  # must be committed or `dirty` masks the exit code these assertions read.
+  wcommit() { git -C "$ws" add -A; git -C "$ws" \
+    -c user.email="$TEST_AUTHOR" -c user.name=Dev commit -qm "${1:-wip}" >/dev/null 2>&1; }
+  rc_of() { "$S/status.py" >/dev/null 2>&1; echo $?; }
+
+  python3 "$S/add-repo.py" "$bare" --name gamma >/dev/null 2>&1
+  assert_grep "a new entry is born OUTSTANDING" '^    routine_registered: false$' "$yml"
+  # Land the kernel add-repo deliberately left uncommitted, so registration is
+  # the only thing status can still be complaining about.
+  git -C "$ws/gamma" add -A
+  git -C "$ws/gamma" -c user.email="$TEST_AUTHOR" -c user.name=Dev \
+    commit -qm "docs(claude): commit-discipline kernel"
+  git -C "$ws/gamma" push -q origin main
+  wcommit "register gamma"
+
+  local out
+  out=$("$S/status.py" 2>&1)
+  case "$out" in *gamma*"routine not registered"*) ok "status names the outstanding repo" ;;
+                 *) bad "status names the outstanding repo" "$out" ;; esac
+  assert_eq "...and the gate exits non-zero" "1" "$(rc_of)"
+  out=$("$S/status.py" -v 2>&1)
+  case "$out" in *"make routine-registered"*) ok "-v says how to clear it" ;;
+                 *) bad "-v says how to clear it" "$out" ;; esac
+
+  python3 "$S/aggregate-plans.py" >/dev/null 2>&1
+  assert_grep "the summary opens with a banner"  'Routine registration incomplete' "$sum"
+  assert_grep "...naming the repo"               '`gamma`' "$sum"
+  # Above the table: the banner invalidates everything below it.
+  assert_eq "...before the At a glance table" "before" \
+    "$(awk '/Routine registration incomplete/{print "before"; exit} /At a glance/{print "after"; exit}' "$sum")"
+
+  # A repo switched off is out of the run entirely, so it has no debt to report.
+  python3 "$S/mute-repo.py" gamma --skip >/dev/null 2>&1; wcommit "mute gamma"
+  assert_eq "a disabled repo is exempt from the gate" "0" "$(rc_of)"
+  python3 "$S/aggregate-plans.py" >/dev/null 2>&1
+  assert_no_grep "...and out of the banner"     'Routine registration incomplete' "$sum"
+  python3 "$S/mute-repo.py" gamma --unmute >/dev/null 2>&1; wcommit "unmute gamma"
+  assert_eq "...and re-enabling brings it back" "1" "$(rc_of)"
+
+  # --- the clearing verb: the only writer of a true ---
+  python3 "$S/routine-registered.py" gamma >/dev/null 2>&1; wcommit "gamma in sources"
+  assert_grep "the verb clears the flag"        '^    routine_registered: true$' "$yml"
+  assert_eq "...and the gate goes green"        "0" "$(rc_of)"
+  python3 "$S/aggregate-plans.py" >/dev/null 2>&1
+  assert_no_grep "...and the banner disappears" 'Routine registration incomplete' "$sum"
+  assert_eq "--check agrees nothing is outstanding" "0" \
+    "$(python3 "$S/routine-registered.py" --check >/dev/null 2>&1; echo $?)"
+
+  python3 "$S/routine-registered.py" gamma --unset >/dev/null 2>&1; wcommit "unset"
+  assert_grep "--unset puts it back to outstanding" '^    routine_registered: false$' "$yml"
+  assert_fails "--check reports it" python3 "$S/routine-registered.py" --check
+
+  # ABSENT MEANS OUTSTANDING — the case every repo registered before this field
+  # existed is in. Failing open here would silently claim they were all done.
+  grep -v 'routine_registered' "$yml" > "$yml.tmp" && mv "$yml.tmp" "$yml"
+  wcommit "strip the flag"
+  out=$("$S/status.py" 2>&1)
+  case "$out" in *gamma*"routine not registered"*) ok "an ABSENT flag reads as outstanding" ;;
+                 *) bad "an ABSENT flag reads as outstanding" "$out" ;; esac
+
+  # --- add-repo reconciles instead of refusing ---
+  out=$(python3 "$S/add-repo.py" "$bare" --name gamma 2>&1)
+  assert_grep "re-running add-repo back-fills the missing flag" \
+    '^    routine_registered: false$' "$yml"
+  case "$out" in *reconciling*) ok "...and says it is reconciling" ;;
+                 *) bad "...and says it is reconciling" "$out" ;; esac
+  case "$out" in *"already current"*) ok "...leaving an up-to-date kernel alone" ;;
+                 *) bad "...leaving an up-to-date kernel alone" "$out" ;; esac
+
+  # A reconcile of a complete entry is a zero-line diff. This is what makes the
+  # verb safe to re-run over a registered repo instead of unregistering first.
+  local before; before=$(file_hash "$yml")
+  out=$(python3 "$S/add-repo.py" "$bare" --name gamma 2>&1)
+  assert_eq "a second reconcile changes nothing" "$before" "$(file_hash "$yml")"
+  case "$out" in *"already complete"*) ok "...and says so" ;;
+                 *) bad "...and says so" "$out" ;; esac
+
+  # It repairs what IS missing: a deleted plan slot comes back.
+  rm -rf "$ws/.workspace/daily-plans/gamma"
+  python3 "$S/add-repo.py" "$bare" --name gamma >/dev/null 2>&1
+  assert_file "a reconcile re-seeds a deleted plan slot" \
+    "$ws/.workspace/daily-plans/gamma/daily-plan.md"
+
+  # And it never overwrites a cleared flag with false — the one way a reconcile
+  # could quietly undo work you actually did.
+  python3 "$S/routine-registered.py" gamma >/dev/null 2>&1
+  python3 "$S/add-repo.py" "$bare" --name gamma >/dev/null 2>&1
+  assert_grep "a reconcile preserves a cleared flag" '^    routine_registered: true$' "$yml"
+
+  # --all is the one-shot after populating `sources` in a single edit.
+  python3 "$S/routine-registered.py" gamma --unset >/dev/null 2>&1
+  python3 "$S/routine-registered.py" --all >/dev/null 2>&1
+  assert_grep "--all clears every registered repo" '^    routine_registered: true$' "$yml"
+  assert_fails "an unknown name is refused" python3 "$S/routine-registered.py" nosuchrepo
+
+  # repos.yml is CONTENT: the header comments must survive every write above.
+  assert_grep "the file's header survives the flag edits" '^# repos.yml' "$yml"
 }
 
 # ---------------------------------------------------------------------------
@@ -1761,6 +1889,7 @@ main() {
   test_optional_extras
   test_living_readme
   test_pending_sweep
+  test_routine_registration
   test_per_repo_replan
   test_local_remote
   test_github_remote

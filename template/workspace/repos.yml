@@ -40,6 +40,25 @@
 #                     fall back to this file's order. Unset sorts last rather
 #                     than silently claiming the top band.           (default 3)
 #
+# Routine registration
+# --------------------
+#   routine_registered
+#                     true once this repo has been added to the scheduled
+#                     routine's `sources` pre-clone list — the one half of
+#                     registration no script can do for you (status-guide §5.2).
+#
+#                     ABSENT MEANS OUTSTANDING, not done. Until it is true,
+#                     `make status` reports "routine not registered" and exits
+#                     non-zero, and `daily-plan-summary.md` opens with a banner.
+#                     That is deliberate: a repo missing from `sources` is not
+#                     an error the remote run reports — it reads the repo as
+#                     unreadable and quietly leaves it out of the rollup.
+#
+#                     Written ONLY by `make routine-registered ARGS="<name>"`
+#                     (`add-repo` seeds it false). It is recorded here rather
+#                     than printed because this file is what survives a fresh
+#                     clone on another machine.
+#
 # Example — delete the comment markers and edit, or add entries by hand:
 #
 #   repos:
@@ -51,6 +70,7 @@
 #       branch: main
 #       description: The customer-facing web app.
 #       tags: [app]
+#       routine_registered: false
 #
 #     # ---- worktrees ----
 #     # `my-lib` is checked out as a container; `main` and `feature-x` are

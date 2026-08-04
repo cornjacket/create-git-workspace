@@ -8,6 +8,15 @@ This is the write path for `.workspace/repos.yml`: you never hand-edit that
 file, you run this and the entry is maintained as a side effect. `bootstrap.sh`
 is the replay path — it turns the resulting manifest back into checkouts on a
 new machine.
+
+RE-RUNNING IS A RECONCILE, NOT AN ERROR. Over an already-registered repo this
+back-fills whatever is missing — a `routine_registered` flag from before the
+field existed, a plan slot you deleted, a stale or absent commit kernel — and
+writes nothing when nothing is missing. That is the same regeneration property
+`update.sh` promises, and it is what makes a registered repo fixable without
+unregistering it first. What it will NOT do is silently repoint an entry: a
+different `url` or `--path` for a name already in the lockfile is refused, since
+that is a re-registration, not a repair.
 """
 import argparse
 import json
@@ -19,8 +28,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import _repos_edit as R  # noqa: E402
 from _status_lib import (  # noqa: E402
-    REPOS_YML, WORKSPACE_DIR, WORKSPACE_ROOT, describe_checkout, describe_remote,
-    git, refresh_readme,
+    REPOS_YML, ROUTINE_FLAG, WORKSPACE_DIR, WORKSPACE_ROOT, describe_checkout,
+    describe_remote, git, refresh_readme,
 )
 
 
@@ -55,13 +64,34 @@ def main():
     path = (args.path or name).strip("/")
 
     text = REPOS_YML.read_text() if REPOS_YML.exists() else "repos: []\n"
-    if name in R.names(text):
-        sys.exit(f"add-repo: '{name}' is already registered. "
-                 f"Use delete-repo first, or pass --name to register it under another name.")
-    for existing in R.validate(text):
-        if existing.get("path") == path:
-            sys.exit(f"add-repo: path '{path}' is already used by "
-                     f"'{existing['name']}' — pass --path to place this one elsewhere.")
+    entries = {e["name"]: e for e in R.validate(text)}
+    prior = entries.get(name)
+
+    if prior is None:
+        for existing in entries.values():
+            if existing.get("path") == path:
+                sys.exit(f"add-repo: path '{path}' is already used by "
+                         f"'{existing['name']}' — pass --path to place this one elsewhere.")
+    else:
+        # Reconcile. The entry's identity — where the repo lives and where it
+        # came from — is the lockfile itself; changing it under an existing name
+        # is a re-registration, and doing that silently would leave the checkout
+        # and the manifest describing two different repos.
+        if prior.get("type", "standard") != "standard":
+            sys.exit(f"add-repo: '{name}' is registered as a "
+                     f"{prior['type']}, which this verb does not manage — "
+                     "edit repos.yml's worktree entry by hand, or use bootstrap.")
+        prior_path = (prior.get("path") or name).strip("/")
+        if args.path and path != prior_path:
+            sys.exit(f"add-repo: '{name}' is registered at path '{prior_path}', not "
+                     f"'{path}'. Use delete-repo --keep-checkout and re-add it, or "
+                     "drop --path to reconcile the entry as it stands.")
+        path = prior_path
+        if prior.get("url") and prior["url"] != args.url:
+            sys.exit(f"add-repo: '{name}' is registered with url '{prior['url']}'.\n"
+                     "Re-run with that URL to reconcile, or use delete-repo "
+                     "--keep-checkout and re-add it to change the remote.")
+        print(f"[add-repo] '{name}' is already registered — reconciling")
 
     dest = WORKSPACE_ROOT / path
     if dest.exists() and not (dest / ".git").exists():
@@ -86,14 +116,20 @@ def main():
     # Three sources, best first: what you passed; the repo's own GitHub
     # description (a human already wrote it *as* a one-liner); then the first
     # prose paragraph of its README/CLAUDE.md, which is a guess.
-    description = ((args.description or "").strip()
-                   or describe_remote(args.url)
-                   or describe_checkout(dest))
-    if not description:
-        print("[add-repo] no description found — add one to repos.yml "
-              "(or pass --description) so the README roster reads well")
+    #
+    # On a reconcile this only runs when the entry has no description at all —
+    # re-deriving one that already exists would overwrite a correction by hand
+    # and make a no-op run produce a diff.
+    description = ""
+    if not (prior or {}).get("description"):
+        description = ((args.description or "").strip()
+                       or describe_remote(args.url)
+                       or describe_checkout(dest))
+        if not description:
+            print("[add-repo] no description found — add one to repos.yml "
+                  "(or pass --description) so the README roster reads well")
 
-    entry = R.render_entry([
+    fields = [
         ("name", name),
         ("url", args.url),
         ("path", path),
@@ -104,11 +140,33 @@ def main():
         ("description", json.dumps(description) if description else None),
         ("priority", args.priority),
         ("tags", f"[{', '.join(t.strip() for t in args.tags.split(','))}]" if args.tags else None),
-    ])
-    new_text = R.append_entry(text, entry)
-    R.validate(new_text)
-    REPOS_YML.write_text(new_text)
-    print(f"[add-repo] registered '{name}' in .workspace/repos.yml")
+        # Phase two of registration is a manual edit in the Claude app, so a NEW
+        # entry is born outstanding and says so. Only `routine-registered.py`
+        # ever writes a true here.
+        (ROUTINE_FLAG, "false"),
+    ]
+
+    if prior is None:
+        new_text = R.append_entry(text, R.render_entry(fields))
+        R.validate(new_text)
+        REPOS_YML.write_text(new_text)
+        print(f"[add-repo] registered '{name}' in .workspace/repos.yml")
+    else:
+        # Back-fill ONLY what is absent. Anything already in the entry is the
+        # user's (or an earlier run's) and is left alone, so reconciling a
+        # complete entry rewrites nothing at all.
+        filled = []
+        for key, value in fields:
+            if key == "name" or value is None or key in prior:
+                continue
+            text = R.set_field(text, name, key, value)
+            filled.append(key)
+        if filled:
+            R.validate(text)
+            REPOS_YML.write_text(text)
+            print(f"[add-repo] back-filled {', '.join(filled)} on '{name}'")
+        else:
+            print("[add-repo] .workspace/repos.yml entry is already complete")
 
     # Seed a plan slot so the repo shows up in daily-plan-summary.md immediately
     # — as "no plan" rather than not at all, which is the useful nudge.
@@ -152,8 +210,15 @@ def main():
 
     print()
     print("Next:")
-    print(f"  * Add '{name}' to the remote routine's `sources` pre-clone list, or the")
-    print("    scheduled run cannot read its git log (the sandbox has no checkouts).")
+    # The reminder is a nudge, not the record: `routine_registered: false` in
+    # repos.yml is what actually remembers this, and `make status` refuses to go
+    # green until it is cleared. Suppressed once the flag is set, so a reconcile
+    # of a fully-registered repo does not re-raise settled work.
+    if not (prior or {}).get(ROUTINE_FLAG):
+        print(f"  * Add '{name}' to the remote routine's `sources` pre-clone list, or the")
+        print("    scheduled run cannot read its git log (the sandbox has no checkouts).")
+        print(f"    Then record it:  make routine-registered ARGS=\"{name}\"")
+        print(f"    Until then, `make status` reports '{name}: routine not registered'.")
     if kernel_note:
         print(kernel_note)
     print("  * Commit the workspace: repos.yml and the new plan slot are tracked.")

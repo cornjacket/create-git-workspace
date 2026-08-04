@@ -62,7 +62,7 @@ real interface and read better for anything with arguments.
 
 | Command | Script | What it does |
 |---|---|---|
-| `make status` | `status.py` | branch + **uncommitted and unpushed** work for every managed checkout, and for the workspace itself. `ARGS="--all"` also sweeps unregistered checkouts; `-v` lists each finding |
+| `make status` | `status.py` | branch + **uncommitted and unpushed** work for every managed checkout, and for the workspace itself, plus any repo missing from the routine's `sources` (§5.2). `ARGS="--all"` also sweeps unregistered checkouts; `-v` lists each finding |
 | `make bootstrap` | `bootstrap.sh` | replay `repos.yml` onto this machine: clone every `standard` repo, `git worktree add` every `worktree`. Idempotent |
 | `make guard` | `guard.sh` | fail if a child repo, a `.git` dir, or a worktree `.git` pointer was staged into the wrapper index |
 | `make hook` | `install-hooks.sh` | install `guard.sh` as this clone's pre-commit hook (`hook-check` reports status; `--uninstall` removes it) |
@@ -73,6 +73,8 @@ real interface and read better for anything with arguments.
 | `make run-dry` | `run.py --dry-run` | the same pipeline with no LLM calls — deterministic placeholders |
 | `make aggregate` | `aggregate-plans.py` | rebuild `daily-plan-summary.md` from `.workspace/daily-plans/` |
 | `make pull` | `pull.sh` | the morning trigger (§4) |
+| `make routine-registered` | `routine-registered.py` | record that a repo is now in the routine's `sources` (§5.2). `ARGS="<name>"`, `--all`, or `--unset` |
+| `make routine-check` | `routine-registered.py --check` | list the repos whose registration is still outstanding |
 | `make inject-kernel` | `inject-kernel.py --all` | refresh the commit kernel in every tracked repo (§7) |
 | `make kernel-check` | `inject-kernel.py --check` | report stale/missing kernels without writing |
 | — | `sync.py` | report which repos are readable. Read-only; it never clones |
@@ -96,6 +98,16 @@ so its comments and ordering survive.
   `CLAUDE.md`. It clones *before* writing the entry, so a bad URL leaves the
   registry untouched. It prints two follow-ups: commit the kernel from inside the
   child repo, and **add the repo to the routine's `sources`** (§5.2).
+
+  **Re-running it is a reconcile, not an error.** Over an already-registered repo
+  it back-fills whatever is missing — an absent `routine_registered` flag, a
+  deleted plan slot, a stale kernel — and writes nothing when nothing is missing.
+  It refuses only to *repoint* an entry: a different `url` or `--path` under a
+  name already in the lockfile is a re-registration, so use `delete-repo
+  --keep-checkout` and add it again.
+- **`routine-registered.py <name>…`** — record phase two of registration (§5.2).
+  `--all` after one bulk edit of `sources`, `--unset` to reverse it, `--check` to
+  list what is outstanding. The only writer of a `true`.
 - **`delete-repo.py <name>`** — unregister and remove the checkout. It **refuses**
   a dirty tree, an unpushed branch, a branch with *no* upstream, a stash, or a
   detached HEAD — and reports every reason at once rather than one per run.
@@ -235,15 +247,35 @@ has something to fast-forward onto.
 The remote sandbox has none of your checkouts, and its egress proxy blocks
 cloning anything not pre-declared. So every repo in `repos.yml` must also appear
 in the routine's `sources` (the pre-clone list) or the run **cannot read its git
-log** — it reports the repo as unreadable and moves on. `add-repo.py` reprints
-this reminder every time, because it is the step that gets forgotten.
+log** — it reports the repo as unreadable and moves on. The failure is silent:
+the run does not fail, it quietly omits that repo from the rollup.
 
 Update the routine's `sources` by sending back the **entire** job config with the
 new `{"git_repository": {"url": "https://github.com/<owner>/<repo>"}}` appended —
 do not rely on partial-merge semantics, which can drop the fields you omit.
 
+Then **record it**, because a printed reminder scrolls away:
+
+```
+make routine-registered ARGS="<name>"     # or --all after one bulk edit
+```
+
+That sets `routine_registered: true` on the entry in `repos.yml` — the lockfile
+`bootstrap.sh` replays, so the state survives a fresh clone on another machine.
+Until it is set (and **absent counts as unset**), two projections of that one
+field keep the debt visible:
+
+- `make status` reports `routine not registered` and **exits non-zero**, exactly
+  as it does for unpushed work. This is the enforcement; there is no second copy
+  to reconcile, and no task to remember to close.
+- `daily-plan-summary.md` opens with a banner naming every repo still
+  outstanding — that file is what actually gets read each morning.
+
+Both are recomputed on every run, and `routine-registered.py` is the only writer.
+So the flag is never hand-edited, and the two renderings cannot disagree with it.
+
 Skip this step only if you run the pipeline locally (`make run`) and never
-remotely.
+remotely — in which case `--all` once tells the workspace so.
 
 ### 5.3 Optional: the `@claude` workflow secret
 

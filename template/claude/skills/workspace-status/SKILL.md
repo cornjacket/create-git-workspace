@@ -26,7 +26,9 @@ exactly one copy to keep correct.
   files owned by the daily run; the next run overwrites the day.
 - **A new tracked repo is not tracked until it is in the routine's `sources`.**
   The remote sandbox has no checkouts and cannot clone what was not pre-declared,
-  so the run silently reads no git log for it. See §5.2 of the guide.
+  so the run silently reads no git log for it. Add it there, then record it with
+  `make routine-registered ARGS="<name>"` — until you do, `make status` exits
+  non-zero and `daily-plan-summary.md` carries a banner. See §5.2 of the guide.
 - **`cd` into the child repo before running any git or build command.** Never
   operate on a child from the wrapper root.
 
@@ -37,6 +39,7 @@ make status | bootstrap | guard        the checkouts
 make run | run-dry | new-work | aggregate   the status pipeline
 make pull                              fast-forward onto the routine's output
 make add-repo|delete-repo|mute-repo ARGS="…"   membership
+make routine-registered ARGS="…" | routine-check   phase two of registration
 make inject-kernel | kernel-check      the child commit kernel
 ```
 

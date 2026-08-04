@@ -92,11 +92,25 @@ push; the closing print names that command.
 python3 .workspace/scripts/add-repo.py    <url> [--name N] [--branch B] [--priority N]
 python3 .workspace/scripts/delete-repo.py <name>            # refuses a dirty/unpushed checkout
 python3 .workspace/scripts/mute-repo.py   <name> [--skip]   # hide on quiet days, or skip entirely
+python3 .workspace/scripts/routine-registered.py <name>    # phase two: it is in the routine's sources
 ```
 Or `make add-repo ARGS="<url>"`. `add-repo` clones *before* registering (a bad
 URL leaves the registry untouched), seeds the repo's plan slot, and injects the
 commit-telemetry kernel into the child's `CLAUDE.md` — without committing inside
 the child, so the change lands with your identity and that repo's hooks.
+Re-running it over a registered repo **reconciles** rather than failing: it
+back-fills what is missing (an absent flag, a deleted plan slot, a stale kernel)
+and writes nothing when nothing is missing. It refuses only to *repoint* an
+entry — a different `url` or `--path` under an existing name.
+
+**Registration is two phases, and only the first is automatable.** The second —
+adding the repo to the scheduled routine's `sources` pre-clone list — happens in
+the Claude app, and skipping it fails *silently*: the remote run reports the repo
+as unreadable and quietly leaves it out of the rollup. So `repos.yml` carries
+`routine_registered`, **absent means outstanding**, `make routine-registered
+ARGS="<name>"` is its only writer, and two projections of that one field keep it
+visible: `make status` exits non-zero, and `daily-plan-summary.md` opens with a
+banner naming every repo still outstanding.
 
 `delete-repo` refuses a dirty tree, an unpushed branch, a branch with no
 upstream, a stash, or a detached HEAD — and reports every reason at once.
@@ -122,7 +136,7 @@ make bootstrap    # clone standard repos, then git worktree add worktrees; idemp
 
 ### 4. Check state — `status.py` ✅
 ```bash
-make status       # branch + uncommitted/unpushed per checkout
+make status       # branch + uncommitted/unpushed per checkout, + registration debt
 make status ARGS="--all"   # also sweep unregistered checkouts on the floor
 ```
 
@@ -216,7 +230,7 @@ sandbox/                 throwaway generated workspaces (git-ignored)
 ./tests/run-tests.sh --remote   # additionally run the GitHub round-trip
 ```
 
-276 local assertions. Every test generates throwaway workspaces into `sandbox/`
+334 local assertions. Every test generates throwaway workspaces into `sandbox/`
 (git-ignored) — never a real repo. The suite covers the emitted tree and
 allowlist, the generated scripts, **zero-diff regeneration**, machinery overwrite
 + stale pruning, content/runtime preservation, all `CLAUDE.md` injection paths
@@ -224,7 +238,9 @@ allowlist, the generated scripts, **zero-diff regeneration**, machinery overwrit
 the task-system delegation, the status pipeline against a stubbed `claude` on
 `PATH`, the repo verbs, the kernel/guide/skill split, the opt-in extras
 (including a real blocked commit through the installed hook), the living README
-roster, and a push + ff-only-pull round-trip against a local bare remote.
+roster, the pending-work sweep, deterministic replan, routine-registration
+tracking (the gate, the banner, and `add-repo`'s zero-diff reconcile), and a
+push + ff-only-pull round-trip against a local bare remote.
 
 CI (`.github/workflows/tests.yml`) runs the suite on every push to `main` and
 every PR, so the zero-diff invariant is protected by the repo rather than by

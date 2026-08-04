@@ -22,6 +22,10 @@ Each plan declares its date on the first line:
 Freshness is weekend-tolerant: a plan is fresh iff its date is on or after the
 most recent weekday. Output overwrites daily-plan-summary.md and snapshots it
 into .workspace/state/archive/<date>.md.
+
+The output opens with a banner when any repo's routine registration is still
+outstanding (see `_status_lib.routine_pending`) — those repos are silently
+absent from the rollup, so the warning belongs above the content it invalidates.
 """
 import os
 import re
@@ -33,7 +37,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from _status_lib import (  # noqa: E402
     ARCHIVE_DIR, DAILY_PLAN_SUMMARY_MD, DAILY_PLANS_DIR, WORKSPACE_PLAN_KEY,
-    StatusError, enabled_repos, git, repo_dir, workspace_name,
+    StatusError, enabled_repos, git, repo_dir, routine_pending, workspace_name,
 )
 
 PLAN_HEADER_RE = re.compile(r"^#\s+Daily plan\s+[—\-]\s+(\d{4}-\d{2}-\d{2})\s*$", re.M)
@@ -188,6 +192,29 @@ def sort_rows(rows):
     )]
 
 
+def render_banner(repos):
+    """A blockquote naming every repo whose routine registration is outstanding.
+
+    The flag lives in repos.yml and `make status` enforces it; this is the
+    *second projection* of the same field, and it is here because this file is
+    what actually gets read each morning. A flag nobody looks at is not tracking.
+    """
+    pending = routine_pending(repos)
+    if not pending:
+        return ""
+    names = ", ".join(f"`{r['name']}`" for r in pending)
+    return (
+        f"> **⚠ Routine registration incomplete — {names}**\n"
+        "> \n"
+        "> Registered in `.workspace/repos.yml` but not confirmed in the scheduled\n"
+        "> routine's `sources`, so the remote run cannot read their git logs and\n"
+        "> **silently omits them** from the rollup — it does not fail.\n"
+        "> \n"
+        "> Add them to the routine's `sources` (`.workspace/status-guide.md` §5.2),\n"
+        "> then record it: `make routine-registered ARGS=\"<name>\"`.\n"
+    )
+
+
 def render_overview(rows):
     if not rows:
         return ""
@@ -252,11 +279,16 @@ def build_summary(today=None, repos=None):
     today = today or date.today()
     repos = repos if repos is not None else enabled_repos()
     rows = sort_rows([workspace_row(today)] + [repo_row(r, today) for r in repos])
+    banner = render_banner(repos)
     return (
         f"# Daily plan summary — {today.isoformat()}\n\n"
         "<!-- Auto-aggregated by .workspace/scripts/aggregate-plans.py from the "
         "plans in .workspace/daily-plans/. Overwritten on every run. -->\n\n"
-        f"{render_overview(rows)}\n"
+        # Above the table on purpose: a repo missing from `sources` is missing
+        # from everything below, so it has to be read before the content it
+        # invalidates.
+        + (f"{banner}\n" if banner else "")
+        + f"{render_overview(rows)}\n"
         + "\n".join(render_section(r) for r in rows)
     )
 

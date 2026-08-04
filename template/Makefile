@@ -9,20 +9,20 @@ SCRIPTS := .workspace/scripts
 
 .PHONY: help guide status bootstrap guard hook hook-check readme readme-check replan \
         new-work run run-dry aggregate pull add-repo delete-repo mute-repo \
-        inject-kernel kernel-check
+        routine-registered routine-check inject-kernel kernel-check
 
 help: ## show this help
 	@echo "{{WORKSPACE_NAME}} — workspace commands"
 	@grep -hE '^[a-z][a-z-]*:.*## ' $(MAKEFILE_LIST) \
 		| sort \
-		| awk -F':.*## ' '{printf "  \033[1m%-12s\033[0m %s\n", $$1, $$2}'
+		| awk -F':.*## ' '{printf "  \033[1m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "  full operating reference: .workspace/status-guide.md"
 
 guide: ## print the operating reference (.workspace/status-guide.md)
 	@cat .workspace/status-guide.md
 
-status: ## branch + uncommitted/unpushed for every managed checkout
+status: ## branch + uncommitted/unpushed/unregistered for every managed checkout
 	@python3 $(SCRIPTS)/status.py $(ARGS)
 
 bootstrap: ## clone/attach every repo listed in .workspace/repos.yml
@@ -72,6 +72,14 @@ delete-repo: ## unregister a repo, refusing a dirty/unpushed checkout   ARGS="<n
 
 mute-repo: ## quiet a repo in the rollup   ARGS="<name> [--skip|--unmute]"
 	@python3 $(SCRIPTS)/mute-repo.py $(ARGS)
+
+# Phase two of registration: the repo is in the routine's `sources`. Only you can
+# do that edit (it lives in the Claude app), so only you can record it.
+routine-registered: ## record that a repo is in the routine's `sources`   ARGS="<name>|--all"
+	@python3 $(SCRIPTS)/routine-registered.py $(ARGS)
+
+routine-check: ## list repos still missing from the routine's `sources`
+	@python3 $(SCRIPTS)/routine-registered.py --check
 
 inject-kernel: ## refresh the commit-discipline kernel in every tracked repo
 	@python3 $(SCRIPTS)/inject-kernel.py --all
