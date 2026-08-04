@@ -9,26 +9,25 @@ effort.
 
 ## Where I left off
 
-- **current task** — `10`, the new blocker carved out of `04`. Not started.
-- **what just happened (2026-08-03)** — `04`'s loop is **proven** on one repo.
-  `captains-log` was `mv`'d into `dev-workspace` (not re-cloned), `add-repo`
-  registered it as-is, the kernel was committed inside the child, and `replan`
-  drafted its plan from real task state — the first run of task `02` against a
-  child that is not `git-workspace-test`. Both repos pushed, `make status` green.
-- **what it exposed** — registration is two-phase and only phase one is
-  automatable, so every `add-repo` leaves an in-between state that nothing
-  records. Hence task `10`, which **blocks moving the remaining repos**.
-- **next concrete step** — build `10` in *this* repo: the `repos.yml` flag, the
-  clearing verb, the `daily-plan-summary.md` banner, and an idempotent
-  `add-repo`. Then `update.sh` into `dev-workspace` and re-run
-  `add-repo captains-log` to prove idempotency and backfill the flag.
-- **files mid-edit** — this file (task `10` spec), uncommitted.
-- **uncommitted / unpushed** — `dev-workspace` carries a hand-filed inbox task,
-  `446273-captains-log-routine-sources-registration`, recording the debt until
-  `10` makes it automatic. `create-git-workspace` has this PLAN edit.
-- **open questions** — whether `10` needs the task at all or just a `status`
-  gate (see `10`); per-repo replan couples to child task-system internals — it
-  worked against `captains-log`, so the scrape matches today;
+- **current task** — `04`, unblocked: move the remaining repos in. `10` is built
+  in the generator but not yet **dogfooded** — see the next step.
+- **what just happened (2026-08-03)** — `10` landed in `create-git-workspace`:
+  the `routine_registered` flag in `repos.yml` (absent = outstanding), the
+  `routine-registered` verb as its only writer of a `true`, the `make status`
+  gate, the `daily-plan-summary.md` banner, and an `add-repo` that reconciles
+  instead of refusing. 334 assertions, §8p. Before that, `04`'s loop was proven
+  on `captains-log`.
+- **next concrete step** — `update.sh` this into `dev-workspace`, re-run
+  `add-repo captains-log` (proves the reconcile back-fills the flag on a real
+  repo, and that `make status` then reports the debt it already has), add
+  `captains-log` to the routine's `sources`, clear the flag, and close the
+  hand-filed inbox task `10` supersedes. *Then* move the rest of the repos.
+- **files mid-edit** — none.
+- **uncommitted / unpushed** — `dev-workspace` still carries the hand-filed inbox
+  task `446273-captains-log-routine-sources-registration`; it is superseded by
+  `10` and closes on the dogfood step above.
+- **open questions** — per-repo replan couples to child task-system internals —
+  it worked against `captains-log`, so the scrape matches today;
   `.project-status-ignore` → task `09`; membership beyond `captains-log` TBD.
 
 ## Scope
@@ -66,8 +65,8 @@ In order. Acceptance is one line each until these are extracted into files.
 | 01 | `make status` also reports unpushed work; `--all` mode | **done** |
 | 02 | per-repo replan — deterministic, no model calls | **done** |
 | 03 | create `dev-workspace` locally, push it to a new remote | **done** |
-| 04 | move the first repos in and register them | in progress — `captains-log` done, rest blocked on `10` |
-| 10 | track incomplete routine registration; make `add-repo` idempotent | todo — **blocks the rest of `04`** |
+| 04 | move the first repos in and register them | in progress — `captains-log` done, rest unblocked |
+| 10 | track incomplete routine registration; make `add-repo` idempotent | **done in the generator** — not yet dogfooded |
 | 05 | create the `/schedule` routine, add every repo to `sources` | todo |
 | 06 | run a full day: routine writes, `make pull` lands it | todo |
 | 07 | strip `project-status` from each migrated repo | todo |
@@ -116,61 +115,39 @@ registers it as-is and injects the commit kernel. Commit the kernel inside each
 child. Start with one low-stakes repo and confirm the loop before moving the
 rest.
 
-**10 — registration is two-phase, and only one phase is automatable.**
-`add-repo` writes `repos.yml`, clones, injects the kernel, refreshes the README —
-then *prints a reminder* that the repo must also be added to the routine's
-`sources`, and stops. It cannot do more: the routine lives in the Claude app,
-and neither `setup.sh` (no session) nor `add-repo` (no API handle) can edit it.
+**10 — done in the generator.** Registration is two-phase and only phase one is
+automatable, so the in-between state is now **recorded rather than printed**:
+`routine_registered` in `repos.yml`, where **absent means outstanding**, so every
+repo registered before the field existed reads as the debt it actually is.
+`routine-registered.py` (`make routine-registered ARGS="<name>"`, plus `--all`,
+`--unset`, `--check`) is the only writer of a `true` — without a verb, the only
+exit from the state would be hand-editing the lockfile every other rule forbids.
+`make status` gates on it (`routine not registered`, non-zero) and
+`aggregate-plans.py` banners it above the "At a glance" table. Two projections of
+one field, recomputed every run; the durable half is in `DESIGN.md` §8.5.
 
-So every registration lands in an **in-between state**, and today the only record
-of it is a line of terminal output that scrolls away. `dev-workspace` hit this
-immediately: `captains-log` is in `repos.yml`, absent from any `sources`, and
-nothing but a hand-filed task remembers that. The failure this sets up is silent
-(§5.2): a repo missing from `sources` is reported unreadable and skipped — the
-run does not fail, it quietly omits that repo from the rollup.
+Judgement calls worth keeping: the flag is reported by `status` but is **not a
+git finding**, so `delete-repo` does not refuse over it — nothing is at risk of
+being lost, and folding it into the shared detector would have made a
+housekeeping debt block a deletion. A repo with `enabled: false` is **exempt**:
+it is out of the run entirely, so it cannot be silently omitted from a rollup it
+never joins — and re-enabling brings the debt straight back, because nothing is
+stored. And **no tracking task**: that would be a third copy of one fact,
+hand-closable and therefore driftable (`dev-workspace`'s hand-filed
+`446273-captains-log-routine-sources-registration` is superseded by this).
 
-Make the incomplete state **first-class**:
+`add-repo` is now **idempotent**: re-running it over a registered repo reconciles
+— back-fills a missing flag, re-seeds a deleted plan slot, re-injects a stale
+kernel — and writes nothing when nothing is missing. It refuses only to *repoint*
+an entry (a different `url` or `--path` under an existing name), since that is a
+re-registration and would leave the manifest and the checkout describing two
+different repos. That is what makes the mechanism provable against `captains-log`
+without unregistering it first. §8p, 334 assertions.
 
-- **`repos.yml` carries the flag.** A per-repo field (e.g. `routine_registered:
-  false`) recording that phase two is outstanding. It goes here because this is
-  the lockfile `bootstrap.sh` replays — the state then survives a fresh clone on
-  another machine, which a printed reminder does not. An **absent** field means
-  *incomplete*, not complete: it fails loud, and for every repo registered before
-  this lands it is simply true.
-- **A verb clears it** — `make routine-registered ARGS="<name>"` or equivalent.
-  Without one, the only exit from the incomplete state is hand-editing the
-  lockfile, which every other rule here forbids. This verb is the *only* writer.
-- **`make status` gates on it.** A repo with the flag unset reads
-  `routine not registered` and `status` exits non-zero, exactly as it already
-  does for unpushed work. This *is* the enforcement — no second copy, nothing to
-  reconcile.
-- **`aggregate-plans.py` prefixes `daily-plan-summary.md`** with a banner naming
-  every repo whose registration is incomplete. That file is what actually gets
-  read each morning; a flag nobody looks at is not tracking.
-- **`add-repo` becomes idempotent.** It currently hard-exits on a duplicate path
-  (`add-repo.py:62-64`). Re-running it over a registered repo should reconcile —
-  backfill a missing flag, re-seed a missing plan, re-inject the kernel — and
-  produce a zero-line diff when nothing has changed. That is the same
-  regeneration property `update.sh` already promises, and it is what makes the
-  mechanism testable against `captains-log` without unregistering it first.
-
-**One source of truth, rendered twice.** The flag in `repos.yml` is
-authoritative; the `status` row and the summary banner are *projections* of it,
-recomputed on every run. The clearing verb is the only writer. Same rule as
-`replan`: derived output is rewritten, never hand-maintained.
-
-**Decided — no tracking task.** An earlier draft had `add-repo` file a HIGH task
-in the workspace's task-system. Dropped: it would be a third copy of one fact,
-hand-closable, and therefore driftable. The task-system is for work you *chose*;
-this is a debt the tool knows about with certainty, and the `status` gate already
-enforces it with nothing to reconcile. `dev-workspace`'s hand-filed
-`446273-captains-log-routine-sources-registration` is superseded when this lands.
-
-**Sequencing.** This blocks the rest of `04`: moving six more repos before it
-lands just multiplies the in-between state at six times the scale. Land `10`,
-`update.sh` it into `dev-workspace`, re-run `add-repo captains-log` to prove
-idempotency and backfill the flag, *then* move the rest. `05` then populates
-`sources` once from a complete `repos.yml` instead of six manual edits.
+**Still to dogfood.** `update.sh` into `dev-workspace`, re-run
+`add-repo captains-log` to back-fill the flag, then add it to `sources` and clear
+it. `05` then populates `sources` once from a complete `repos.yml` instead of six
+manual edits.
 
 **05** — the two manual seams (`DESIGN.md` §8.5). Record the routine URL in
 `config.yml` as `routine_url` so the README roster links it.
@@ -252,6 +229,13 @@ unpushed work is sitting in one of those clones first — which is exactly what
 - `.project-status-ignore` left **untracked** — a transitional artifact of a
   retiring system does not belong in the emitted allowlist (`03`, `09`).
 - `dev-workspace` created **private** — it carries plans and a rollup (`03`).
+- An un-automatable step is **tracked in the lockfile, not printed**, and
+  **absent means outstanding** — the default has to fail loud (`10`).
+- The `status` gate *is* the enforcement; the banner is a second projection, not
+  a second record. No task, nothing to close by hand (`10`).
+- The flag is not a git finding: `delete-repo` never refuses over it (`10`).
+- Membership verbs are **re-runnable** — `add-repo` reconciles, so repairing a
+  registered repo never requires deleting its checkout first (`10`).
 
 ## Done when
 
