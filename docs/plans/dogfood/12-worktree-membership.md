@@ -1,7 +1,7 @@
 # 12 — how a git-worktree layout is tracked by a workspace
 
-Status: **design decided, implementation deferred** — see DECIDED below. The
-near-term step is registering `create-ai-builder/main` only.
+Status: **near-term step done (2026-08-04); full design still deferred** — see
+DECIDED below, then "What happened".
 
 A repo checked out as **bare + linked worktrees** has no verb that registers it.
 `repos.yml` can *describe* one and `bootstrap.sh` can *replay* one, but nothing
@@ -140,12 +140,46 @@ duplicated. `bootstrap.sh`'s existing `parent_repo_path` replay is therefore
 kept, not deleted; it becomes the replay half of a write path that finally
 exists.
 
+## What happened (2026-08-04) — the near-term step
+
+`create-ai-builder` was **moved** into `dev-workspace/create-ai-builder/`
+(container and all), and `create-ai-builder/main` registered as one standard
+entry named `create-ai-builder`. Child commits `56c68d5` (kernel) and `cdd3104`
+(task `07` strip), workspace commit `6fd35b4`. All three worktrees came through
+at their pre-move HEADs — `84c13bc` / `cf5f1e9` / `904c4a3`.
+
+Three things the move taught, none of them predicted above:
+
+1. **A moved worktree layout needs `git worktree repair`.** The pointers are
+   absolute *in both directions* — each worktree's `.git` file holds an absolute
+   path to `.bare/worktrees/<name>`, and each `.bare/worktrees/<name>/gitdir`
+   holds an absolute path back to the worktree's `.git`. After the `mv`, all
+   three read `prunable` and `git worktree list` still named the old location.
+   `git worktree repair main regression-infra workspace-mgmt`, run from the
+   container, fixed both directions at once. **Whatever verb eventually creates
+   or relocates this layout has to run `repair`** — a plain `mv` leaves a repo
+   that looks fine until you touch it.
+2. **The entry name is load-bearing for the remote run.** It is `create-ai-builder`
+   (not `create-ai-builder-main`) precisely because problem 1 above resolves a
+   remote checkout as `/home/user/<name>` and the platform pre-clones by *repo*.
+   The name matching the repo is what makes the one registered worktree readable
+   in the sandbox — and it is the same trick decision 4 generalizes.
+3. **The `--all` sweep now reports a false clean.** See below.
+
 ## Two more findings worth keeping
 
-- **The container has no `.git`.** `create-ai-builder/` holds `.bare` plus the
-  worktrees, so the container directory is not a checkout and every
-  `[ -e <path>/.git ]` test calls it missing. Whatever registers this layout must
-  point at a worktree path, or learn about `.bare`.
+- **The container has a `.git` after all — and that is worse than none.**
+  Corrects the original claim here. `create-ai-builder/.git` is a *file* reading
+  `gitdir: ./.bare`, so `[ -e <path>/.git ]` says checkout and the depth-1
+  `status --all` sweep picks the container up as `unregistered … clean`. That
+  `clean` is **not a finding, it is the absence of one**: a bare repo has no
+  working tree, so nothing can ever be reported dirty there. Worse, the two
+  unregistered worktrees sit at depth *2* and the sweep is depth 1, so unpushed
+  work on `regression-infra` or `workspace-mgmt` is invisible to the exact
+  command task `01` built to catch it. The full design must make a container
+  either skipped-and-said-so or expanded into its worktrees; reporting it clean
+  is the one option that misleads. (It also produces two rows named
+  `create-ai-builder`, which reads as a duplicate rather than a container.)
 - **The rollup's window is per-HEAD, not per-repo.** `gather_report` reads
   `last..HEAD` in one directory. This is why registering only `main` loses the
   other branches' work — and why per-branch entries are the fix rather than a
@@ -166,12 +200,15 @@ exists.
 
 ## Acceptance
 
-**Near-term (do now):**
-- `create-ai-builder` is in `dev-workspace` with `main` registered as a standard
-  entry, `make status` green, and the partial coverage stated out loud — the
-  other two branches are not in the rollup.
-- It is **moved**, not re-cloned: the bare + worktree layout is not something
-  `add-repo` can reproduce.
+**Near-term (do now):** — **met 2026-08-04**, one step outstanding.
+- ✅ `create-ai-builder` is in `dev-workspace` with `main` registered as a
+  standard entry, and the partial coverage stated out loud — the other two
+  branches are not in the rollup. Recorded in the workspace's plan slot for the
+  repo, not only here, so it is visible from where the work happens.
+- ✅ It is **moved**, not re-cloned.
+- ⏳ `make status` green: blocked on the one manual half of registration —
+  adding the repo to the routine's `sources`, then
+  `make routine-registered ARGS="create-ai-builder"`.
 
 **Full (deferred):**
 - A verb creates the layout (bare clone + a worktree per branch) and writes the

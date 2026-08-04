@@ -9,10 +9,10 @@ effort.
 
 ## Where I left off
 
-- **current task** — none in flight. `14` is **done**; the migrated roster is
-  green and every task with an owner is closed. What is left is `04`'s
-  **roster decision**, which is what unblocks `08`. `07` is a per-repo step that
-  runs at the end of each `04` migration, and has nothing outstanding.
+- **current task** — `12`'s **near-term step**, one manual half short: the
+  routine's `sources` still needs `create-ai-builder`. Everything else in that
+  migration landed. After that, `04`'s **roster decision**, which is what
+  unblocks `08`.
 - **what just happened (2026-08-03)** — `10` landed and was **dogfooded**: the
   `routine_registered` flag (absent = outstanding), the `routine-registered`
   verb, the `make status` gate, the `daily-plan-summary.md` banner, and an
@@ -30,13 +30,19 @@ effort.
   routine, suite green from the new location, and regenerating the workspace
   from inside itself is still zero-diff. Then `14` step 7 on 08-04: the old
   checkout deleted from a session rooted at the new one, `make status` and
-  `--all` both four clean rows.
-- **next concrete step** — **decide the roster** (`04`). `project-status` still
-  tracks five repos, so it cannot be retired (`08`) until each has an answer:
-  `create-ai-builder` (needs `12`'s `main`-only migration), `create-project-system`
-  (already migrated — just needs removing from the old registry),
-  `customer-req-responder` (not checked out anywhere), and `second-brain-test` /
-  `second-brain-devkit` (membership genuinely in doubt per `DESIGN.md` §8.9).
+  `--all` both four clean rows. Then `12`'s near-term step: `create-ai-builder`
+  **moved** in whole (bare + three worktrees), pointers repaired, `main`
+  registered, kernel committed, `07` stripped — the roster is four repos.
+- **next concrete step** — **one manual step, then a decision.** The manual
+  step: add `https://github.com/cornjacket/create-ai-builder` to the routine's
+  `sources` (whole job config, never a partial merge), then
+  `make routine-registered ARGS="create-ai-builder"` and commit the workspace.
+  `make status` is red until then, by design. The decision: **the roster**
+  (`04`). `project-status` still tracks five repos and cannot be retired (`08`)
+  until each has an answer — `create-ai-builder` and `create-project-system` are
+  migrated and just need removing from the old registry;
+  `customer-req-responder` is not checked out anywhere; `second-brain-test` /
+  `second-brain-devkit` membership is genuinely in doubt per `DESIGN.md` §8.9.
   `foa` is unclassified and untracked by either system.
 - **files mid-edit** — none.
 - **uncommitted / unpushed** — none. A full-floor sweep
@@ -87,10 +93,10 @@ In order. Acceptance is one line each until these are extracted into files.
 | 05 | create the `/schedule` routine, add every repo to `sources` | **done** for the current roster |
 | 06 | run a full day: routine writes, `make pull` lands it | **done** — passed first try |
 | 11 | `summary.md` holds the latest run only, not a growing journal | **done** |
-| 12 | how a git-worktree layout is tracked — [`12`](docs/plans/dogfood/12-worktree-membership.md) | **decided**, build deferred — `main` worktree only for now |
+| 12 | how a git-worktree layout is tracked — [`12`](docs/plans/dogfood/12-worktree-membership.md) | near-term step **done** (`main` registered); full build still deferred |
 | 13 | mount the task-system under `.workspace/` — [`13`](docs/plans/dogfood/13-task-system-under-workspace.md) | **done**, dogfooded into `dev-workspace` |
 | 14 | move `create-git-workspace` into `dev-workspace` — [`14`](docs/plans/dogfood/14-migrate-create-git-workspace.md) | **done** — acceptance verified from the new location |
-| 07 | strip `project-status` from each migrated repo — [`07`](docs/plans/dogfood/07-strip-project-status.md) | **nothing outstanding** — runs again per future migration |
+| 07 | strip `project-status` from each migrated repo — [`07`](docs/plans/dogfood/07-strip-project-status.md) | in progress — `create-project-system` + `create-ai-builder` done |
 | 08 | retire `project-status`: hook, umbrella `CLAUDE.md`, the repo | todo |
 | 09 | discuss whether `.project-status-ignore` was needed at all | todo |
 
@@ -145,9 +151,13 @@ kernel inside the child → add to the routine's `sources` → `routine-register
 - `create-project-system` — **done by clone.** Fresh clone came back at the same
   HEAD (`322924c`) as the checkout it replaced; kernel committed inside the child
   (`701f502`); old checkout removed.
-- `create-ai-builder` — **deferred to `12`.** It is bare + three worktrees, and
-  no verb writes that shape. Not worth forcing a migration that would either
-  hand-edit the lockfile or silently flatten a layout that was built on purpose.
+- `create-ai-builder` — **done by MOVE**, per `12`'s near-term step. Bare +
+  three worktrees is a shape no verb can reproduce, so this is the one repo the
+  clone path could not take: the container was moved whole, `git worktree
+  repair` fixed the absolute gitdir pointers the `mv` broke in both directions,
+  and only `main` is registered. Coverage is knowingly partial — the other two
+  branches are outside the rollup, and the bare container reports a **false
+  clean** in the `--all` sweep. Both recorded in `12`.
 - `create-git-workspace` — decided in, **with a session hazard**: it is the repo
   a working session is normally rooted in, so cloning it into `dev-workspace` and
   deleting the old checkout removes the directory that session is standing in.
@@ -374,6 +384,12 @@ unpushed work is sitting in one of those clones first — which is exactly what
   journal is `git log -p summary.md`, which every run already writes (`11`).
 - A quiet day **re-dates** the last real work rather than replacing it with "No
   updates"; the heading names both dates so the two never blur (`11`).
+- A worktree layout is registered by pointing at a **worktree path** under the
+  **repo's** name — the name, not the path, is what the remote run resolves as
+  `/home/user/<name>`, and the platform pre-clones by repo (`12`).
+- Partial coverage is **stated, not silent**: `create-ai-builder` is tracked on
+  `main` only, and that is written into its plan slot as well as the task file —
+  the §5.2 rule that a repo missing from a rollup must say so (`12`).
 
 ## Done when
 

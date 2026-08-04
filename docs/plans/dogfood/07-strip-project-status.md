@@ -1,6 +1,7 @@
 # 07 — strip `project-status` instrumentation from a migrated repo
 
-Status: in progress — procedure proven on `create-project-system` (2026-08-03)
+Status: in progress — procedure run twice unchanged, on `create-project-system`
+(2026-08-03) and `create-ai-builder` (2026-08-04)
 
 The **last step of migrating each repo**, not a separate cleanup pass
 (`DESIGN.md` §8.9). A repo that has joined a git-workspace still carries the old
@@ -41,7 +42,10 @@ Run from inside the child repo, after it is registered in the workspace.
 2. `git rm daily-plan.md project-status-guide.md`
 3. `git rm .claude/hooks/check-daily-plan.py` — and `.claude/settings.json` if it
    exists **only** to register that hook (check first; a repo may keep other
-   settings there). Remove `.claude/` entirely if it is then empty.
+   settings there). Remove `.claude/` entirely if it is then empty — on both
+   repos so far it was not: `settings.local.json` and a vendored skill live
+   there and are none of this task's business. Only `settings.json` was the
+   hook's.
 4. Strip the `ai-project-status` block from `CLAUDE.md` — it is marker-delimited
    (`<!-- ai-project-status:begin -->` … `:end`), so it comes out cleanly. Leave
    the `git-workspace-commits` block alone.
@@ -62,10 +66,17 @@ grep -c "ai-project-status:begin" CLAUDE.md
   migration. Nothing to do.
 - `create-project-system` — **done** (`a3e02be`). `CLAUDE.md` 94 → 52 lines;
   72 lines of plan imported to the workspace slot.
-- `create-ai-builder`, `customer-req-responder`, `second-brain-devkit`,
-  `second-brain-test` — pending, and only if they join the workspace at all
-  (roster is still undecided; `second-brain` membership is in doubt per
-  `DESIGN.md` §8.9).
+- `create-ai-builder` — **done** (`cdd3104`). It carried all four artifacts;
+  `CLAUDE.md` 584 → 542 lines, 36 lines of plan imported to the workspace slot.
+  One thing this repo added to the procedure: it is checked out as three
+  long-lived worktrees, and **the strip only applies to the branch you run it
+  on**. `regression-infra` and `workspace-mgmt` still carry the old artifacts,
+  hook included, until they merge `main` — so a session rooted in one of those
+  worktrees still gets the nag. Not worth stripping per branch (it would
+  conflict on merge); worth knowing before task `08` calls this finished.
+- `customer-req-responder`, `second-brain-devkit`, `second-brain-test` —
+  pending, and only if they join the workspace at all (roster is still
+  undecided; `second-brain` membership is in doubt per `DESIGN.md` §8.9).
 - `create-git-workspace` — **not applicable**, never a `project-status` target.
 
 ## Acceptance
