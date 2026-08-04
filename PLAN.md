@@ -9,22 +9,21 @@ effort.
 
 ## Where I left off
 
-- **current task** — `06`, the first genuine end-to-end run. Nothing to build
-  first; it happens on its own at 12:43 UTC.
+- **current task** — `04`, move the remaining repos in. `06` passed, so the loop
+  is proven end to end and nothing blocks it.
 - **what just happened (2026-08-03)** — `10` landed and was **dogfooded**: the
   `routine_registered` flag (absent = outstanding), the `routine-registered`
   verb, the `make status` gate, the `daily-plan-summary.md` banner, and an
-  `add-repo` that reconciles instead of refusing. 334 assertions, §8p. Then
-  `update.sh` into `dev-workspace`, where the gate flagged `captains-log`
-  **before any edit** — the absent-means-outstanding default paying off on a repo
-  registered days earlier. The reconcile back-filled the flag in one line and a
-  second run wrote nothing. Then `05`: the routine exists, so the flag is now
-  honestly cleared and `status` reads clean.
-- **next concrete step** — `06`: after the 12:43 UTC run, check that
-  `auto/status-2026-08-04` was pushed and auto-merged, then `make pull`. Watch
-  for two things the sandbox has never exercised here: whether `claude -p` is on
-  `PATH` inside the CCR container (`run.py` step 3 shells out to it), and whether
-  `daily.sh`'s PyYAML install works. *Then* move the rest of the repos (`04`).
+  `add-repo` that reconciles instead of refusing. Then `update.sh` into
+  `dev-workspace`, where the gate flagged `captains-log` **before any edit** —
+  the absent-means-outstanding default paying off on a repo registered days
+  earlier. Then `05`: the routine exists, so the flag is honestly cleared. Then
+  `06` end to end on a hand-triggered run, first try. Then `11`, which that run
+  exposed: `summary.md` now holds the latest run only. 340 assertions.
+- **next concrete step** — `update.sh` `11` into `dev-workspace` (its
+  `summary.md` still carries the whole-history section — the next run collapses
+  it), then `04`: for each remaining repo, `mv` it in, `add-repo`, add it to the
+  routine's `sources`, `routine-registered` it.
 - **files mid-edit** — none.
 - **uncommitted / unpushed** — the hand-filed inbox task `10` superseded was
   already removed in `dev-workspace` (`9f138f2`).
@@ -70,7 +69,8 @@ In order. Acceptance is one line each until these are extracted into files.
 | 04 | move the first repos in and register them | in progress — `captains-log` done, rest after `05`/`06` |
 | 10 | track incomplete routine registration; make `add-repo` idempotent | **done**, dogfooded into `dev-workspace` |
 | 05 | create the `/schedule` routine, add every repo to `sources` | **done** for the current roster |
-| 06 | run a full day: routine writes, `make pull` lands it | todo |
+| 06 | run a full day: routine writes, `make pull` lands it | **done** — passed first try |
+| 11 | `summary.md` holds the latest run only, not a growing journal | **done** |
 | 07 | strip `project-status` from each migrated repo | todo |
 | 08 | retire `project-status`: hook, umbrella `CLAUDE.md`, the repo | todo |
 | 09 | discuss whether `.project-status-ignore` was needed at all | todo |
@@ -168,9 +168,45 @@ low-stakes repo first. **The cost is real and accepted:** each remaining repo no
 needs its own `sources` edit as it lands, rather than one bulk edit at the end.
 `routine-registered --all` still clears the flags in one go.
 
-**06** — the first genuine end-to-end: push the workspace, let the routine run,
-`make pull` the aggregates down. This is the test that `git-workspace-test` could
-only approximate.
+**06 — done, passed on the first run.** Triggered by hand rather than waiting
+for 12:43 UTC. `auto/status-2026-08-04` was pushed within ~20s, auto-merged onto
+`main` and deleted, and `make pull` brought down `a0a0bd4` — four files, exactly
+the routine-owned set. **Both sandbox unknowns cleared:** `claude -p` *is* on
+`PATH` in the CCR container (the rollup is real prose, not dry-run placeholders)
+and `daily.sh`'s PyYAML install worked. `daily-plan-summary.md` came back with no
+banner, which proves the `10` projection renders remotely too — had the flag been
+cleared before the routine existed, `captains-log` would have been silently
+absent instead.
+
+What it exposed: the first run's window is `EMPTY_TREE..HEAD`, so the section
+covered `captains-log`'s entire history — which is what made the growth problem
+in `11` obvious.
+
+**11 — `summary.md` is a dashboard, not a journal.** It held one dated section
+per run, prepended forever, so it grew without bound and the first run's
+whole-history section sat at the top of it. Now the file holds **exactly one
+section — the latest run** — and is rewritten rather than appended to.
+
+The quiet-day rule is the part worth keeping: a run with no new commits does
+**not** replace real work with an empty "No updates" list, because that reads as
+*nothing has happened* when the truth is *nothing has happened since*. It keeps
+the body verbatim and re-dates the heading, which then names both dates
+(`## 2026-08-10 — no new work since 2026-08-04`). The activity date is parsed
+back out of that heading rather than re-derived, or a run of quiet days would
+creep it forward a day at a time and quietly claim the work was recent.
+
+Deliberately **not** archived like `daily-plan-summary.md` is: every run commits
+the file, so `git log -p summary.md` already is the day-by-day journal, and a
+second copy under `.workspace/state/archive/` would reintroduce the growth this
+removed. Documented in `DESIGN.md` §8.3 as the third output contract. Note this
+also fixed a doc bug next door — the guide claimed dated snapshots of *both*
+deliverables land in the archive, which was never true.
+
+**Deferred, and worth a decision later:** the gather window itself is untouched.
+`state.json`'s `last_commit..HEAD` still preserves catch-up after a missed day —
+capping it would bound the *content* too, but would silently drop work done on a
+day the routine did not run. Bounding the file solved the growth; bounding the
+window would trade correctness for it.
 
 **07** — per `DESIGN.md` §8.9 this is the *last* step per repo, not a separate
 cleanup: remove that repo's `ai-project-status` block, root `daily-plan.md`,
@@ -254,6 +290,10 @@ unpushed work is sitting in one of those clones first — which is exactly what
   registered repo never requires deleting its checkout first (`10`).
 - `05` **before** the rest of `04`: a gate with no honest exit is worse than six
   small `sources` edits, and `06` is worth proving on one repo (`05`).
+- `summary.md` is a **dashboard, not a journal** — one section, rewritten. The
+  journal is `git log -p summary.md`, which every run already writes (`11`).
+- A quiet day **re-dates** the last real work rather than replacing it with "No
+  updates"; the heading names both dates so the two never blur (`11`).
 
 ## Done when
 
