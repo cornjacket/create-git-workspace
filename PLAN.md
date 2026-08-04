@@ -9,8 +9,8 @@ effort.
 
 ## Where I left off
 
-- **current task** — `04`, move the remaining repos in. `06` passed, so the loop
-  is proven end to end and nothing blocks it.
+- **current task** — `04`, one repo at a time, on request. `create-project-system`
+  is in; `create-ai-builder` is deferred to `12`.
 - **what just happened (2026-08-03)** — `10` landed and was **dogfooded**: the
   `routine_registered` flag (absent = outstanding), the `routine-registered`
   verb, the `make status` gate, the `daily-plan-summary.md` banner, and an
@@ -20,13 +20,15 @@ effort.
   earlier. Then `05`: the routine exists, so the flag is honestly cleared. Then
   `06` end to end on a hand-triggered run, first try. Then `11`, which that run
   exposed: `summary.md` now holds the latest run only. 340 assertions.
-- **next concrete step** — `update.sh` `11` into `dev-workspace` (its
-  `summary.md` still carries the whole-history section — the next run collapses
-  it), then `04`: for each remaining repo, `mv` it in, `add-repo`, add it to the
-  routine's `sources`, `routine-registered` it.
+- **next concrete step** — either resolve `12` (decide the worktree shape, which
+  unblocks `create-ai-builder`), or take the next `04` repo on request. The
+  roster beyond what is in is still undecided — `second-brain-*` membership is
+  genuinely in doubt per `DESIGN.md` §8.9, and `foa` is unclassified.
 - **files mid-edit** — none.
-- **uncommitted / unpushed** — the hand-filed inbox task `10` superseded was
-  already removed in `dev-workspace` (`9f138f2`).
+- **uncommitted / unpushed** — none. A full-floor sweep
+  (`check-pending.py --all`) is clean except two non-issues: `create-repo-mail`
+  is an **empty** repo (no commits at all) and `tasks-test-wt` is a local-only
+  test fixture with no remote. Neither migrates.
 - **open questions** — per-repo replan couples to child task-system internals —
   it worked against `captains-log`, so the scrape matches today;
   `.project-status-ignore` → task `09`; membership beyond `captains-log` TBD.
@@ -71,6 +73,7 @@ In order. Acceptance is one line each until these are extracted into files.
 | 05 | create the `/schedule` routine, add every repo to `sources` | **done** for the current roster |
 | 06 | run a full day: routine writes, `make pull` lands it | **done** — passed first try |
 | 11 | `summary.md` holds the latest run only, not a growing journal | **done** |
+| 12 | how a git-worktree layout is tracked — [`12`](docs/plans/dogfood/12-worktree-membership.md) | todo — **blocks `create-ai-builder`** |
 | 07 | strip `project-status` from each migrated repo | todo |
 | 08 | retire `project-status`: hook, umbrella `CLAUDE.md`, the repo | todo |
 | 09 | discuss whether `.project-status-ignore` was needed at all | todo |
@@ -111,11 +114,26 @@ allowlist) would put a transitional artifact of a *retiring* system into the
 generator's machinery. It only has to exist locally to silence the hook, and it
 dies with the hook at task `08`. Verified: the nag is now silent.
 
-**04** — for each repo: `mv` the existing checkout into `dev-workspace/` (do not
-re-clone — local branches, stashes, and worktrees must survive), then `add-repo`
-registers it as-is and injects the commit kernel. Commit the kernel inside each
-child. Start with one low-stakes repo and confirm the loop before moving the
-rest.
+**04 — in progress; the method changed from `mv` to CLONE.** The original plan
+moved each checkout in so local branches, stashes, and worktrees survived. The
+clone path is the better test — it proves `repos.yml` reconstitutes a workspace
+from nothing, which an `mv` never exercises — and the pending sweep (`01`) is
+what makes it safe: it is run first, and a repo with nothing local-only to lose
+can be reproduced exactly from its remote. The old checkout is then removed.
+
+Per repo: verify clean → `add-repo <url>` clones and registers → commit the
+kernel inside the child → add to the routine's `sources` → `routine-registered`
+→ commit the workspace → remove the old checkout.
+
+- `captains-log` — done earlier, by `mv` (before the method changed).
+- `create-project-system` — **done by clone.** Fresh clone came back at the same
+  HEAD (`322924c`) as the checkout it replaced; kernel committed inside the child
+  (`701f502`); old checkout removed.
+- `create-ai-builder` — **deferred to `12`.** It is bare + three worktrees, and
+  no verb writes that shape. Not worth forcing a migration that would either
+  hand-edit the lockfile or silently flatten a layout that was built on purpose.
+- the rest — roster still TBD (see Open questions); `second-brain-*` membership
+  is genuinely in doubt, per `DESIGN.md` §8.9.
 
 **10 — done in the generator.** Registration is two-phase and only phase one is
 automatable, so the in-between state is now **recorded rather than printed**:
@@ -208,9 +226,25 @@ capping it would bound the *content* too, but would silently drop work done on a
 day the routine did not run. Bounding the file solved the growth; bounding the
 window would trade correctness for it.
 
+**12 — the worktree membership gap.** Full analysis in
+[`docs/plans/dogfood/12-worktree-membership.md`](docs/plans/dogfood/12-worktree-membership.md)
+— the first task in this effort to earn its own file. In short: `repos.yml` can
+*describe* a worktree layout and `bootstrap.sh` can *replay* one, but `add-repo`
+only ever writes `type: standard`, so nothing can create the entries the schema
+declares — and hand-editing the lockfile is what every other rule here forbids.
+
+Registering three worktree entries by hand is worse than it looks: they are
+`UNAVAILABLE` to the remote run *by construction* (the platform pre-clones
+`sources` by repo, so `/home/user/<worktree-name>` never exists), `10`'s flag has
+no honest value for them (three worktrees are one `sources` entry), and the first
+run reports one shared history once per worktree. The asymmetry that should
+decide the design: **the rollup is per-repo; `status` is per-worktree.** Lean is
+to keep the registry per-repo and expand worktrees at runtime in `status` only.
+
 **07** — per `DESIGN.md` §8.9 this is the *last* step per repo, not a separate
 cleanup: remove that repo's `ai-project-status` block, root `daily-plan.md`,
-`check-daily-plan.py` hook, and `project-status-guide.md`.
+`check-daily-plan.py` hook, and `project-status-guide.md`. First candidate:
+`create-project-system`, which now carries both instrumentation blocks.
 
 **08** — remove the user-level SessionStart hook from `~/.claude/settings.json`,
 delete `cornjacket/CLAUDE.md` and `gen-umbrella-claude.py`, and archive the
