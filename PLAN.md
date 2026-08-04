@@ -349,6 +349,29 @@ next repo lands.
 delete `cornjacket/CLAUDE.md` and `gen-umbrella-claude.py`, and archive the
 `project-status` repo.
 
+**Inventory: who still carries the old instrumentation (surveyed 2026-08-04).**
+`07` only ever runs on a member's default branch, so the leftovers are exactly
+the places membership does not reach. This list is `08`'s precondition — a hook
+pointing at an archived repo is the failure `07`'s closing note warns about.
+
+| still instrumented | why `07` missed it |
+|---|---|
+| `second-brain-test` | a fixture, never a member — hook, plan, guide, block |
+| `create-ai-builder/regression-infra` | a non-default branch of a member |
+| `create-ai-builder/workspace-mgmt` | same |
+| `customer-req-responder` | not migrated yet; `07` runs as its last step |
+
+**Clean, and worth recording so nobody re-checks:** `git-workspace-test`,
+`tasks-test`, `tasks-test-wt` were never `project-status` targets at all — the
+"fixtures carry stale hooks" worry turned out to be true of exactly one fixture,
+not the class.
+
+**`second-brain-test` is not a plain `07`.** Its `CLAUDE.md` is vendored into
+the devkit at `tests/golden/CLAUDE.md` and flows from there toward emitted
+brains, so stripping it is a devkit operation (prototype → `vendor_golden.py` →
+commit), not a workspace edit. State the requirement here; the devkit does the
+work — and see its `#41`, which is the same swap seen from the other side.
+
 **09** — `dev-workspace` got a `.project-status-ignore` to silence the
 SessionStart nag. Question the premise: the hook is deleted in `08` anyway, so
 the file may buy a few days of quiet in exchange for an artifact to remember to
