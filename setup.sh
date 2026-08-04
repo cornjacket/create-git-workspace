@@ -24,7 +24,7 @@ usage: setup.sh <target-dir> [options]
                   (--public to create it public; conflicts with --remote)
   --public        with --create-remote, create a public repo instead
   --with-hook     install guard.sh as the pre-commit hook
-  --no-tasks      skip installing the task-system (project/tasks)
+  --no-tasks      skip installing the task-system (.workspace/project/tasks)
   --no-commit     leave the generated files uncommitted
   --force         proceed even if <target-dir> already looks like a workspace
   -h, --help      show this

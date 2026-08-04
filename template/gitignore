@@ -18,9 +18,9 @@
 !/README.md
 !/Makefile
 
-# 2b. The task-system installed by the vendored create-project-system:
-#     the project/ deliverable and its on-demand Claude skill.
-!/project/
+# 2b. The task-system's on-demand Claude skill. The task-system itself needs no
+#     line here: it mounts at .workspace/project/, already covered above. Claude
+#     requires skills at .claude/skills/, so that half cannot move.
 !/.claude/
 
 # 2c. The workflows that land the remote routine's output on main.

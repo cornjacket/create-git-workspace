@@ -92,8 +92,25 @@ render_readme_block "$target"
 # machinery/content split; delegate its upgrade to it rather than reimplementing.
 # Only upgrade what is already installed — update.sh must never ADD a subsystem
 # the user opted out of with --no-tasks.
-if [ -d "$target/project/tasks" ]; then
+#
+# The OLD root mount counts as installed. The mount moved to .workspace/project/
+# (DESIGN §8.7); a workspace stamped before that has its task-system at the root,
+# and refusing to recognise it would read as "you opted out" and silently strip
+# the subsystem from every workspace that predates the move. So: install at the
+# new mount, then say the old one is still there. Never move content — the tasks
+# are the user's, and a generator that relocates them is a generator that can
+# lose them.
+if [ -d "$target/.workspace/project/tasks" ] || [ -d "$target/project/tasks" ]; then
   install_task_system "$target"
+fi
+
+if [ -d "$target/project/tasks" ]; then
+  echo
+  warn "a task-system is still mounted at the workspace root: project/tasks"
+  warn "the mount is now .workspace/project/tasks, and both now exist."
+  warn "the scripts, the skill, and replan all read the NEW one — carry any"
+  warn "task content across by hand, then remove the old mount:"
+  warn "  git -C $target rm -r project/"
 fi
 
 echo

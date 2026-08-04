@@ -395,7 +395,7 @@ install_task_system() {
   fi
   log "Task-system (vendored create-project-system)"
   "$gen" --target-repo "$target" \
-         --tasks-dir project/tasks \
+         --tasks-dir .workspace/project/tasks \
          --with-skill --with-status --inject-claude-md \
     | sed 's/^/    /'
 }

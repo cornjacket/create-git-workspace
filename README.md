@@ -40,13 +40,13 @@ repo is ignored, so the wrapper can never swallow one.
 ├── summary.md                RUNTIME: author-scoped rollup of the latest run
 ├── daily-plan-summary.md     RUNTIME: aggregated plans + "At a glance"
 ├── .gitignore                allowlist
-├── project/                  the workspace's OWN task-system (triage) + status/
 ├── .claude/skills/…          workspace-status (+ task-system) on-demand skills
 ├── .github/workflows/…       auto-merge-status.yml · claude.yml
 ├── .workspace/               hidden control plane
 │   ├── config.yml            name · git_author(s) · generator_version
 │   ├── repos.yml             membership lockfile (standard | worktree)
 │   ├── status-guide.md       the operating reference the kernel points at
+│   ├── project/…             the workspace's OWN task-system (triage) + status/
 │   ├── daily-plans/<repo>/…  this developer's daily plans (per-dev, private)
 │   ├── prompts/…             the summariser prompts fed to `claude -p`
 │   ├── templates/…           the commit kernel injected into child repos

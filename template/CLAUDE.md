@@ -43,7 +43,7 @@ running the status pipeline.
   markers are yours and are never overwritten. `README.md` is the same deal one
   level down: its `git-workspace-roster` block is regenerated from `repos.yml`,
   every other byte is yours.
-- **`project/tasks/` is the workspace's triage area** — inter-repo work and ideas
+- **`.workspace/project/tasks/` is the workspace's triage area** — inter-repo work and ideas
   with no repo home yet. Work that clearly belongs to an existing child repo goes
   in *that repo's* task-system.
 - **A worktree's `.git` is a FILE, not a directory.** Test `[ -e <path>/.git ]`,

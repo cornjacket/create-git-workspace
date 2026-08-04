@@ -9,11 +9,10 @@ effort.
 
 ## Where I left off
 
-- **current task** — `13`, ready to build. Four tasks are now specified in files
-  so they can be picked up independently, in this order: **`13`** (generator) →
-  `13`'s dogfood on `dev-workspace` → **`14`** (move the generator itself) →
-  **`12`** (worktrees, `main` only for now). `07` is a per-repo step that runs at
-  the end of each `04` migration.
+- **current task** — `13`, generator half **built**; the `dev-workspace`
+  migration is next. Remaining order: `13`'s dogfood → **`14`** (move the
+  generator itself) → **`12`** (worktrees, `main` only for now). `07` is a
+  per-repo step that runs at the end of each `04` migration.
 - **what just happened (2026-08-03)** — `10` landed and was **dogfooded**: the
   `routine_registered` flag (absent = outstanding), the `routine-registered`
   verb, the `make status` gate, the `daily-plan-summary.md` banner, and an
@@ -22,12 +21,13 @@ effort.
   the absent-means-outstanding default paying off on a repo registered days
   earlier. Then `05`: the routine exists, so the flag is honestly cleared. Then
   `06` end to end on a hand-triggered run, first try. Then `11`, which that run
-  exposed: `summary.md` now holds the latest run only. 340 assertions.
-- **next concrete step** — build `13`: change `install_task_system`'s
-  `--tasks-dir` to `.workspace/project/tasks`, follow the five pointers listed in
-  its task file, keep the suite green, then migrate `dev-workspace` by deleting
-  its empty `project/` and re-running `update.sh`. The roster beyond what is in
-  is still undecided — `second-brain-*` membership is genuinely in doubt per
+  exposed: `summary.md` now holds the latest run only. Then `13`'s generator
+  half: the task-system mounts at `.workspace/project/`, so the workspace floor
+  is child repos and nothing else. 344 assertions.
+- **next concrete step** — migrate `dev-workspace` to the new mount: run
+  `update.sh` there **first** (it now recognises the old root mount, installs the
+  new one, and warns), then `git rm -r project/`, then `make replan`. The roster
+  beyond what is in is still undecided — `second-brain-*` membership is genuinely in doubt per
   `DESIGN.md` §8.9, and `foa` is unclassified.
 - **files mid-edit** — none.
 - **uncommitted / unpushed** — none. A full-floor sweep
@@ -79,7 +79,7 @@ In order. Acceptance is one line each until these are extracted into files.
 | 06 | run a full day: routine writes, `make pull` lands it | **done** — passed first try |
 | 11 | `summary.md` holds the latest run only, not a growing journal | **done** |
 | 12 | how a git-worktree layout is tracked — [`12`](docs/plans/dogfood/12-worktree-membership.md) | **decided**, build deferred — `main` worktree only for now |
-| 13 | mount the task-system under `.workspace/` — [`13`](docs/plans/dogfood/13-task-system-under-workspace.md) | todo — **decided, ready to build** |
+| 13 | mount the task-system under `.workspace/` — [`13`](docs/plans/dogfood/13-task-system-under-workspace.md) | generator **done** — `dev-workspace` migration pending |
 | 14 | move `create-git-workspace` into `dev-workspace` — [`14`](docs/plans/dogfood/14-migrate-create-git-workspace.md) | todo — two-session sequence |
 | 07 | strip `project-status` from each migrated repo — [`07`](docs/plans/dogfood/07-strip-project-status.md) | in progress — `create-project-system` done |
 | 08 | retire `project-status`: hook, umbrella `CLAUDE.md`, the repo | todo |
@@ -261,12 +261,13 @@ including `daily-plans/`, which is human-edited content too — already lives un
 `.workspace/`. The vendor is parameterized (`--tasks-dir`), so the emit side is a
 flag change; `--with-status` moves `status/` along with it.
 
-Two things to settle before writing code: whether **`project/status/`** should
-follow (it is an audience-facing deliverable, and the other two sit at the top
-level deliberately), and how `update.sh` treats an already-stamped workspace —
-auto-`git mv` would be the first time regeneration moves *content*, which is the
-boundary the machinery/content split has never crossed. Lean: detect and instruct
-rather than move.
+Both open questions settled the way the lean pointed. **`status/` follows** —
+the vendor derives it as a sibling of the tasks mount, so one flag places both,
+and splitting the container would make `update.sh` keep two halves apart forever.
+**`update.sh` detects and instructs, never moves** — it now accepts either mount,
+installs at the new one, and prints the old one plus the `git rm`. That last part
+was not optional after all: probing only the new mount would have read every
+pre-move workspace as `--no-tasks` and silently stripped the subsystem.
 
 `dev-workspace` has **zero** tasks, so its own migration is scaffolding only —
 safe to do first, and precisely for that reason it does not exercise the case

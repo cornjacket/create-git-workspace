@@ -34,13 +34,13 @@ child, so the wrapper can never accidentally swallow one.
 ├── .gitignore             allowlist: tracks the machinery, ignores the children
 ├── summary.md             RUNTIME: retrospective rollup, newest day first
 ├── daily-plan-summary.md  RUNTIME: forward-looking plans, workspace plan first
-├── project/               the workspace's OWN task-system (triage — §8)
 ├── .claude/skills/        on-demand skills: workspace-status, task-system
 ├── .github/workflows/     auto-merge-status.yml, claude.yml
 ├── .workspace/            the control plane (hidden)
 │   ├── config.yml         identity: name · git_author · generator_version
 │   ├── repos.yml          membership lockfile — written by the verbs, not by you
 │   ├── status-guide.md    this file
+│   ├── project/           the workspace's OWN task-system (triage — §8) + status/
 │   ├── plans/             per-developer daily plans, one dir per repo
 │   │   └── _workspace/    the workspace's own forward-looking plan
 │   ├── prompts/           the summariser prompts the run feeds to `claude -p`
@@ -315,7 +315,7 @@ produces a plausible-looking empty rollup instead of an error, which is the wors
 kind of failure. If setup could not resolve your email it wrote a placeholder and
 warned; fix it in `config.yml` before the first run.
 
-### `summary.md` is not `project/status/`
+### `summary.md` is not `.workspace/project/status/`
 
 Two different artifacts, easy to confuse:
 
@@ -329,7 +329,7 @@ Two different artifacts, easy to confuse:
   `## 2026-08-10 — no new work since 2026-08-04` means "this status is current;
   the work it describes is from the 4th". For the day-by-day history, the file is
   committed on every run: `git log -p summary.md`.
-- **`project/status/`** — **hand-written** periodic status reports, the kind you
+- **`.workspace/project/status/`** — **hand-written** periodic status reports, the kind you
   bring to a status-review meeting. Installed by the vendored
   `create-project-system`, entirely optional, and many workspaces never use it.
 
@@ -365,7 +365,7 @@ so the change lands with your identity and that repo's hooks.
 
 ## 8. The workspace task-system is a triage area
 
-`project/tasks/` tracks work that belongs to **no single child repo** —
+`.workspace/project/tasks/` tracks work that belongs to **no single child repo** —
 inter-repo chores, infrastructure, and ideas that have no repo home yet. Work
 flows *downward*:
 

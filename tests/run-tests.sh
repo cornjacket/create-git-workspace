@@ -32,7 +32,7 @@ done
 # The files THIS generator emits. Update deliberately when a task adds one — a
 # surprise here means the generator started emitting something unplanned.
 #
-# Deliberately excludes the delegated task-system (project/, .claude/) and the
+# Deliberately excludes the delegated task-system (.workspace/project/, .claude/) and the
 # routine-owned deliverables: those sets are owned by the vendored generator and
 # the daily run, so pinning their exact paths here would make an upstream
 # re-vendor look like a regression in our tree. `ours()` filters them out and
@@ -120,7 +120,7 @@ PY
 # task-system and the routine-owned deliverables.
 ours() {
   git -C "$1" ls-files \
-    | grep -v -E '^(project/|\.claude/|summary\.md$|daily-plan-summary\.md$)'
+    | grep -v -E '^(\.workspace/project/|\.claude/|summary\.md$|daily-plan-summary\.md$)'
 }
 
 new_ws() { # new_ws <name> [extra setup.sh args...] -> path on stdout
@@ -431,9 +431,13 @@ test_task_system() {
 
   # Asserted by contract, not by exact file list: the vendored generator owns
   # which files it emits, so pinning them would turn a re-vendor into a failure.
-  assert_file "project/ deliverable installed"      "$ws/project/README.md"
-  assert_file "task mount is project/tasks"         "$ws/project/tasks/scripts/new-user-task.sh"
-  assert_file "--with-status stamped project/status" "$ws/project/status/README.md"
+  assert_file "project/ deliverable installed under .workspace" \
+    "$ws/.workspace/project/README.md"
+  assert_file "task mount is .workspace/project/tasks" \
+    "$ws/.workspace/project/tasks/scripts/new-user-task.sh"
+  assert_file "--with-status stamped .workspace/project/status" \
+    "$ws/.workspace/project/status/README.md"
+  assert_no_file "nothing lands on the workspace floor" "$ws/project"
   assert_file "--with-skill stamped the skill"      "$ws/.claude/skills/task-system/SKILL.md"
   assert_empty "the allowlist tracks all of it (nothing untracked)" \
     "$(git -C "$ws" status --porcelain)"
@@ -448,9 +452,9 @@ test_task_system() {
 
   # A real task must survive regeneration — this is the delegated generator's
   # own content class, and update.sh must not disturb it.
-  "$ws/project/tasks/scripts/new-user-task.sh" --folder draft --name harness-task >/dev/null 2>&1
+  "$ws/.workspace/project/tasks/scripts/new-user-task.sh" --folder draft --name harness-task >/dev/null 2>&1
   local task_dir
-  task_dir=$(find "$ws/project/tasks/main/draft" -maxdepth 1 -type d -name "*harness-task*" | head -1)
+  task_dir=$(find "$ws/.workspace/project/tasks/main/draft" -maxdepth 1 -type d -name "*harness-task*" | head -1)
   git -C "$ws" add -A; git -C "$ws" commit -qm "add a task"
 
   "$GEN_ROOT/update.sh" "$ws" >/dev/null 2>&1
@@ -462,10 +466,23 @@ test_task_system() {
   # --no-tasks must stay opted out: update.sh upgrades what is installed, it
   # never adds a subsystem the user declined.
   local nots; nots=$(new_ws ws-notasks --no-tasks)
-  assert_no_file "--no-tasks installs no project/" "$nots/project"
+  assert_no_file "--no-tasks installs no project/" "$nots/.workspace/project"
   "$GEN_ROOT/update.sh" "$nots" >/dev/null 2>&1
-  assert_no_file "update.sh does not add it later" "$nots/project"
+  assert_no_file "update.sh does not add it later" "$nots/.workspace/project"
   assert_empty   "...and stays at zero diff"       "$(git -C "$nots" status --porcelain)"
+
+  # The mount moved from the root to .workspace/ (DESIGN §8.7). A workspace
+  # stamped before that must NOT read as "opted out" — it gets the new mount and
+  # is told the old one is still there. Content is never moved for it.
+  local old out; old=$(new_ws ws-oldmount)
+  mv "$old/.workspace/project" "$old/project"          # the pre-move layout
+  out=$("$GEN_ROOT/update.sh" "$old" 2>&1 || true)
+  assert_file "an old root mount is upgraded to the new one" \
+    "$old/.workspace/project/tasks/scripts/new-user-task.sh"
+  assert_grep "...and the stale root mount is called out" \
+    'still mounted at the workspace root' <(printf '%s\n' "$out")
+  assert_file "...with the old mount left untouched, never moved" \
+    "$old/project/tasks/scripts/new-user-task.sh"
 }
 
 # ---------------------------------------------------------------------------
@@ -480,7 +497,7 @@ test_workspace_plan() {
   assert_grep "seeded with a dated header" '^# Daily plan — [0-9]{4}-[0-9]{2}-[0-9]{2}$' "$plan"
 
   # Derived from task state, not invented.
-  local ts="$ws/project/tasks/scripts"
+  local ts="$ws/.workspace/project/tasks/scripts"
   "$ts/new-user-task.sh" --folder in-progress --name doing-now  >/dev/null 2>&1
   "$ts/new-user-task.sh" --folder backlog     --name queued-up  >/dev/null 2>&1
   "$ts/new-user-task.sh" --folder draft       --name homeless   >/dev/null 2>&1
@@ -1199,7 +1216,7 @@ test_guide_and_skill() {
   assert_grep "guide documents the ff-only pull"               'ff-only'   "$guide"
   assert_grep "guide documents the repo verbs"                 'delete-repo\.py' "$guide"
   assert_grep "guide separates project/status from summary.md" \
-    'summary\.md.* is not .*project/status/' "$guide"
+    'summary\.md.* is not .*\.workspace/project/status/' "$guide"
 
   # The kernel: small, and a pointer rather than a restatement.
   local block

@@ -4,13 +4,13 @@ _Workspace-scoped work: inter-repo tasks, infrastructure, and ideas that have no
 repo home yet. Forward-looking only — the workspace's own commits are meta-noise,
 so this plan has no retrospective half._
 
-Regenerate the derived sections from `project/tasks` with `make replan`. It
+Regenerate the derived sections from `.workspace/project/tasks` with `make replan`. It
 rewrites this file and stops: reviewing and committing it is yours.
 
 ## In progress
 
 _None yet. Create one:_
-`project/tasks/scripts/new-user-task.sh --folder in-progress --name <name>`
+`.workspace/project/tasks/scripts/new-user-task.sh --folder in-progress --name <name>`
 
 ## Next up
 

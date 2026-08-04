@@ -274,15 +274,15 @@ command surface.
   ├── summary.md             runtime deliverable (author-scoped rollup)
   ├── daily-plan-summary.md  runtime deliverable (aggregated plans)
   ├── Makefile               command surface (machinery)
-  ├── project/               FIRST-CLASS deliverable (create-project-system)
-  │   ├── tasks/               the task-system (mount = project/tasks)
-  │   └── status/              narrative reports for status-review meetings
   ├── .claude/skills/…       workspace-status + task-system skills (machinery)
   ├── .github/workflows/     auto-merge-status.yml, claude.yml (machinery)
   ├── .workspace/            hidden control plane
   │   ├── config.yml           content: name · git_author · version · routine_url
   │   ├── repos.yml            content: membership lockfile
   │   ├── status-guide.md      machinery: the on-demand operating guide
+  │   ├── project/            FIRST-CLASS deliverable (create-project-system)
+  │   │   ├── tasks/            the task-system (mount = .workspace/project/tasks)
+  │   │   └── status/           narrative reports for status-review meetings
   │   ├── scripts/             machinery: every verb
   │   ├── prompts/             machinery: the claude -p prompts
   │   ├── templates/           machinery: the child commit kernel
@@ -296,7 +296,7 @@ so adding a child repo can never accidentally get tracked:
 
 ```
 /*
-!/.workspace/  !/project/  !/.claude/  !/.github/
+!/.workspace/  !/.claude/  !/.github/
 !/CLAUDE.md  !/README.md  !/Makefile  !/.gitignore
 !/summary.md  !/daily-plan-summary.md
 __pycache__/  *.pyc          # re-ignored INSIDE the un-ignored dirs
@@ -548,7 +548,7 @@ Three output contracts worth stating, because each was learned by breaking it:
   `state.json`. Advancing past work that was never summarized would make the next
   run skip it, and the day would vanish from the record with no error anywhere.
 
-`project/status/` is a *different thing* and the guide must keep them apart:
+`.workspace/project/status/` is a *different thing* and the guide must keep them apart:
 hand-written periodic reports for status-review meetings, versus `summary.md`,
 the automated git-telemetry rollup.
 
@@ -683,6 +683,30 @@ workspace to attach them to.
 Work flows **downward**: an idea lands as a workspace task before it has a repo,
 and **graduates** when it earns one. Anything that clearly belongs to an existing
 child repo belongs *there*, not here.
+
+### The mount is `.workspace/project/`, so the floor is only children
+
+It installs into the control plane, not the workspace root. The root is the one
+directory that means "these are the repos I manage" — a `project/` sitting among
+them reads as a child repo that is not one. Under `.workspace/` it joins every
+other workspace-owned artifact (`repos.yml`, `daily-plans/`, `templates/`), and
+the allowlist loses a special case: no `!/project/` line, because `!/.workspace/`
+already covers it.
+
+The counter-argument is real and was accepted: this puts *human-edited* content
+in a dotdir. `daily-plans/` set that precedent, and nobody reaches the
+task-system by `ls` — they reach it through the `Makefile` and the `task-system`
+skill, neither of which cares where it sits.
+
+**`status/` moves with it.** Hand-written status reports are audience-facing, so
+there was a case for leaving them beside `summary.md` at the top level. It loses
+to the container: the vendor derives `status/` as a *sibling of the tasks mount*,
+so one `--tasks-dir` places both, and splitting them would make the generator
+install two halves and force `update.sh` to keep them apart forever. The
+container also keeps its name — `.workspace/project/{tasks,status}` rather than
+`.workspace/{tasks,status}`, which would park `status/` next to `.workspace/state/`,
+and those two mean entirely different things (hand-written reports vs. the daily
+run's commit window).
 
 ### Graduation is two tasks, not a move
 

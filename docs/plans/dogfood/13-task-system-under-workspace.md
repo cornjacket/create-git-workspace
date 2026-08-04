@@ -1,6 +1,7 @@
 # 13 — mount the task-system under `.workspace/`, not on the floor
 
-Status: open
+Status: **generator done (2026-08-03)** — 344 assertions green, zero-diff holds.
+`dev-workspace` migration pending.
 
 The vendored task-system installs at `project/` in the workspace **root**, which
 is the one directory that is supposed to hold child repos and nothing else. A
@@ -89,13 +90,21 @@ stamps `.workspace/project/` fresh. **No task content is at stake.** That also
 means this does not exercise a populated migration — say so rather than letting
 it read as proven.
 
-**Residual gap, deliberately accepted:** if an old-layout workspace ever
-reappears — a stale clone, a restored backup — `update.sh` would install a second
-task-system at the new path while `project/` still sat at the root, and nothing
-would say so. The scripts, the skill, and `replan` would each pick one and
-disagree. A ~5-line **detection warning** in `update.sh` (if root `project/`
-exists, print and continue — never move) closes it without crossing the content
-boundary. Optional; add it if it ever bites.
+**Built anyway — it bit immediately.** `update.sh` only upgrades a task-system it
+finds already installed (`--no-tasks` must stay opted out). Probing the *new*
+mount alone would have read every pre-move workspace as opted out and silently
+stripped the subsystem — including `dev-workspace`, whose migration recipe below
+assumed `update.sh` would stamp the new mount after the old one was deleted. It
+would not have.
+
+So the probe now accepts **either** mount and installs at the new one, followed
+by the detection warning: if root `project/` still exists, say both are present,
+say the scripts/skill/`replan` all read the new one, and print the `git rm`.
+Content is never moved — the tasks are the user's, and a generator that
+relocates them is one that can lose them.
+
+That also fixes the migration ordering: **`update.sh` first, delete second.**
+Deleting first leaves nothing for the probe to find.
 
 ## `dev-workspace` specifics
 
@@ -105,10 +114,12 @@ Zero task content to preserve: `inbox`, `draft`, `backlog`, `in-progress`,
 
 ```
 cd <dev-workspace>
+<create-git-workspace>/update.sh .  # stamps .workspace/project/, warns about the old mount
 git rm -r --quiet project/          # scaffolding only — verify the folders are empty first
-<create-git-workspace>/update.sh .  # stamps .workspace/project/ fresh
 make replan                         # confirm the workspace's own plan still drafts
 ```
+
+Order matters: `update.sh` needs to *see* a task-system to upgrade one.
 
 Safe *because* nothing is at stake — which also means it does **not** exercise
 the case that matters. A workspace with real tasks is the one that would prove

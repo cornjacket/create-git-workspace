@@ -93,7 +93,7 @@ render() {
       printf '_Workspace-scoped work: inter-repo tasks, infrastructure, and ideas that have no\n'
       printf 'repo home yet. Forward-looking only — the workspace'"'"'s own commits are meta-noise,\n'
       printf 'so this plan has no retrospective half._\n\n'
-      printf '_Derived from `project/tasks` by `make replan`. Draft only: review the diff and\n'
+      printf '_Derived from `.workspace/project/tasks` by `make replan`. Draft only: review the diff and\n'
       printf 'commit it yourself._\n\n'
     else
       printf '_Your plan for `%s`. Per-developer: it lives in this workspace, not in the\n' "$label"
@@ -142,11 +142,11 @@ printf '\033[1m==>\033[0m Redrafting daily plans for %s\n' "$DATE"
 
 # The workspace's own plan, from its own task-system.
 if want "_workspace"; then
-  if [ -d "$WORKSPACE_ROOT/project/tasks" ]; then
+  if [ -d "$WORKSPACE_DIR/project/tasks" ]; then
     render "$WORKSPACE_DIR/daily-plans/_workspace/daily-plan.md" \
-           "$WORKSPACE_ROOT/project/tasks" workspace "_workspace"
+           "$WORKSPACE_DIR/project/tasks" workspace "_workspace"
   else
-    printf '    %-24s no task-system at project/tasks — skipped\n' "_workspace"
+    printf '    %-24s no task-system at .workspace/project/tasks — skipped\n' "_workspace"
     skipped=$((skipped + 1))
   fi
 fi
@@ -191,7 +191,7 @@ fi
 # Nothing was readable at all. A silent exit 0 here would look like success while
 # producing no plan whatsoever, which is the one outcome worth failing on.
 echo "replan: no task-system to derive a plan from." >&2
-echo "        The workspace plan comes from project/tasks, and a repo's from its" >&2
-echo "        own task-system. Install one (setup.sh without --no-tasks), or" >&2
-echo "        curate tasks in the repos you want plans for." >&2
+echo "        The workspace plan comes from .workspace/project/tasks, and a repo's" >&2
+echo "        from its own task-system. Install one (setup.sh without --no-tasks)," >&2
+echo "        or curate tasks in the repos you want plans for." >&2
 exit 1
