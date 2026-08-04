@@ -36,13 +36,19 @@ sits.
 The sharper edge is **`project/status/`** — hand-written periodic status reports,
 the kind you bring to a review meeting. That is an audience-facing deliverable,
 and the other two (`summary.md`, `daily-plan-summary.md`) deliberately sit at the
-top level for exactly that reason. Moving it into a hidden directory is a real
-demotion. Options: accept it (the reports are read from the repo, not the
-filesystem), or split the container and leave `status/` at root — which costs the
-"one container" property the vendor's `--with-status` gives for free.
+top level for exactly that reason.
 
-**Decide this before implementing.** Splitting them later is worse than choosing
-now.
+**DECIDED: `status/` moves too — one container.** The reports are read from the
+repo, not from a directory listing, and keeping the vendor's single mount means
+`--with-status` continues to place `status/` as a sibling for free. Splitting the
+container would make the generator install two halves and force `update.sh` to
+keep them apart forever.
+
+**DECIDED: the container keeps the name `project/`** — the mount is
+`.workspace/project/{tasks,status}`. The shorter `.workspace/{tasks,status}` is
+tempting but puts `status/` directly beside the existing `.workspace/state/`,
+and those two mean entirely different things (hand-written reports vs. the daily
+run's commit-window state).
 
 ## What it touches
 
@@ -68,39 +74,45 @@ The vendor is already parameterized — this is a flag change, not a fork:
   by contract; `EXPECTED_TRACKED` excludes the delegated tree. All three need the
   new path, and the zero-diff invariant must still hold.
 
-## Migration is the hard part
+## Migration
 
-An existing workspace was stamped with `project/` at the root. `update.sh` has to
-do something about it, and every option has a cost:
+**DECIDED: no migration path in `update.sh`.** It handles new stamps only.
 
-- **(a) Auto-migrate**: if root `project/` exists and `.workspace/project/` does
-  not, `git mv` it and report. Cleanest result — but it is the **first time
-  `update.sh` moves user content**, and the machinery/content split has held
-  precisely because regeneration never touches content. A `git mv` of a
-  directory holding real tasks is not a regeneration; it is a data migration
-  wearing one's clothes.
-- **(b) Detect and instruct**: warn loudly, print the exact `git mv`, refuse to
-  install a second task-system until the old one is gone. Keeps the split
-  honest at the cost of a manual step.
-- **(c) New workspaces only**: leave stamped workspaces alone. Cheapest, and
-  guarantees two layouts in the wild forever — the thing `update.sh` exists to
-  prevent.
+The usual objection to that — "two layouts in the wild forever" — does not apply
+here, because there is exactly **one** workspace in existence (`dev-workspace`)
+and it is migrated by hand as part of this task. After that, no workspace carries
+the old layout, so there is nothing for a migration path to migrate.
 
-Lean: **(b)**, with the instruction precise enough to paste. The split is worth
-more than the convenience, and this is a one-time step per workspace.
+The hand migration is trivial *for this workspace specifically*: all six task
+folders are empty, so it is `git rm -r project/` followed by `update.sh`, which
+stamps `.workspace/project/` fresh. **No task content is at stake.** That also
+means this does not exercise a populated migration — say so rather than letting
+it read as proven.
 
-Whatever is chosen, the failure to avoid is **two task-systems coexisting** — a
-populated `project/` on the floor and an empty `.workspace/project/` — because
-the scripts, the skill, and `replan` would each pick one and they would not agree.
+**Residual gap, deliberately accepted:** if an old-layout workspace ever
+reappears — a stale clone, a restored backup — `update.sh` would install a second
+task-system at the new path while `project/` still sat at the root, and nothing
+would say so. The scripts, the skill, and `replan` would each pick one and
+disagree. A ~5-line **detection warning** in `update.sh` (if root `project/`
+exists, print and continue — never move) closes it without crossing the content
+boundary. Optional; add it if it ever bites.
 
 ## `dev-workspace` specifics
 
 Zero task content to preserve: `inbox`, `draft`, `backlog`, `in-progress`,
 `complete`, and `wont-do` are all empty (the one hand-filed task was removed in
-`9f138f2`). So its migration is a `git mv` of scaffolding plus a regeneration,
-and it is a safe first subject *because* nothing is at stake — which also means
-it does **not** exercise the case that matters. A workspace with real tasks is
-the one that proves the migration; note that gap rather than claiming it passed.
+`9f138f2`). Its migration is therefore:
+
+```
+cd <dev-workspace>
+git rm -r --quiet project/          # scaffolding only — verify the folders are empty first
+<create-git-workspace>/update.sh .  # stamps .workspace/project/ fresh
+make replan                         # confirm the workspace's own plan still drafts
+```
+
+Safe *because* nothing is at stake — which also means it does **not** exercise
+the case that matters. A workspace with real tasks is the one that would prove
+the migration; note that gap rather than claiming it passed.
 
 ## Acceptance
 

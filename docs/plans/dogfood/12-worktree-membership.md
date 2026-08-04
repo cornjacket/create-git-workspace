@@ -1,6 +1,7 @@
 # 12 — how a git-worktree layout is tracked by a workspace
 
-Status: open — **blocks bringing `create-ai-builder` into `dev-workspace`**
+Status: **design decided, implementation deferred** — see DECIDED below. The
+near-term step is registering `create-ai-builder/main` only.
 
 A repo checked out as **bare + linked worktrees** has no verb that registers it.
 `repos.yml` can *describe* one and `bootstrap.sh` can *replay* one, but nothing
@@ -68,7 +69,41 @@ The root asymmetry underneath all three: **the rollup is inherently per-repo**
 dirty, ahead, or detached independently). Any design that ignores that split
 will be wrong at one end.
 
-## Options
+## DECIDED (2026-08-03)
+
+**The worktrees are long-lived parallel workstreams**, not short-lived branch
+checkouts. That settles the shape:
+
+1. **Each branch is its own `repos.yml` entry.** Per-worktree granularity is
+   real granularity here — three independent workstreams that can each be dirty,
+   ahead, or idle. Registering only `main` would hide two thirds of the work.
+2. **A branch whose HEAD matches `main` is not summarized** — it has been
+   fast-forwarded, so its commits are already reported under `main`. Report it as
+   `same as main`. This is what kills the triple-counting in problem 3 above:
+   shared history is attributed once, to the branch that owns it.
+3. **Worktree lifecycle is the workspace's job, not the repo's.** Creating and
+   removing a worktree is a membership operation, same rule as `add-repo`: the
+   workspace owns the *set*, the child owns its *contents*. So the verb lives in
+   `.workspace/scripts/`, and a child repo never learns it is checked out this
+   way.
+4. **A worktree entry resolves remotely through its parent.** This is the fix for
+   problem 1: instead of looking for `/home/user/<worktree-name>`, a worktree
+   entry reads the **parent's pre-cloned source** and that branch's ref. The
+   pre-clone carries every ref, so `regression-infra` is readable from it without
+   a second source. One `sources` line covers the whole repo.
+5. **`routine_registered` is inherited from the parent**, not stored per
+   worktree. That is problem 2 dissolved: three worktrees are one `sources`
+   entry, so one flag is the honest representation.
+
+**Deferred.** None of this is built yet. The near-term step is (6) below.
+
+6. **Support the `main` worktree now.** Register `create-ai-builder/main` as a
+   single standard entry so the repo is tracked at all, and leave
+   `regression-infra` and `workspace-mgmt` unregistered until the above lands.
+   Be explicit that this is partial: work on the other two branches is **not** in
+   the rollup, and that is a known omission rather than a silent one.
+
+## Options considered
 
 **(a) Teach `add-repo` a `--worktree` mode.** `add-repo <url> --worktrees
 main,regression-infra` clones bare into `<path>/.bare` and adds one worktree per
@@ -98,38 +133,55 @@ granularity it actually needs. Costs a runtime `git worktree list` per repo and
 means a `status` row that no `repos.yml` entry corresponds to — which needs
 saying out loud in the output, or it reads as an unregistered checkout.
 
-## Lean
+**Outcome: (a), scoped.** The decision above is option (a) — per-worktree
+entries — with the two things that made it look expensive removed: the remote
+resolution goes through the parent, and the flag is inherited rather than
+duplicated. `bootstrap.sh`'s existing `parent_repo_path` replay is therefore
+kept, not deleted; it becomes the replay half of a write path that finally
+exists.
 
-**(d)**, on the strength of the asymmetry argument: it is the only option where
-neither end is wrong, and it stores nothing that could disagree with reality.
-**(c)** is the fallback if runtime discovery proves noisy — it is strictly
-better than (a)/(b) for the rollup, and its only loss is per-worktree dirt,
-which `make status --all` on the floor still catches today.
+## Two more findings worth keeping
 
-Not (a) or (b) until there is a second worktree repo: one instance is not enough
-to justify a group-aware write path across five verbs.
+- **The container has no `.git`.** `create-ai-builder/` holds `.bare` plus the
+  worktrees, so the container directory is not a checkout and every
+  `[ -e <path>/.git ]` test calls it missing. Whatever registers this layout must
+  point at a worktree path, or learn about `.bare`.
+- **The rollup's window is per-HEAD, not per-repo.** `gather_report` reads
+  `last..HEAD` in one directory. This is why registering only `main` loses the
+  other branches' work — and why per-branch entries are the fix rather than a
+  nicety.
 
 ## Open questions
 
-- **How are those three worktrees actually used day to day?** If they are
-  long-lived parallel workstreams, per-worktree status matters and (d) wins. If
-  they are short-lived branch checkouts, (c) is enough and the whole thing is
-  simpler.
 - **Does the container's own `README.md` belong to anything?** It sits outside
-  every worktree and is tracked by no repo. It is the same class of artifact as
-  the umbrella `CLAUDE.md` that task `08` deletes.
-- **Should `bootstrap.sh`'s existing worktree replay survive at all** if the
-  registry stops declaring worktrees? It is currently the only consumer of
-  `parent_repo_path`. Removing an unused code path is cheaper than keeping one
-  that nothing can produce — but it is also the only thing that would let a
-  hand-written entry work.
+  every worktree and is tracked by no repo. Same class of artifact as the
+  umbrella `CLAUDE.md` that task `08` deletes.
+- **What creates the bare clone?** `add-repo` runs `git clone <url> <path>`;
+  a worktree layout needs `git clone --bare` into `<path>/.bare` and then a
+  worktree per branch. That is the new write path, and it is the part with no
+  existing code to lean on.
+- **How does a branch get added or removed later?** A long-lived workstream ends;
+  its worktree and its `repos.yml` entry should go together. That is the lifecycle
+  verb from decision 3, and it is the natural sibling of `delete-repo`.
 
 ## Acceptance
 
-- A decision recorded here and graduated into `DESIGN.md` (§8.6 owns the
-  membership verbs; the worktree gotcha is §7.6).
-- `create-ai-builder` is registered in `dev-workspace` under that decision, with
-  all three worktrees present and `make status` green.
-- The rollup reports its history **once**, not once per worktree.
-- Whatever the decision, `repos.yml` is not hand-edited to achieve it — either a
-  verb writes it, or the schema stops claiming to support what nothing writes.
+**Near-term (do now):**
+- `create-ai-builder` is in `dev-workspace` with `main` registered as a standard
+  entry, `make status` green, and the partial coverage stated out loud — the
+  other two branches are not in the rollup.
+- It is **moved**, not re-cloned: the bare + worktree layout is not something
+  `add-repo` can reproduce.
+
+**Full (deferred):**
+- A verb creates the layout (bare clone + a worktree per branch) and writes the
+  container plus per-branch entries. `repos.yml` is never hand-edited to achieve
+  it.
+- A worktree entry resolves remotely via its parent's pre-cloned source and that
+  branch's ref; one `sources` line covers the repo.
+- `routine_registered` is inherited from the parent, not stored per worktree.
+- A branch fast-forwarded to `main` reports `same as main` and is not
+  re-summarized; the rollup attributes shared history once.
+- A lifecycle verb removes a worktree and its entry together.
+- The decision is graduated into `DESIGN.md` (§8.6 owns membership verbs; §7.6
+  owns the worktree gotcha).

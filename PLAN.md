@@ -9,8 +9,11 @@ effort.
 
 ## Where I left off
 
-- **current task** — `04`, one repo at a time, on request. `create-project-system`
-  is in; `create-ai-builder` is deferred to `12`.
+- **current task** — `13`, ready to build. Four tasks are now specified in files
+  so they can be picked up independently, in this order: **`13`** (generator) →
+  `13`'s dogfood on `dev-workspace` → **`14`** (move the generator itself) →
+  **`12`** (worktrees, `main` only for now). `07` is a per-repo step that runs at
+  the end of each `04` migration.
 - **what just happened (2026-08-03)** — `10` landed and was **dogfooded**: the
   `routine_registered` flag (absent = outstanding), the `routine-registered`
   verb, the `make status` gate, the `daily-plan-summary.md` banner, and an
@@ -20,10 +23,12 @@ effort.
   earlier. Then `05`: the routine exists, so the flag is honestly cleared. Then
   `06` end to end on a hand-triggered run, first try. Then `11`, which that run
   exposed: `summary.md` now holds the latest run only. 340 assertions.
-- **next concrete step** — either resolve `12` (decide the worktree shape, which
-  unblocks `create-ai-builder`), or take the next `04` repo on request. The
-  roster beyond what is in is still undecided — `second-brain-*` membership is
-  genuinely in doubt per `DESIGN.md` §8.9, and `foa` is unclassified.
+- **next concrete step** — build `13`: change `install_task_system`'s
+  `--tasks-dir` to `.workspace/project/tasks`, follow the five pointers listed in
+  its task file, keep the suite green, then migrate `dev-workspace` by deleting
+  its empty `project/` and re-running `update.sh`. The roster beyond what is in
+  is still undecided — `second-brain-*` membership is genuinely in doubt per
+  `DESIGN.md` §8.9, and `foa` is unclassified.
 - **files mid-edit** — none.
 - **uncommitted / unpushed** — none. A full-floor sweep
   (`check-pending.py --all`) is clean except two non-issues: `create-repo-mail`
@@ -73,9 +78,10 @@ In order. Acceptance is one line each until these are extracted into files.
 | 05 | create the `/schedule` routine, add every repo to `sources` | **done** for the current roster |
 | 06 | run a full day: routine writes, `make pull` lands it | **done** — passed first try |
 | 11 | `summary.md` holds the latest run only, not a growing journal | **done** |
-| 12 | how a git-worktree layout is tracked — [`12`](docs/plans/dogfood/12-worktree-membership.md) | todo — **blocks `create-ai-builder`** |
-| 13 | mount the task-system under `.workspace/` — [`13`](docs/plans/dogfood/13-task-system-under-workspace.md) | todo |
-| 07 | strip `project-status` from each migrated repo | todo |
+| 12 | how a git-worktree layout is tracked — [`12`](docs/plans/dogfood/12-worktree-membership.md) | **decided**, build deferred — `main` worktree only for now |
+| 13 | mount the task-system under `.workspace/` — [`13`](docs/plans/dogfood/13-task-system-under-workspace.md) | todo — **decided, ready to build** |
+| 14 | move `create-git-workspace` into `dev-workspace` — [`14`](docs/plans/dogfood/14-migrate-create-git-workspace.md) | todo — two-session sequence |
+| 07 | strip `project-status` from each migrated repo — [`07`](docs/plans/dogfood/07-strip-project-status.md) | in progress — `create-project-system` done |
 | 08 | retire `project-status`: hook, umbrella `CLAUDE.md`, the repo | todo |
 | 09 | discuss whether `.project-status-ignore` was needed at all | todo |
 
