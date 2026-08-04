@@ -200,15 +200,14 @@ Three things the move taught, none of them predicted above:
 
 ## Acceptance
 
-**Near-term (do now):** — **met 2026-08-04**, one step outstanding.
+**Near-term (do now):** — **met in full, 2026-08-04.**
 - ✅ `create-ai-builder` is in `dev-workspace` with `main` registered as a
   standard entry, and the partial coverage stated out loud — the other two
   branches are not in the rollup. Recorded in the workspace's plan slot for the
   repo, not only here, so it is visible from where the work happens.
 - ✅ It is **moved**, not re-cloned.
-- ⏳ `make status` green: blocked on the one manual half of registration —
-  adding the repo to the routine's `sources`, then
-  `make routine-registered ARGS="create-ai-builder"`.
+- ✅ `make status` green — five clean rows, exit 0, after the manual half of
+  registration (`sources`) and `make routine-registered` (`cd84b06`).
 
 **Full (deferred):**
 - A verb creates the layout (bare clone + a worktree per branch) and writes the

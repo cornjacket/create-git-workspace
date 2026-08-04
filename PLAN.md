@@ -9,9 +9,9 @@ effort.
 
 ## Where I left off
 
-- **current task** — `12`'s **near-term step**, one manual half short: the
-  routine's `sources` still needs `create-ai-builder`. Everything else in that
-  migration landed. After that, `04`'s **roster decision**, which is what
+- **current task** — none in flight. `12`'s near-term step is **complete**
+  through registration; every task with an owner is closed and `make status` is
+  green on four repos. What is left is `04`'s **roster decision**, which is what
   unblocks `08`.
 - **what just happened (2026-08-03)** — `10` landed and was **dogfooded**: the
   `routine_registered` flag (absent = outstanding), the `routine-registered`
@@ -32,13 +32,10 @@ effort.
   checkout deleted from a session rooted at the new one, `make status` and
   `--all` both four clean rows. Then `12`'s near-term step: `create-ai-builder`
   **moved** in whole (bare + three worktrees), pointers repaired, `main`
-  registered, kernel committed, `07` stripped — the roster is four repos.
-- **next concrete step** — **one manual step, then a decision.** The manual
-  step: add `https://github.com/cornjacket/create-ai-builder` to the routine's
-  `sources` (whole job config, never a partial merge), then
-  `make routine-registered ARGS="create-ai-builder"` and commit the workspace.
-  `make status` is red until then, by design. The decision: **the roster**
-  (`04`). `project-status` still tracks five repos and cannot be retired (`08`)
+  registered, kernel committed, `07` stripped, added to the routine's `sources`
+  and the flag cleared — the roster is four repos and `make status` is green.
+- **next concrete step** — **decide the roster** (`04`).
+  `project-status` still tracks five repos and cannot be retired (`08`)
   until each has an answer — `create-ai-builder` and `create-project-system` are
   migrated and just need removing from the old registry;
   `customer-req-responder` is not checked out anywhere; `second-brain-test` /
