@@ -1,6 +1,7 @@
 # 14 — move `create-git-workspace` into `dev-workspace`
 
-Status: open — **must be sequenced carefully; see the hazard**
+Status: **steps 1-6 done (2026-08-04)** — step 7 (delete the old checkout) is
+waiting on a session rooted here, at `dev-workspace/create-git-workspace`.
 
 The generator itself becomes a tracked child of the workspace it generates. It
 is part of task `04`, but it has its own file because the ordinary "clone, then
@@ -54,6 +55,34 @@ From a session rooted at the *old* checkout:
 - **Ordering.** Do this *after* task `13`, so the generator work happens before
   the generator moves. Doing it earlier is not wrong; it just means `13` gets
   implemented from the new location after a session restart.
+
+## What happened (2026-08-04)
+
+Steps 1-6 ran from the old checkout, clean:
+
+- Old checkout was clean, pushed, one branch, no stashes. `add-repo` cloned to
+  the same HEAD, `a43950c`, verified by `rev-parse` on both.
+- The kernel **created** `CLAUDE.md` rather than editing one — this repo had none
+  at the root; the umbrella `CLAUDE.md` a level up belonged to `project-status`,
+  which is being retired. Committed and pushed as `00e9562`.
+- The routine's `sources` went from three URLs to four (whole job config sent
+  back, not a merge), then `make routine-registered`. `make status` shows four
+  clean rows with no registration finding.
+- Workspace committed and pushed.
+
+Both open questions from the notes below are now answered, not assumed:
+
+- **The suite passes from the new location** — 344 assertions. `sandbox/` turns
+  out to be **empty** afterwards: the harness cleans up its throwaway checkouts,
+  so there is nothing persistent for `status --all` to trip over. Even mid-run
+  they sit at depth 2, and the sweep is depth 1. Confirmed green.
+- **Regenerating the workspace from inside itself works** — `./create-git-workspace/update.sh .`
+  run from `dev-workspace` reports zero diff.
+
+**Left to do: step 7 only.** The old checkout at
+`~/src/github.com/cornjacket/create-git-workspace` still exists and is now one
+commit *behind* origin (the kernel commit landed in the new clone). Nothing else
+needs it.
 
 ## Acceptance
 
