@@ -40,10 +40,9 @@ effort.
   fell out and are filed rather than fixed — `16` (an UNAVAILABLE repo vanishes
   from the rollup, confirmed in production) and `17` (the injected kernel omits
   the blank line after the commit title, in all four copies).
-- **next concrete step** — two things are blocked on you, then the queue
-  resumes. Blocked: add `second-brain-devkit` to the routine's `sources` +
-  `routine-registered`; and decide whether to push its local strip commit
-  (`f48f073`) — that repo's own `CLAUDE.md` says never push unless asked. Then
+- **next concrete step** — **wait for the 08-05 12:43 UTC run and check `19`**,
+  whose prediction is recorded in advance. `sources` was repaired from a session
+  (4 → 6) after both by-hand edits were found never to have saved. Then
   `create-context-hygiene` and `customer-req-responder` by the same recipe, then
   `15`. `08` runs once `project-status`'s five repos all have an answer.
 - **files mid-edit** — none.
@@ -100,6 +99,8 @@ In order. Acceptance is one line each until these are extracted into files.
 | 16 | an UNAVAILABLE repo vanishes from the rollup — [`16`](docs/plans/dogfood/16-unavailable-is-a-silent-omission.md) | **filed** — confirmed in production, a real §5.2 violation |
 | 17 | the injected kernel omits the blank line after the commit title | **filed** — all four copies of the schema, see `04` notes |
 | 18 | `daily-plan-summary.md` never says what a repo *is* — [`18`](docs/plans/dogfood/18-newcomer-blurb-in-plan-summary.md) | **filed** — project the `repos.yml` description into the rollup |
+| 19 | confirm the `sources` fix on the 08-05 run — [`19`](docs/plans/dogfood/19-confirm-the-sources-fix.md) | **prediction recorded** — check after 12:43 UTC |
+| 20 | `sources` should be a verb, not a manual seam — [`20`](docs/plans/dogfood/20-sources-should-be-a-verb.md) | **filed** — `RemoteTrigger` makes §8.5's premise false |
 | 10 | track incomplete routine registration; make `add-repo` idempotent | **done**, dogfooded into `dev-workspace` |
 | 05 | create the `/schedule` routine, add every repo to `sources` | **done** for the current roster |
 | 06 | run a full day: routine writes, `make pull` lands it | **done** — passed first try |
