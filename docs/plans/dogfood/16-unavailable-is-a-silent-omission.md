@@ -49,18 +49,40 @@ aggregator reads the workspace's own `daily-plans/` directory locally, while
 the rollup reads git history from the platform's pre-clone. One saw the repo
 and the other did not, and only the one that did not is silent about it.
 
-## Why the checkout was unreadable
+## Why the checkout was unreadable — CONFIRMED
 
-Not yet confirmed, and worth separating from the defect above — the omission is
-a bug **whatever** the cause. The likely cause is that
-`/home/user/create-ai-builder` did not exist on that run: the `sources` edit was
-made by hand shortly before, and the platform pre-clone list may be snapshotted
-per run rather than read live. If so, a newly registered repo is expected to
-miss exactly one run — which is fine, and is precisely the kind of thing the
-rollup must *say* rather than swallow.
+Read the live routine config (`RemoteTrigger get trig_01TA28JDCMTd8Em8sceLpxEC`).
+**`sources` holds exactly four repos**: `dev-workspace`, `captains-log`,
+`create-project-system`, `create-git-workspace`. Neither `create-ai-builder` nor
+`second-brain-devkit` is there, and `updated_at` (07:10:35Z) **predates both
+registrations**. No propagation lag, no platform behaviour to explain: the two
+`sources` edits never saved.
 
-Check on the next run before doing anything else: if the repo appears, the cause
-was propagation and only the reporting needs fixing.
+So `/home/user/create-ai-builder` was never created, `prebuilt_source_path`
+returned `None`, and the fallback could not save it (below). The manual seam
+§8.5 tracks is real, and this is the first time it has silently failed *open*.
+
+**The local fallback is dead code on the remote run.** `repo_dir()` falls back to
+`WORKSPACE_ROOT / repo["path"]`, but the workspace's allowlist `.gitignore`
+excludes every child, so a sandbox checkout of the workspace contains no children
+at all. The pre-clone is a single point of failure with no backup, by
+construction. Worth stating in the fix.
+
+**There was a report — it just landed where nobody looks.** The routine's prompt
+already ends with: *"Also report any repo the run named as UNAVAILABLE or
+unreadable: that means it is registered in `.workspace/repos.yml` but missing
+from this routine's `sources`."* That report goes into the routine's session
+transcript in the app. The deliverable the run commits — the only artifact anyone
+reads — stayed silent. Two channels, and the instrumented one is the one nobody
+opens. That is the whole bug in one sentence, and it is why the fix has to put
+the fact in `summary.md` rather than anywhere else.
+
+**Correction to a claim made earlier in this effort:** the routine config *is*
+readable from a session, via the `RemoteTrigger` tool (`CronList` only sees
+session-created crons, which is what led to the wrong conclusion). `05` and `14`
+both describe editing `sources` as a hand-only step in the Claude app — it is
+not, and a verb that reconciles `sources` against `repos.yml` is now clearly
+buildable. That would remove the manual seam entirely rather than tracking it.
 
 ## The fix
 

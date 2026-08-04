@@ -99,6 +99,7 @@ In order. Acceptance is one line each until these are extracted into files.
 | 15 | stand up `personal-workspace` — [`15`](docs/plans/dogfood/15-personal-workspace.md) | todo — new scope, the §10 trigger fired |
 | 16 | an UNAVAILABLE repo vanishes from the rollup — [`16`](docs/plans/dogfood/16-unavailable-is-a-silent-omission.md) | **filed** — confirmed in production, a real §5.2 violation |
 | 17 | the injected kernel omits the blank line after the commit title | **filed** — all four copies of the schema, see `04` notes |
+| 18 | `daily-plan-summary.md` never says what a repo *is* — [`18`](docs/plans/dogfood/18-newcomer-blurb-in-plan-summary.md) | **filed** — project the `repos.yml` description into the rollup |
 | 10 | track incomplete routine registration; make `add-repo` idempotent | **done**, dogfooded into `dev-workspace` |
 | 05 | create the `/schedule` routine, add every repo to `sources` | **done** for the current roster |
 | 06 | run a full day: routine writes, `make pull` lands it | **done** — passed first try |
