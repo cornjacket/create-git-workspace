@@ -9,23 +9,25 @@ effort.
 
 ## Where I left off
 
-- **current task** — `04`, unblocked: move the remaining repos in. `10` is built
-  in the generator but not yet **dogfooded** — see the next step.
-- **what just happened (2026-08-03)** — `10` landed in `create-git-workspace`:
-  the `routine_registered` flag in `repos.yml` (absent = outstanding), the
-  `routine-registered` verb as its only writer of a `true`, the `make status`
-  gate, the `daily-plan-summary.md` banner, and an `add-repo` that reconciles
-  instead of refusing. 334 assertions, §8p. Before that, `04`'s loop was proven
-  on `captains-log`.
-- **next concrete step** — `update.sh` this into `dev-workspace`, re-run
-  `add-repo captains-log` (proves the reconcile back-fills the flag on a real
-  repo, and that `make status` then reports the debt it already has), add
-  `captains-log` to the routine's `sources`, clear the flag, and close the
-  hand-filed inbox task `10` supersedes. *Then* move the rest of the repos.
+- **current task** — `06`, the first genuine end-to-end run. Nothing to build
+  first; it happens on its own at 12:43 UTC.
+- **what just happened (2026-08-03)** — `10` landed and was **dogfooded**: the
+  `routine_registered` flag (absent = outstanding), the `routine-registered`
+  verb, the `make status` gate, the `daily-plan-summary.md` banner, and an
+  `add-repo` that reconciles instead of refusing. 334 assertions, §8p. Then
+  `update.sh` into `dev-workspace`, where the gate flagged `captains-log`
+  **before any edit** — the absent-means-outstanding default paying off on a repo
+  registered days earlier. The reconcile back-filled the flag in one line and a
+  second run wrote nothing. Then `05`: the routine exists, so the flag is now
+  honestly cleared and `status` reads clean.
+- **next concrete step** — `06`: after the 12:43 UTC run, check that
+  `auto/status-2026-08-04` was pushed and auto-merged, then `make pull`. Watch
+  for two things the sandbox has never exercised here: whether `claude -p` is on
+  `PATH` inside the CCR container (`run.py` step 3 shells out to it), and whether
+  `daily.sh`'s PyYAML install works. *Then* move the rest of the repos (`04`).
 - **files mid-edit** — none.
-- **uncommitted / unpushed** — `dev-workspace` still carries the hand-filed inbox
-  task `446273-captains-log-routine-sources-registration`; it is superseded by
-  `10` and closes on the dogfood step above.
+- **uncommitted / unpushed** — the hand-filed inbox task `10` superseded was
+  already removed in `dev-workspace` (`9f138f2`).
 - **open questions** — per-repo replan couples to child task-system internals —
   it worked against `captains-log`, so the scrape matches today;
   `.project-status-ignore` → task `09`; membership beyond `captains-log` TBD.
@@ -65,9 +67,9 @@ In order. Acceptance is one line each until these are extracted into files.
 | 01 | `make status` also reports unpushed work; `--all` mode | **done** |
 | 02 | per-repo replan — deterministic, no model calls | **done** |
 | 03 | create `dev-workspace` locally, push it to a new remote | **done** |
-| 04 | move the first repos in and register them | in progress — `captains-log` done, rest unblocked |
-| 10 | track incomplete routine registration; make `add-repo` idempotent | **done in the generator** — not yet dogfooded |
-| 05 | create the `/schedule` routine, add every repo to `sources` | todo |
+| 04 | move the first repos in and register them | in progress — `captains-log` done, rest after `05`/`06` |
+| 10 | track incomplete routine registration; make `add-repo` idempotent | **done**, dogfooded into `dev-workspace` |
+| 05 | create the `/schedule` routine, add every repo to `sources` | **done** for the current roster |
 | 06 | run a full day: routine writes, `make pull` lands it | todo |
 | 07 | strip `project-status` from each migrated repo | todo |
 | 08 | retire `project-status`: hook, umbrella `CLAUDE.md`, the repo | todo |
@@ -149,8 +151,22 @@ without unregistering it first. §8p, 334 assertions.
 it. `05` then populates `sources` once from a complete `repos.yml` instead of six
 manual edits.
 
-**05** — the two manual seams (`DESIGN.md` §8.5). Record the routine URL in
-`config.yml` as `routine_url` so the README roster links it.
+**05 — done, and deliberately moved ahead of the rest of `04`.** The routine is
+`trig_01TA28JDCMTd8Em8sceLpxEC`, `43 12 * * *` (12:43 UTC daily), sources
+`dev-workspace` + `captains-log`, running `daily.sh` with a terse "just run the
+script" prompt modelled on `project-status`'s. It sits 30 minutes behind that
+routine's 12:13 UTC so the two do not overlap while both exist; `08` retires the
+other. `routine_url` is in `config.yml` and the README roster links it.
+
+**Why the resequence.** The original order held `05` until the roster was
+complete, so `sources` could be populated in one edit instead of six. Two things
+outweighed that: `10`'s gate had **no honest exit** — a flag that cannot be
+cleared until a routine exists is a permanent red `status` — and `06` is the
+first genuine end-to-end proof, which is worth having on *one* repo before
+multiplying the setup by six. Same argument `04` already made for moving one
+low-stakes repo first. **The cost is real and accepted:** each remaining repo now
+needs its own `sources` edit as it lands, rather than one bulk edit at the end.
+`routine-registered --all` still clears the flags in one go.
 
 **06** — the first genuine end-to-end: push the workspace, let the routine run,
 `make pull` the aggregates down. This is the test that `git-workspace-test` could
@@ -236,6 +252,8 @@ unpushed work is sitting in one of those clones first — which is exactly what
 - The flag is not a git finding: `delete-repo` never refuses over it (`10`).
 - Membership verbs are **re-runnable** — `add-repo` reconciles, so repairing a
   registered repo never requires deleting its checkout first (`10`).
+- `05` **before** the rest of `04`: a gate with no honest exit is worse than six
+  small `sources` edits, and `06` is worth proving on one repo (`05`).
 
 ## Done when
 
