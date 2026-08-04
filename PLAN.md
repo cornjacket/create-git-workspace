@@ -33,12 +33,19 @@ effort.
   **moved** in whole (bare + three worktrees), pointers repaired, `main`
   registered, kernel committed, `07` stripped, added to the routine's `sources`
   and the flag cleared — the roster is four repos and `make status` is green.
-- **next concrete step** — migrate `second-brain-devkit` (`04`), the biggest and
-  most active repo yet to move, by the clone recipe: verify clean → `add-repo`
-  → kernel → `sources` → `routine-registered` → workspace commit → `07` strip →
-  remove the old checkout. Then `create-context-hygiene` and
-  `customer-req-responder` the same way, then `15`. `project-status`'s registry
-  then has an answer for all five of its repos and `08` can run.
+- **what just happened (2026-08-04, later)** — `second-brain-devkit` migrated by
+  clone, its golden moved onto the floor as an unregistered fixture, old
+  checkout removed. Its `07` strip needed more than deleting a block: three
+  hand-written passages described the retired tracker as current. Two defects
+  fell out and are filed rather than fixed — `16` (an UNAVAILABLE repo vanishes
+  from the rollup, confirmed in production) and `17` (the injected kernel omits
+  the blank line after the commit title, in all four copies).
+- **next concrete step** — two things are blocked on you, then the queue
+  resumes. Blocked: add `second-brain-devkit` to the routine's `sources` +
+  `routine-registered`; and decide whether to push its local strip commit
+  (`f48f073`) — that repo's own `CLAUDE.md` says never push unless asked. Then
+  `create-context-hygiene` and `customer-req-responder` by the same recipe, then
+  `15`. `08` runs once `project-status`'s five repos all have an answer.
 - **files mid-edit** — none.
 - **uncommitted / unpushed** — none. A full-floor sweep
   (`check-pending.py --all`) is clean except two non-issues: `create-repo-mail`
@@ -90,6 +97,8 @@ In order. Acceptance is one line each until these are extracted into files.
 | 03 | create `dev-workspace` locally, push it to a new remote | **done** |
 | 04 | move the first repos in and register them | **roster decided**; 4 of 7 landed, 3 dev repos to migrate |
 | 15 | stand up `personal-workspace` — [`15`](docs/plans/dogfood/15-personal-workspace.md) | todo — new scope, the §10 trigger fired |
+| 16 | an UNAVAILABLE repo vanishes from the rollup — [`16`](docs/plans/dogfood/16-unavailable-is-a-silent-omission.md) | **filed** — confirmed in production, a real §5.2 violation |
+| 17 | the injected kernel omits the blank line after the commit title | **filed** — all four copies of the schema, see `04` notes |
 | 10 | track incomplete routine registration; make `add-repo` idempotent | **done**, dogfooded into `dev-workspace` |
 | 05 | create the `/schedule` routine, add every repo to `sources` | **done** for the current roster |
 | 06 | run a full day: routine writes, `make pull` lands it | **done** — passed first try |
@@ -173,6 +182,19 @@ kernel inside the child → add to the routine's `sources` → `routine-register
 
   **Out, as fixtures:** `second-brain-test`, `git-workspace-test`,
   `tasks-test`, `tasks-test-wt`. Graduated to `DESIGN.md` §8.9.
+
+  **Refined the same day: a fixture lives ON the floor, it is just not a
+  member.** Not a compromise — `second-brain-devkit` addresses its golden as
+  `../second-brain-test/` in eleven files, so migrating the devkit while
+  leaving the golden outside would have broken the devkit's own documented
+  prototyping loop. Physical adjacency is a real requirement; membership is a
+  separate question, and the answer to it is still no. `second-brain-test` was
+  moved in and is deliberately unregistered.
+
+  What saved this from being a live breakage: OQ-1 in the devkit resolved to
+  **vendoring** the golden at `tests/golden/` (109 files), so CI never reaches
+  outside the repo. Only the human prototyping loop and the doc links depend on
+  the sibling path.
 
   **Out, to `personal-workspace`:** `foa`, `ymca-basketball`, `dotfiles` — see
   task [`15`](docs/plans/dogfood/15-personal-workspace.md).
@@ -361,10 +383,21 @@ real repo without a task-system exists.
 exist, not a tool to generate it. Deferred by agreement — revisit after `04`,
 with real repos in the workspace.
 
-**Should `--all` honour an ignore file?** `project-status`'s sweep skips repos
-carrying `.project-status-ignore`. The workspace sweep currently has no opt-out,
-on the grounds that an unregistered checkout is exactly what you want flagged.
-Revisit if the floor gets noisy — the hygiene audit will want the same answer.
+**Should `--all` honour an ignore file? — now concrete.** `project-status`'s
+sweep skips repos carrying `.project-status-ignore`. The workspace sweep has no
+opt-out, on the grounds that an unregistered checkout is exactly what you want
+flagged. The fixture decision put two deliberate non-members on the floor
+(`second-brain-test`, plus the `create-ai-builder` container), so `--all` now
+reports rows that are correct-but-expected.
+
+**A reading worth considering before building anything:** this may already be
+right. Plain `make status` shows only members, so a fixture's status is *already*
+untracked in the default view. `--all` is an explicit sweep-everything mode, and
+a fixture with unpushed work in it is genuinely worth knowing about — that is
+task `01`'s whole purpose. The gap is presentation, not policy: `unregistered`
+reads as "you forgot to register this" when the truth is "deliberately not a
+member". A third state, or a marker file that changes the *label* rather than
+hiding the row, may be the whole fix.
 
 **Membership: ~~TBD~~ decided 2026-08-04** — see `04` above. `DESIGN.md` §1 files
 `create-*` generators under the personal tier, but while they are under **active
