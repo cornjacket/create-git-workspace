@@ -9,9 +9,10 @@ effort.
 
 ## Where I left off
 
-- **current task** — `14`, steps 1-6 **done**; only step 7 remains, and it
-  cannot run from the old checkout. Then **`12`** (worktrees, `main` only for
-  now). `07` is a per-repo step that runs at the end of each `04` migration.
+- **current task** — none in flight. `14` is **done**; the migrated roster is
+  green and every task with an owner is closed. What is left is `04`'s
+  **roster decision**, which is what unblocks `08`. `07` is a per-repo step that
+  runs at the end of each `04` migration, and has nothing outstanding.
 - **what just happened (2026-08-03)** — `10` landed and was **dogfooded**: the
   `routine_registered` flag (absent = outstanding), the `routine-registered`
   verb, the `make status` gate, the `daily-plan-summary.md` banner, and an
@@ -27,13 +28,16 @@ effort.
   one, `make status` clean. Then `14` steps 1-6: the generator is now a tracked
   child of the workspace it generates, at the same HEAD, registered in the
   routine, suite green from the new location, and regenerating the workspace
-  from inside itself is still zero-diff.
-- **next concrete step** — from a session rooted at
-  `dev-workspace/create-git-workspace`: delete the old checkout at
-  `~/src/github.com/cornjacket/create-git-workspace`. It is one commit behind
-  origin and nothing depends on it. The roster beyond what is in is still
-  undecided — `second-brain-*` membership is genuinely in doubt per
-  `DESIGN.md` §8.9, and `foa` is unclassified.
+  from inside itself is still zero-diff. Then `14` step 7 on 08-04: the old
+  checkout deleted from a session rooted at the new one, `make status` and
+  `--all` both four clean rows.
+- **next concrete step** — **decide the roster** (`04`). `project-status` still
+  tracks five repos, so it cannot be retired (`08`) until each has an answer:
+  `create-ai-builder` (needs `12`'s `main`-only migration), `create-project-system`
+  (already migrated — just needs removing from the old registry),
+  `customer-req-responder` (not checked out anywhere), and `second-brain-test` /
+  `second-brain-devkit` (membership genuinely in doubt per `DESIGN.md` §8.9).
+  `foa` is unclassified and untracked by either system.
 - **files mid-edit** — none.
 - **uncommitted / unpushed** — none. A full-floor sweep
   (`check-pending.py --all`) is clean except two non-issues: `create-repo-mail`
@@ -85,8 +89,8 @@ In order. Acceptance is one line each until these are extracted into files.
 | 11 | `summary.md` holds the latest run only, not a growing journal | **done** |
 | 12 | how a git-worktree layout is tracked — [`12`](docs/plans/dogfood/12-worktree-membership.md) | **decided**, build deferred — `main` worktree only for now |
 | 13 | mount the task-system under `.workspace/` — [`13`](docs/plans/dogfood/13-task-system-under-workspace.md) | **done**, dogfooded into `dev-workspace` |
-| 14 | move `create-git-workspace` into `dev-workspace` — [`14`](docs/plans/dogfood/14-migrate-create-git-workspace.md) | steps **1-6 done** — step 7 needs a re-rooted session |
-| 07 | strip `project-status` from each migrated repo — [`07`](docs/plans/dogfood/07-strip-project-status.md) | in progress — `create-project-system` done |
+| 14 | move `create-git-workspace` into `dev-workspace` — [`14`](docs/plans/dogfood/14-migrate-create-git-workspace.md) | **done** — acceptance verified from the new location |
+| 07 | strip `project-status` from each migrated repo — [`07`](docs/plans/dogfood/07-strip-project-status.md) | **nothing outstanding** — runs again per future migration |
 | 08 | retire `project-status`: hook, umbrella `CLAUDE.md`, the repo | todo |
 | 09 | discuss whether `.project-status-ignore` was needed at all | todo |
 
@@ -148,7 +152,7 @@ kernel inside the child → add to the routine's `sources` → `routine-register
   a working session is normally rooted in, so cloning it into `dev-workspace` and
   deleting the old checkout removes the directory that session is standing in.
   Do the clone and registration, then re-root the session at the new path
-  *before* deleting the old one.
+  *before* deleting the old one. **Done** — see [`14`](docs/plans/dogfood/14-migrate-create-git-workspace.md).
 - the rest — roster still TBD (see Open questions); `second-brain-*` membership
   is genuinely in doubt, per `DESIGN.md` §8.9.
 
@@ -280,8 +284,13 @@ that matters.
 
 **07** — per `DESIGN.md` §8.9 this is the *last* step per repo, not a separate
 cleanup: remove that repo's `ai-project-status` block, root `daily-plan.md`,
-`check-daily-plan.py` hook, and `project-status-guide.md`. First candidate:
-`create-project-system`, which now carries both instrumentation blocks.
+`check-daily-plan.py` hook, and `project-status-guide.md`. First candidate was
+`create-project-system`, which carried both instrumentation blocks — **done**.
+The other two migrated repos need nothing and it is worth saying why rather than
+rechecking later: `captains-log` carries only a `.project-status-ignore` and no
+instrumentation, and `create-git-workspace` was never a target at all — which is
+precisely what its SessionStart nag has been reporting. So `07` is idle until the
+next repo lands.
 
 **08** — remove the user-level SessionStart hook from `~/.claude/settings.json`,
 delete `cornjacket/CLAUDE.md` and `gen-umbrella-claude.py`, and archive the

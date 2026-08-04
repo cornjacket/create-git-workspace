@@ -1,7 +1,6 @@
 # 14 — move `create-git-workspace` into `dev-workspace`
 
-Status: **steps 1-6 done (2026-08-04)** — step 7 (delete the old checkout) is
-waiting on a session rooted here, at `dev-workspace/create-git-workspace`.
+Status: **done (2026-08-04)** — all seven steps, acceptance verified.
 
 The generator itself becomes a tracked child of the workspace it generates. It
 is part of task `04`, but it has its own file because the ordinary "clone, then
@@ -79,10 +78,15 @@ Both open questions from the notes below are now answered, not assumed:
 - **Regenerating the workspace from inside itself works** — `./create-git-workspace/update.sh .`
   run from `dev-workspace` reports zero diff.
 
-**Left to do: step 7 only.** The old checkout at
-`~/src/github.com/cornjacket/create-git-workspace` still exists and is now one
-commit *behind* origin (the kernel commit landed in the new clone). Nothing else
-needs it.
+**Step 7 (2026-08-04).** The old checkout was `rm -rf`'d from a session rooted at
+the new one — the split worked exactly as designed, and the two-session shape is
+the transferable part: *any* repo that a session is normally rooted in needs its
+final deletion done from somewhere else.
+
+Re-verified after the deletion, from the new location: `make status` lists four
+clean rows including `create-git-workspace`, and `make status ARGS="--all"`
+returns the same four — no stray checkout on the floor, and nothing from
+`sandbox/`.
 
 ## Acceptance
 
