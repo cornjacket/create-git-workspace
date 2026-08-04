@@ -9,10 +9,9 @@ effort.
 
 ## Where I left off
 
-- **current task** — none in flight. `12`'s near-term step is **complete**
-  through registration; every task with an owner is closed and `make status` is
-  green on four repos. What is left is `04`'s **roster decision**, which is what
-  unblocks `08`.
+- **current task** — `04`, resumed: the **roster is decided** (see `04` below),
+  so three dev repos are queued to migrate. New task `15` stands up
+  `personal-workspace`. `08` unblocks once both are through.
 - **what just happened (2026-08-03)** — `10` landed and was **dogfooded**: the
   `routine_registered` flag (absent = outstanding), the `routine-registered`
   verb, the `make status` gate, the `daily-plan-summary.md` banner, and an
@@ -34,13 +33,12 @@ effort.
   **moved** in whole (bare + three worktrees), pointers repaired, `main`
   registered, kernel committed, `07` stripped, added to the routine's `sources`
   and the flag cleared — the roster is four repos and `make status` is green.
-- **next concrete step** — **decide the roster** (`04`).
-  `project-status` still tracks five repos and cannot be retired (`08`)
-  until each has an answer — `create-ai-builder` and `create-project-system` are
-  migrated and just need removing from the old registry;
-  `customer-req-responder` is not checked out anywhere; `second-brain-test` /
-  `second-brain-devkit` membership is genuinely in doubt per `DESIGN.md` §8.9.
-  `foa` is unclassified and untracked by either system.
+- **next concrete step** — migrate `second-brain-devkit` (`04`), the biggest and
+  most active repo yet to move, by the clone recipe: verify clean → `add-repo`
+  → kernel → `sources` → `routine-registered` → workspace commit → `07` strip →
+  remove the old checkout. Then `create-context-hygiene` and
+  `customer-req-responder` the same way, then `15`. `project-status`'s registry
+  then has an answer for all five of its repos and `08` can run.
 - **files mid-edit** — none.
 - **uncommitted / unpushed** — none. A full-floor sweep
   (`check-pending.py --all`) is clean except two non-issues: `create-repo-mail`
@@ -56,9 +54,14 @@ effort.
 `cornjacket/`; moving a first few repos into it; the `/schedule` routine; winding
 down `project-status`, its umbrella `CLAUDE.md`, and its SessionStart hook.
 
-**Out:** the hygiene audit (build it after living in this — `DESIGN.md` §11); a
-second workspace (personal tier) — deliberately later; anything about the
-generator's own features that dogfooding does not force.
+**Out:** the hygiene audit (build it after living in this — `DESIGN.md` §11);
+anything about the generator's own features that dogfooding does not force.
+
+**Moved IN on 2026-08-04:** a second workspace. `personal-workspace` was "out,
+deliberately later" on the grounds that the trigger had not fired — but the
+roster decision *is* that trigger: `foa`, `ymca-basketball`, and `dotfiles` have
+no dev home and §10 says build the second workspace when one actually happens.
+It has now happened. Task [`15`](docs/plans/dogfood/15-personal-workspace.md).
 
 ## Decisions already made
 
@@ -85,7 +88,8 @@ In order. Acceptance is one line each until these are extracted into files.
 | 01 | `make status` also reports unpushed work; `--all` mode | **done** |
 | 02 | per-repo replan — deterministic, no model calls | **done** |
 | 03 | create `dev-workspace` locally, push it to a new remote | **done** |
-| 04 | move the first repos in and register them | in progress — `captains-log` done, rest after `05`/`06` |
+| 04 | move the first repos in and register them | **roster decided**; 4 of 7 landed, 3 dev repos to migrate |
+| 15 | stand up `personal-workspace` — [`15`](docs/plans/dogfood/15-personal-workspace.md) | todo — new scope, the §10 trigger fired |
 | 10 | track incomplete routine registration; make `add-repo` idempotent | **done**, dogfooded into `dev-workspace` |
 | 05 | create the `/schedule` routine, add every repo to `sources` | **done** for the current roster |
 | 06 | run a full day: routine writes, `make pull` lands it | **done** — passed first try |
@@ -160,8 +164,28 @@ kernel inside the child → add to the routine's `sources` → `routine-register
   deleting the old checkout removes the directory that session is standing in.
   Do the clone and registration, then re-root the session at the new path
   *before* deleting the old one. **Done** — see [`14`](docs/plans/dogfood/14-migrate-create-git-workspace.md).
-- the rest — roster still TBD (see Open questions); `second-brain-*` membership
-  is genuinely in doubt, per `DESIGN.md` §8.9.
+- **the rest — DECIDED 2026-08-04.** Three repos join, three classes stay out.
+
+  **In:** `second-brain-devkit` (248 commits, the most active repo on the
+  floor), `create-context-hygiene` (a generator, quiet since 07-26 but in by the
+  same rule), `customer-req-responder` (an app, not checked out anywhere — it
+  joins by clone, which is the path `04` already prefers).
+
+  **Out, as fixtures:** `second-brain-test`, `git-workspace-test`,
+  `tasks-test`, `tasks-test-wt`. Graduated to `DESIGN.md` §8.9.
+
+  **Out, to `personal-workspace`:** `foa`, `ymca-basketball`, `dotfiles` — see
+  task [`15`](docs/plans/dogfood/15-personal-workspace.md).
+
+  **Out, nothing to track:** `create-repo-mail` has **zero commits**. Not a
+  judgement about the repo; there is literally no history for a rollup to read.
+  Revisit when it has one.
+
+  What unlocked it: `DESIGN.md` §8.9's `second-brain` exemption is about the
+  **vault**, not `second-brain-devkit`. The vault is a singleton *product* and
+  not a repo on any floor; the devkit is a generator whose subject is its own
+  code, which §2 places like every other generator. That conflation is the whole
+  reason this read as undecidable — the fix is in §8.9 so it cannot recur.
 
 **10 — done in the generator.** Registration is two-phase and only phase one is
 automatable, so the in-between state is now **recorded rather than printed**:
@@ -342,11 +366,11 @@ carrying `.project-status-ignore`. The workspace sweep currently has no opt-out,
 on the grounds that an unregistered checkout is exactly what you want flagged.
 Revisit if the floor gets noisy — the hygiene audit will want the same answer.
 
-**Membership: TBD, deliberately.** `DESIGN.md` §1 files `create-*` generators
-under the personal tier, but while they are under **active development** they are
-dev work, and putting them in `dev-workspace` is fine. Decide the actual roster
-at task `04`; revisit the tier question once the generators stop changing daily.
-`second-brain` joins no workspace either way (§8.9).
+**Membership: ~~TBD~~ decided 2026-08-04** — see `04` above. `DESIGN.md` §1 files
+`create-*` generators under the personal tier, but while they are under **active
+development** they are dev work, so they are in `dev-workspace`. Revisit the tier
+question once the generators stop changing daily. `second-brain` — the **vault**
+— joins no workspace either way (§8.9); its devkit does.
 
 **What happens to `project-status/tracked/`?** It holds clones of every tracked
 repo. Deleting it is presumably right once nothing reads it, but confirm no
@@ -387,12 +411,25 @@ unpushed work is sitting in one of those clones first — which is exactly what
 - Partial coverage is **stated, not silent**: `create-ai-builder` is tracked on
   `main` only, and that is written into its plan slot as well as the task file —
   the §5.2 rule that a repo missing from a rollup must say so (`12`).
+- A repo that exists **only as another repo's test target is a fixture, not a
+  member** — tracking it reports the owner's work twice (`04`, DESIGN §8.9).
+- §8.9's `second-brain` exemption is the **vault**, not the devkit. The product
+  is not a repo on any floor; the generator is (`04`, DESIGN §8.9).
+- A repo with **zero commits** is not a membership question — there is no
+  history to roll up. `create-repo-mail` waits for a first commit (`04`).
+- The **second workspace happens now**: three personal repos is the trigger §10
+  named, so `personal-workspace` is built rather than deferred (`15`).
 
 ## Done when
 
 `dev-workspace` holds its repos, the scheduled routine has landed a rollup that
 `make pull` brought down, no repo still carries `project-status` instrumentation,
 and the SessionStart nag is gone.
+
+**Amended 2026-08-04:** every repo on the floor now has an *answer*, which is
+not the same as being in a workspace — a fixture, a personal repo, and a repo
+with no commits are all answered without joining `dev-workspace`. `08` may only
+declare `project-status` obsolete once each of its five tracked repos has one.
 
 ---
 

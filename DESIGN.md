@@ -760,6 +760,18 @@ left to track:
   task-system, so the catch-all is not merely relocated.
 - `second-brain` is a **singleton service, not a member of any workspace** — an
   end product every agent references via a skill. It appears in no `repos.yml`.
+  **This means the vault, not the tooling that builds it.** `second-brain-devkit`
+  is a generator whose subject is its own code, so §2 puts it in a workspace like
+  any other generator. Reading this line as covering the devkit is what made the
+  roster look undecidable for two weeks — the exemption is for the *product*,
+  which is not a repo on any floor.
+- A repo that exists **only as another repo's test target is a fixture, not a
+  member** — `git-workspace-test` (§10 #3), `tasks-test`, `second-brain-test`.
+  Every commit in one is a byproduct of working on its owner, so tracking it
+  would report the same effort twice, as two repos. This is the §12 worktree
+  double-counting argument applied to whole repos. They stay visible to
+  `status --all` as unregistered checkouts, which is the right amount of
+  attention: enough to catch unpushed work, not enough to enter a rollup.
 - **Removing project-status from a consumer is the *last* step of onboarding it
   into its workspace, not a standalone cleanup.** Per repo: build the workspace →
   add the repo (which injects the commit kernel) → *then* strip that repo's old
