@@ -74,6 +74,7 @@ In order. Acceptance is one line each until these are extracted into files.
 | 06 | run a full day: routine writes, `make pull` lands it | **done** — passed first try |
 | 11 | `summary.md` holds the latest run only, not a growing journal | **done** |
 | 12 | how a git-worktree layout is tracked — [`12`](docs/plans/dogfood/12-worktree-membership.md) | todo — **blocks `create-ai-builder`** |
+| 13 | mount the task-system under `.workspace/` — [`13`](docs/plans/dogfood/13-task-system-under-workspace.md) | todo |
 | 07 | strip `project-status` from each migrated repo | todo |
 | 08 | retire `project-status`: hook, umbrella `CLAUDE.md`, the repo | todo |
 | 09 | discuss whether `.project-status-ignore` was needed at all | todo |
@@ -132,6 +133,11 @@ kernel inside the child → add to the routine's `sources` → `routine-register
 - `create-ai-builder` — **deferred to `12`.** It is bare + three worktrees, and
   no verb writes that shape. Not worth forcing a migration that would either
   hand-edit the lockfile or silently flatten a layout that was built on purpose.
+- `create-git-workspace` — decided in, **with a session hazard**: it is the repo
+  a working session is normally rooted in, so cloning it into `dev-workspace` and
+  deleting the old checkout removes the directory that session is standing in.
+  Do the clone and registration, then re-root the session at the new path
+  *before* deleting the old one.
 - the rest — roster still TBD (see Open questions); `second-brain-*` membership
   is genuinely in doubt, per `DESIGN.md` §8.9.
 
@@ -240,6 +246,25 @@ no honest value for them (three worktrees are one `sources` entry), and the firs
 run reports one shared history once per worktree. The asymmetry that should
 decide the design: **the rollup is per-repo; `status` is per-worktree.** Lean is
 to keep the registry per-repo and expand worktrees at runtime in `status` only.
+
+**13 — the task-system sits on the floor.** Full analysis in
+[`docs/plans/dogfood/13-task-system-under-workspace.md`](docs/plans/dogfood/13-task-system-under-workspace.md).
+`project/` installs in the workspace **root**, the one directory that should hold
+child repos and nothing else, while every other workspace-owned artifact —
+including `daily-plans/`, which is human-edited content too — already lives under
+`.workspace/`. The vendor is parameterized (`--tasks-dir`), so the emit side is a
+flag change; `--with-status` moves `status/` along with it.
+
+Two things to settle before writing code: whether **`project/status/`** should
+follow (it is an audience-facing deliverable, and the other two sit at the top
+level deliberately), and how `update.sh` treats an already-stamped workspace —
+auto-`git mv` would be the first time regeneration moves *content*, which is the
+boundary the machinery/content split has never crossed. Lean: detect and instruct
+rather than move.
+
+`dev-workspace` has **zero** tasks, so its own migration is scaffolding only —
+safe to do first, and precisely for that reason it does not exercise the case
+that matters.
 
 **07** — per `DESIGN.md` §8.9 this is the *last* step per repo, not a separate
 cleanup: remove that repo's `ai-project-status` block, root `daily-plan.md`,
