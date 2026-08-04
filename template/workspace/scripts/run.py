@@ -6,9 +6,20 @@
   3. per repo    — `claude -p` summarises each ACTIVE repo's telemetry
   4. inactive    — deterministic one-liners, no LLM
   5. polish      — with >=2 ACTIVE repos, `claude -p` merges cross-repo themes
-  6. summary.md  — prepend today's section
+  6. summary.md  — REPLACE its one section with this run's
   7. aggregate   — rebuild daily-plan-summary.md (always, even with no commits)
   8. advance     — move state.json's window forward
+
+SUMMARY.MD HOLDS ONE RUN, NOT A JOURNAL. It is a dashboard — "what is the state
+of my work" — so it is windowed and its size is bounded, rather than growing by
+a section a day forever. A run with no new commits does not overwrite the last
+real activity with an empty "No updates" list: it keeps that body verbatim and
+re-dates the heading to today, which is the useful reading of a quiet day (the
+status is current; the work is still the work). The heading then names both
+dates, so a re-dated section can never be mistaken for work done today.
+
+The journal did not disappear, it moved to where journals belong: every run
+commits summary.md, so `git log -p summary.md` is the full day-by-day history.
 
 The LLM steps (3 and 5) are skipped by `--dry-run`, which emits deterministic
 placeholders instead — that is what makes the pipeline testable offline.
@@ -19,6 +30,7 @@ the branch-and-push, and locally the diff is the review surface.
 import argparse
 import functools
 import os
+import re
 import subprocess
 import sys
 from datetime import date
@@ -31,7 +43,14 @@ from _status_lib import (  # noqa: E402
 )
 
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
-INSERT_MARKER = "<!-- new sections inserted below -->"
+
+# `## <status date>` or `## <status date> — no new work since <activity date>`.
+# The second form is what a quiet day writes, and parsing it back is what stops
+# the activity date from creeping forward one quiet day at a time.
+SECTION_RE = re.compile(
+    r"^##\s+(\d{4}-\d{2}-\d{2})(?:\s+—\s+no new work since\s+(\d{4}-\d{2}-\d{2}))?\s*$",
+    re.M,
+)
 
 # The step scripts run as subprocesses and write straight to the terminal, so
 # this process's own progress lines must not sit in a pipe buffer — otherwise
@@ -88,25 +107,41 @@ def polish(today, drafts_text, dry_run):
                     .replace("{{DRAFTS}}", drafts_text))
 
 
-def prepend_to_summary(section):
-    """Newest day first. Creates summary.md if the routine has never run."""
-    block = section.rstrip() + "\n"
+def previous_section():
+    """(activity_date, body) of the section already in summary.md, or None.
+
+    `activity_date` is when the work actually happened, which is NOT the
+    heading's own date once a section has been re-dated: a carried-forward
+    heading names both, and this reads the original through any number of quiet
+    days rather than letting it creep forward one day at a time.
+
+    Tolerant of a pre-windowing summary.md that stacked many day sections: the
+    first one is the newest, and everything below it is history git already has.
+    """
     if not SUMMARY_MD.exists():
-        SUMMARY_MD.write_text(
-            f"# Summary — {workspace_name()}\n\n"
-            "<!-- Author-scoped retrospective rollup, newest first. Written by "
-            ".workspace/scripts/run.py. -->\n\n"
-            f"{INSERT_MARKER}\n\n{block}"
-        )
-        return
+        return None
     text = SUMMARY_MD.read_text()
-    if INSERT_MARKER in text:
-        new = text.replace(INSERT_MARKER, INSERT_MARKER + "\n\n" + block, 1)
-    else:
-        idx = text.find("\n## ")
-        new = (text.rstrip() + "\n\n" + block) if idx == -1 \
-            else text[:idx + 1] + block + "\n" + text[idx + 1:]
-    SUMMARY_MD.write_text(new)
+    m = SECTION_RE.search(text)
+    if not m:
+        return None
+    body = text[m.end():].lstrip("\n")
+    older = SECTION_RE.search(body)
+    if older:
+        body = body[:older.start()]
+    return (m.group(2) or m.group(1)), body.rstrip("\n")
+
+
+def write_summary(section):
+    """Rewrite summary.md around exactly one section — the newest run's."""
+    SUMMARY_MD.write_text(
+        f"# Summary — {workspace_name()}\n\n"
+        "<!-- Author-scoped retrospective rollup. Holds ONE run: the most\n"
+        "     recent. A run with no new commits keeps this body and re-dates the\n"
+        "     heading, so the date says when the status was taken, not when the\n"
+        "     work happened. Day-by-day history: `git log -p summary.md`.\n"
+        "     Written by .workspace/scripts/run.py — never hand-edit it. -->\n\n"
+        f"{section.rstrip()}\n"
+    )
 
 
 def main():
@@ -152,15 +187,31 @@ def main():
     if inactives:
         drafts.append(inactives)
 
-    if drafts:
+    previous = previous_section()
+    if active_count:
         drafts_text = "\n\n".join(drafts)
         if active_count >= 2:
             print("[run] polishing cross-repo section...")
             section = polish(today, drafts_text, args.dry_run)
         else:
             section = f"## {today}\n\n{drafts_text}"
-        prepend_to_summary(section)
-        print(f"[run] prepended the {today} section to summary.md")
+        write_summary(section)
+        print(f"[run] summary.md now holds the {today} run")
+    elif previous:
+        # A quiet day must not replace real work with an empty "No updates"
+        # list — that reads as "nothing has happened", when what is true is
+        # "nothing has happened *since*". Keep the body, move the date, and say
+        # both in the heading so the two can never be confused.
+        activity, body = previous
+        header = f"## {today}" if activity == today \
+            else f"## {today} — no new work since {activity}"
+        write_summary(f"{header}\n\n{body}")
+        print(f"[run] no new commits — re-dated summary.md to {today} "
+              f"(work unchanged since {activity})")
+    elif drafts:
+        # No prior section to carry: the inactivity report IS the whole story.
+        write_summary(f"## {today}\n\n" + "\n\n".join(drafts))
+        print(f"[run] summary.md now holds the {today} run")
     else:
         print("[run] nothing to report; summary.md untouched")
 

@@ -320,16 +320,24 @@ warned; fix it in `config.yml` before the first run.
 Two different artifacts, easy to confuse:
 
 - **`summary.md`** (top level) — the **automated** git-telemetry rollup the daily
-  run writes. Machine-generated, newest day first, author-scoped. Never hand-write
-  it; the next run overwrites the day.
+  run writes. Machine-generated and author-scoped. Never hand-write it; every run
+  rewrites the file.
+
+  It holds **one section: the latest run**, so it stays a fixed-size dashboard
+  rather than growing a section a day. On a day with no new commits it keeps the
+  last real work and just re-dates the heading, which then names both dates —
+  `## 2026-08-10 — no new work since 2026-08-04` means "this status is current;
+  the work it describes is from the 4th". For the day-by-day history, the file is
+  committed on every run: `git log -p summary.md`.
 - **`project/status/`** — **hand-written** periodic status reports, the kind you
   bring to a status-review meeting. Installed by the vendored
   `create-project-system`, entirely optional, and many workspaces never use it.
 
 `daily-plan-summary.md` is the forward-looking twin of `summary.md`: every
 `.workspace/daily-plans/*/daily-plan.md` aggregated behind an "At a glance" table, with
-the `_workspace` plan first and stale plans flagged. Dated snapshots of both land
-in `.workspace/state/archive/`.
+the `_workspace` plan first and stale plans flagged. Dated snapshots of **that
+one** land in `.workspace/state/archive/`; `summary.md` is not archived, because
+its history is already in the commit that wrote it.
 
 ## 7. The child commit kernel
 

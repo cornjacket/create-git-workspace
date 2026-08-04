@@ -37,7 +37,7 @@ repo is ignored, so the wrapper can never swallow one.
 ├── CLAUDE.md                 always-on kernel (managed marker-block) + your directives
 ├── README.md                 the human front door: generated roster block + your prose
 ├── Makefile                  visible command surface over the hidden scripts
-├── summary.md                RUNTIME: author-scoped retrospective rollup
+├── summary.md                RUNTIME: author-scoped rollup of the latest run
 ├── daily-plan-summary.md     RUNTIME: aggregated plans + "At a glance"
 ├── .gitignore                allowlist
 ├── project/                  the workspace's OWN task-system (triage) + status/
@@ -161,6 +161,12 @@ read is filtered to your `git_author`, so ACTIVE means "*you* committed".
   `summary.md` + `daily-plan-summary.md`, and lands them on `main` via a dated
   side branch plus the auto-merge workflow (the routine's GitHub App identity
   cannot push to the default branch).
+- **`summary.md` is a dashboard, not a journal.** It holds one section — the
+  latest run — so it stays a fixed size instead of growing a section a day. A run
+  with no new commits keeps the last real work and re-dates the heading, which
+  names both dates (`## 2026-08-10 — no new work since 2026-08-04`): the status
+  is current, the work is still the work. History lives in `git log -p
+  summary.md`, since every run commits the file.
 - **Local morning trigger:** `make pull` → `git pull --ff-only`. It advances or
   it declines and tells you which — never merges, rebases, or forces. Exit 1 is
   "you are ahead or diverged", exit 2 is "misconfigured", so a trigger can alert
@@ -230,7 +236,7 @@ sandbox/                 throwaway generated workspaces (git-ignored)
 ./tests/run-tests.sh --remote   # additionally run the GitHub round-trip
 ```
 
-334 local assertions. Every test generates throwaway workspaces into `sandbox/`
+340 local assertions. Every test generates throwaway workspaces into `sandbox/`
 (git-ignored) — never a real repo. The suite covers the emitted tree and
 allowlist, the generated scripts, **zero-diff regeneration**, machinery overwrite
 + stale pruning, content/runtime preservation, all `CLAUDE.md` injection paths

@@ -1104,9 +1104,13 @@ YML
   assert_eq "--dry-run calls claude zero times" "0" \
     "$(find "$log" 2>/dev/null -name 'prompt-*' | wc -l | tr -d ' ')"
 
-  # Newest day first: the second section is prepended above the first.
-  assert_eq "sections are newest-first in summary.md" "dry-run" \
-    "$(grep -m1 -o 'dry-run\|STUB-SUMMARY' "$ws1/summary.md")"
+  # WINDOWED, NOT A JOURNAL: the newer run REPLACES the older section rather
+  # than stacking on top of it, so the file's size is bounded. The previous
+  # run's model output must be gone, and exactly one section may remain.
+  assert_eq "summary.md holds exactly one section" "1" \
+    "$(grep -c '^## [0-9]' "$ws1/summary.md" | tr -d ' ')"
+  assert_grep "...and it is the newest run"   'dry-run'      "$ws1/summary.md"
+  assert_no_grep "...the older section is gone" 'STUB-SUMMARY' "$ws1/summary.md"
 
   # A failing model call must abort loudly, not write a half-built summary.
   # Needs fresh work, or the repo is INACTIVE and claude is never called at all.
@@ -1134,14 +1138,35 @@ YML
   assert_eq "a retry after the failure summarizes the same work" "1" \
     "$(find "$log" -name 'prompt-*' 2>/dev/null | wc -l | tr -d ' ')"
 
-  # An INACTIVE repo is reported deterministically — no model call for it.
+  # A QUIET DAY CARRIES THE LAST REAL WORK FORWARD. Overwriting it with an
+  # empty "No updates" list would read as "nothing has happened", when what is
+  # true is "nothing has happened *since*". Back-date the section by hand so the
+  # re-dating is visible (both runs here land on the same calendar day).
   rm -rf "$log"
+  local dtoday; dtoday=$(date +%Y-%m-%d)
+  subst_in_file "$ws1/summary.md" "## $dtoday" "## 2026-01-05"
   ( cd "$ws1" && PATH="$bin:$PATH" CLAUDE_STUB_LOG="$log" \
       python3 "$ws1/.workspace/scripts/run.py" ) >/dev/null 2>&1
-  assert_grep "an idle repo yields a deterministic 'No updates' line" \
-    'No updates' "$ws1/summary.md"
+  assert_grep "a quiet day re-dates the section, naming both dates" \
+    "^## $dtoday — no new work since 2026-01-05$" "$ws1/summary.md"
+  assert_grep "...keeping the last real activity verbatim" 'STUB-SUMMARY' "$ws1/summary.md"
   assert_eq "...with no model call" "0" \
     "$(find "$log" -name 'prompt-*' 2>/dev/null | wc -l | tr -d ' ')"
+  assert_eq "...and still exactly one section" "1" \
+    "$(grep -c '^## [0-9]' "$ws1/summary.md" | tr -d ' ')"
+
+  # The activity date must not creep forward one quiet day at a time — it is
+  # parsed back out of the heading, not re-derived from it.
+  ( cd "$ws1" && PATH="$bin:$PATH" python3 "$ws1/.workspace/scripts/run.py" ) >/dev/null 2>&1
+  assert_grep "a second quiet day keeps the ORIGINAL activity date" \
+    "no new work since 2026-01-05" "$ws1/summary.md"
+
+  # With NO prior section there is nothing to carry, so the inactivity report
+  # is the whole story and must still be written.
+  rm -f "$ws1/summary.md"
+  ( cd "$ws1" && PATH="$bin:$PATH" python3 "$ws1/.workspace/scripts/run.py" ) >/dev/null 2>&1
+  assert_grep "a first run with no activity still reports 'No updates'" \
+    'No updates' "$ws1/summary.md"
 }
 
 # ---------------------------------------------------------------------------

@@ -510,7 +510,7 @@ which is why §8.5's `sources` list is load-bearing rather than a convenience.
 
 ### 8.3 Deliverables, plans, and state
 
-- `summary.md` — author-scoped retrospective rollup, newest day first.
+- `summary.md` — author-scoped retrospective rollup of **the latest run only**.
 - `daily-plan-summary.md` — aggregated plans behind an "At a glance" table.
 - `.workspace/daily-plans/<repo>/daily-plan.md` — this dev's plan per repo.
 - `.workspace/daily-plans/_workspace/daily-plan.md` — the **workspace's own** plan:
@@ -521,7 +521,24 @@ which is why §8.5's `sources` list is load-bearing rather than a convenience.
 Deliverables sit at the **top level** (the daily dashboard); plans, prompts, and
 state stay under `.workspace/`.
 
-Two output contracts worth stating, because both were learned by breaking them:
+Three output contracts worth stating, because each was learned by breaking it:
+
+- **`summary.md` is a dashboard, not a journal.** It holds exactly one section —
+  the newest run — and is rewritten, not appended to, so its size is bounded
+  instead of growing by a section a day forever. The day-by-day history is not
+  lost, it just lives where history belongs: every run commits the file, so
+  `git log -p summary.md` is the record.
+
+  A run with **no new commits** does not overwrite the last real work with an
+  empty "No updates" list — that reads as *nothing has happened* when the truth
+  is *nothing has happened since*. It keeps the body verbatim and re-dates the
+  heading, which then names **both** dates
+  (`## 2026-08-10 — no new work since 2026-08-04`): the status is current, the
+  work is still the work, and the two can never be confused. The activity date
+  is parsed back out of that heading rather than re-derived, or a run of quiet
+  days would creep it forward one day at a time and quietly claim work was
+  recent.
+
 
 - **An embedded plan's own headings are demoted** so they nest *under* their
   section in the aggregate rather than sitting beside it — otherwise one repo's
