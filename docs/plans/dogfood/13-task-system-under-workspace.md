@@ -1,7 +1,7 @@
 # 13 — mount the task-system under `.workspace/`, not on the floor
 
-Status: **generator done (2026-08-03)** — 344 assertions green, zero-diff holds.
-`dev-workspace` migration pending.
+Status: **done (2026-08-04)** — generator: 344 assertions green, zero-diff holds.
+`dev-workspace` migrated (`ba0f425`), pushed, `make status` clean.
 
 The vendored task-system installs at `project/` in the workspace **root**, which
 is the one directory that is supposed to hold child repos and nothing else. A
@@ -77,20 +77,12 @@ The vendor is already parameterized — this is a flag change, not a fork:
 
 ## Migration
 
-**DECIDED: no migration path in `update.sh`.** It handles new stamps only.
+**DECIDED: `update.sh` never moves content.** It stamps the new mount and leaves
+the old one alone; carrying tasks across is the human's call. That much held.
 
-The usual objection to that — "two layouts in the wild forever" — does not apply
-here, because there is exactly **one** workspace in existence (`dev-workspace`)
-and it is migrated by hand as part of this task. After that, no workspace carries
-the old layout, so there is nothing for a migration path to migrate.
-
-The hand migration is trivial *for this workspace specifically*: all six task
-folders are empty, so it is `git rm -r project/` followed by `update.sh`, which
-stamps `.workspace/project/` fresh. **No task content is at stake.** That also
-means this does not exercise a populated migration — say so rather than letting
-it read as proven.
-
-**Built anyway — it bit immediately.** `update.sh` only upgrades a task-system it
+The original decision went further — *no migration handling at all*, on the
+grounds that there is exactly **one** workspace in existence and it is migrated
+by hand here. **That half was wrong, and it bit immediately.** `update.sh` only upgrades a task-system it
 finds already installed (`--no-tasks` must stay opted out). Probing the *new*
 mount alone would have read every pre-move workspace as opted out and silently
 stripped the subsystem — including `dev-workspace`, whose migration recipe below
@@ -124,6 +116,22 @@ Order matters: `update.sh` needs to *see* a task-system to upgrade one.
 Safe *because* nothing is at stake — which also means it does **not** exercise
 the case that matters. A workspace with real tasks is the one that would prove
 the migration; note that gap rather than claiming it passed.
+
+## Outcome (2026-08-04)
+
+Ran exactly as above. `update.sh` installed `.workspace/project/{tasks,status}`,
+refreshed both `CLAUDE.md` kernels and the `task-system` skill to the new mount,
+then printed the stale-mount warning; `git rm -r project/` took out 38 files of
+scaffolding; `make replan` drafted from the new location and its derived-from
+line names it. Committed `ba0f425` + the plan redraft, pushed, `make status`
+clean. A create/delete round-trip through the moved scripts works.
+
+**Still unproven, by construction:** a migration with real task content. Nothing
+crossed here because nothing was there.
+
+Unrelated observation while verifying: `replan` reports `create-project-system`
+as "no task-system — skipped". Correct — its `tasks/` is generator *source*, not
+an installed mount, so the probe rightly declines it.
 
 ## Acceptance
 

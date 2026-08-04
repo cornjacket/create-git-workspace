@@ -9,9 +9,8 @@ effort.
 
 ## Where I left off
 
-- **current task** — `13`, generator half **built**; the `dev-workspace`
-  migration is next. Remaining order: `13`'s dogfood → **`14`** (move the
-  generator itself) → **`12`** (worktrees, `main` only for now). `07` is a
+- **current task** — `14`, move `create-git-workspace` itself into
+  `dev-workspace`. Then **`12`** (worktrees, `main` only for now). `07` is a
   per-repo step that runs at the end of each `04` migration.
 - **what just happened (2026-08-03)** — `10` landed and was **dogfooded**: the
   `routine_registered` flag (absent = outstanding), the `routine-registered`
@@ -23,11 +22,14 @@ effort.
   `06` end to end on a hand-triggered run, first try. Then `11`, which that run
   exposed: `summary.md` now holds the latest run only. Then `13`'s generator
   half: the task-system mounts at `.workspace/project/`, so the workspace floor
-  is child repos and nothing else. 344 assertions.
-- **next concrete step** — migrate `dev-workspace` to the new mount: run
-  `update.sh` there **first** (it now recognises the old root mount, installs the
-  new one, and warns), then `git rm -r project/`, then `make replan`. The roster
-  beyond what is in is still undecided — `second-brain-*` membership is genuinely in doubt per
+  is child repos and nothing else. 344 assertions. Dogfooded on 08-04 — the
+  detection warning fired, the old mount came out, `make replan` read the new
+  one, `make status` clean.
+- **next concrete step** — `14`, steps 1-6 from **this** session (clone into
+  `dev-workspace`, commit the kernel, add the URL to the routine's `sources`,
+  clear the flag), then **stop and re-root** a session at
+  `dev-workspace/create-git-workspace` before step 7 deletes this checkout. The
+  roster beyond what is in is still undecided — `second-brain-*` membership is genuinely in doubt per
   `DESIGN.md` §8.9, and `foa` is unclassified.
 - **files mid-edit** — none.
 - **uncommitted / unpushed** — none. A full-floor sweep
@@ -79,7 +81,7 @@ In order. Acceptance is one line each until these are extracted into files.
 | 06 | run a full day: routine writes, `make pull` lands it | **done** — passed first try |
 | 11 | `summary.md` holds the latest run only, not a growing journal | **done** |
 | 12 | how a git-worktree layout is tracked — [`12`](docs/plans/dogfood/12-worktree-membership.md) | **decided**, build deferred — `main` worktree only for now |
-| 13 | mount the task-system under `.workspace/` — [`13`](docs/plans/dogfood/13-task-system-under-workspace.md) | generator **done** — `dev-workspace` migration pending |
+| 13 | mount the task-system under `.workspace/` — [`13`](docs/plans/dogfood/13-task-system-under-workspace.md) | **done**, dogfooded into `dev-workspace` |
 | 14 | move `create-git-workspace` into `dev-workspace` — [`14`](docs/plans/dogfood/14-migrate-create-git-workspace.md) | todo — two-session sequence |
 | 07 | strip `project-status` from each migrated repo — [`07`](docs/plans/dogfood/07-strip-project-status.md) | in progress — `create-project-system` done |
 | 08 | retire `project-status`: hook, umbrella `CLAUDE.md`, the repo | todo |
