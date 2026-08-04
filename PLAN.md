@@ -140,32 +140,31 @@ Make the incomplete state **first-class**:
 - **A verb clears it** — `make routine-registered ARGS="<name>"` or equivalent.
   Without one, the only exit from the incomplete state is hand-editing the
   lockfile, which every other rule here forbids. This verb is the *only* writer.
-- **`add-repo` files a tracking task** in the workspace's own task-system —
-  `project/tasks/main/inbox/`, priority HIGH.
+- **`make status` gates on it.** A repo with the flag unset reads
+  `routine not registered` and `status` exits non-zero, exactly as it already
+  does for unpushed work. This *is* the enforcement — no second copy, nothing to
+  reconcile.
 - **`aggregate-plans.py` prefixes `daily-plan-summary.md`** with a banner naming
   every repo whose registration is incomplete. That file is what actually gets
   read each morning; a flag nobody looks at is not tracking.
 - **`add-repo` becomes idempotent.** It currently hard-exits on a duplicate path
   (`add-repo.py:62-64`). Re-running it over a registered repo should reconcile —
-  backfill a missing flag, re-seed a missing plan or task, re-inject the kernel —
-  and produce a zero-line diff when nothing has changed. That is the same
+  backfill a missing flag, re-seed a missing plan, re-inject the kernel — and
+  produce a zero-line diff when nothing has changed. That is the same
   regeneration property `update.sh` already promises, and it is what makes the
   mechanism testable against `captains-log` without unregistering it first.
 
 **One source of truth, rendered twice.** The flag in `repos.yml` is
-authoritative; the task and the banner are *projections* of it. The clearing verb
-closes the task — a human never closes it by hand, or the two drift and the
-system starts lying. Same rule as `replan`: derived sections are rewritten, never
-hand-maintained.
+authoritative; the `status` row and the summary banner are *projections* of it,
+recomputed on every run. The clearing verb is the only writer. Same rule as
+`replan`: derived output is rewritten, never hand-maintained.
 
-**Open — is the task even the right surface?** `make status` already exits
-non-zero on unpushed work. Gating it on this flag too *is* enforcement, with
-nothing to reconcile and no second copy to keep true. The argument for the task
-is that the task-system is where you look for outstanding work; the argument
-against is that a task-system is for work you *chose*, and this is a debt the
-tool knows about with certainty. Build the flag, verb, and banner first — they
-are unambiguous — and let dogfooding settle whether the task adds anything the
-`status` gate does not.
+**Decided — no tracking task.** An earlier draft had `add-repo` file a HIGH task
+in the workspace's task-system. Dropped: it would be a third copy of one fact,
+hand-closable, and therefore driftable. The task-system is for work you *chose*;
+this is a debt the tool knows about with certainty, and the `status` gate already
+enforces it with nothing to reconcile. `dev-workspace`'s hand-filed
+`446273-captains-log-routine-sources-registration` is superseded when this lands.
 
 **Sequencing.** This blocks the rest of `04`: moving six more repos before it
 lands just multiplies the in-between state at six times the scale. Land `10`,
