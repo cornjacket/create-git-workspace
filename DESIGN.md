@@ -765,6 +765,15 @@ left to track:
   any other generator. Reading this line as covering the devkit is what made the
   roster look undecidable for two weeks — the exemption is for the *product*,
   which is not a repo on any floor.
+- A **machine-config repo joins no workspace either** — `dotfiles`. Its subject
+  is *this machine*: it is consumed by every session in every repo and is a
+  member of none of them, which is the `second-brain` argument applied to
+  config rather than content. It also carries a hazard that makes membership
+  actively harmful: its files are symlinked into live locations by **absolute
+  path**, so migrating the checkout silently breaks them — and a dangling
+  global `CLAUDE.md` is not an error, it is a session that quietly runs without
+  its instructions. The repo's own README now records this; a workspace should
+  never be the thing that discovers it.
 - A repo that exists **only as another repo's test target is a fixture, not a
   member** — `git-workspace-test` (§10 #3), `tasks-test`, `second-brain-test`.
   Every commit in one is a byproduct of working on its owner, so tracking it

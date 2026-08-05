@@ -114,7 +114,7 @@ In order. Acceptance is one line each until these are extracted into files.
 | 02 | per-repo replan — deterministic, no model calls | **done** |
 | 03 | create `dev-workspace` locally, push it to a new remote | **done** |
 | 04 | move the first repos in and register them | **roster decided**; 4 of 7 landed, 3 dev repos to migrate |
-| 15 | stand up `personal-workspace` — [`15`](docs/plans/dogfood/15-personal-workspace.md) | todo — new scope, the §10 trigger fired |
+| 15 | stand up `personal-workspace` — [`15`](docs/plans/dogfood/15-personal-workspace.md) | **built** — 2 repos in; routine outstanding |
 | 16 | an UNAVAILABLE repo vanishes from the rollup — [`16`](docs/plans/dogfood/16-unavailable-is-a-silent-omission.md) | **filed** — confirmed in production, a real §5.2 violation |
 | 17 | the injected kernel omits the blank line after the commit title | **filed** — all four copies of the schema, see `04` notes |
 | 18 | `daily-plan-summary.md` never says what a repo *is* — [`18`](docs/plans/dogfood/18-newcomer-blurb-in-plan-summary.md) | **filed** — project the `repos.yml` description into the rollup |
@@ -217,8 +217,19 @@ kernel inside the child → add to the routine's `sources` → `routine-register
   outside the repo. Only the human prototyping loop and the doc links depend on
   the sibling path.
 
-  **Out, to `personal-workspace`:** `foa`, `ymca-basketball`, `dotfiles` — see
-  task [`15`](docs/plans/dogfood/15-personal-workspace.md).
+  **Out, to `personal-workspace`:** `foa`, `ymca-basketball` — done, see task
+  [`15`](docs/plans/dogfood/15-personal-workspace.md).
+
+  **Out, to no workspace at all: `dotfiles`.** Revised 2026-08-04, having been
+  listed for `personal-workspace` and then briefly for `dev-workspace`. It is
+  **config, not a project** — consumed by every session in every repo, a member
+  of none, which is §8.9's `second-brain` argument applied to config. The
+  hazard settles it: its files are symlinked into live locations by absolute
+  path, so any migration silently breaks them, and the one live link is
+  `~/.claude/CLAUDE.md` — the global instructions. Nothing errors; sessions just
+  quietly stop following rules you believe are loaded. Graduated to §8.9 and
+  written into the repo's own README, so the next person to eye it as a
+  migration candidate is warned by the repo rather than by luck.
 
   **Out, nothing to track:** `create-repo-mail` has **zero commits**. Not a
   judgement about the repo; there is literally no history for a rollup to read.

@@ -1,6 +1,8 @@
 # 15 — stand up `personal-workspace`
 
-Status: **todo** — filed 2026-08-04 out of the `04` roster decision.
+Status: **built 2026-08-04** — workspace created, `foa` and `ymca-basketball`
+registered. **Outstanding: the routine.** `dotfiles` was removed from scope; see
+"The `dotfiles` hazard" below for what that investigation actually found.
 
 The second workspace. It was explicitly **out of scope** for this effort until
 the roster decision made it necessary: `foa`, `ymca-basketball`, and `dotfiles`
@@ -25,17 +27,37 @@ making on credit:
    symlinked into live locations on this machine — the one repo so far where
    moving the checkout could break something outside git.
 
-## The `dotfiles` hazard
+## The `dotfiles` hazard — investigated, and it changed the answer
 
-**The live config is a symlink into the repo.** Moving the checkout breaks every
-symlink pointing at the old path — the same class of failure as `14`'s
-"deleting the ground the session stands on" and `12`'s worktree pointers, and
-the third time this effort has hit it. Either re-point the symlinks after the
-move, or register it in place with `add-repo --no-clone --path` and leave the
-checkout where it is.
+**Outcome: `dotfiles` joins no workspace at all.** Not this one, not
+`dev-workspace`. Graduated to `DESIGN.md` §8.9.
 
-Decide which **before** moving anything. This is the first repo whose migration
-can break something that is not a git operation.
+The hazard as filed: the live config is a symlink into the repo, so moving the
+checkout breaks it — the same class of failure as `14`'s "deleting the ground
+the session stands on" and `12`'s worktree pointers, and the third time this
+effort hit it. What the investigation added:
+
+- **Exactly one link exists**, and it is
+  `~/.claude/CLAUDE.md → <repo>/claude/CLAUDE.md` — the *global* Claude
+  instructions loaded into every session on the machine.
+- **It fails silently.** A dangling symlink reads as a missing file, and a
+  missing global `CLAUDE.md` is not an error. Every session would run without
+  those standing preferences and nothing would report it. Same shape as `16`:
+  the thing that breaks does not announce itself.
+- **`readlink` is not a sufficient check** — it prints a path whether or not
+  anything is there. `test -e` follows the link and is what actually proves the
+  target exists.
+
+So the repair is one command and the risk is small — but the *reason to migrate
+it at all* turned out to be absent, which is the real finding. `dotfiles` is
+**config, not a project**: consumed by every session in every repo, a member of
+none. §8.9's `second-brain` argument, applied to config instead of content.
+
+The hazard and the exclusion are now recorded **in `dotfiles`' own README**, so
+the next person to consider migrating it is warned by the repo rather than by
+someone happening to check. The stated cost of staying out: nothing watches it
+— no status sweep, no rollup — so `git status` in that directory is the only
+check there is.
 
 ## Open questions
 
@@ -58,11 +80,22 @@ can break something that is not a git operation.
 
 ## Acceptance
 
-- `personal-workspace` exists, private, pushed, with `foa`, `ymca-basketball`,
-  and `dotfiles` registered and `make status` green.
-- `dotfiles` still works — whatever depends on its symlinks resolves after the
-  migration, and how that was achieved is written down.
-- It has its own routine on a slot that does not overlap `dev-workspace`'s, and
-  a run has landed a rollup that `make pull` brought down.
-- Anything that turned out **not** to be "only `config.yml` differs" is filed
-  against the generator, not patched in the generated workspace.
+- ✅ `personal-workspace` exists, private, pushed, guard installed, task-system
+  included (deliberately the same shape as `dev-workspace`, so the "identical
+  machinery" claim is actually exercised rather than dodged).
+- ✅ `foa` (`4f79c15`) and `ymca-basketball` (`af535d6`) registered by clone at
+  the HEADs their old checkouts had, kernels committed inside each, old
+  checkouts removed.
+- ✅ `dotfiles` resolved — **excluded**, and its symlink verified intact
+  (`test -e` passes, still pointing at the untouched checkout).
+- ⏳ `make status` green — red on `routine not registered` for both repos, which
+  is correct: there is no routine yet.
+- ⏳ Its own routine on a slot that does not overlap `dev-workspace`'s 12:43 UTC.
+  `08` frees 12:13 when `project-status` retires. Note `20`: `RemoteTrigger` can
+  create it from a session, so this is no longer a hand-only step.
+- ⏳ A run has landed a rollup that `make pull` brought down.
+- **Setup itself reported nothing anomalous** — `setup.sh --create-remote
+  --with-hook` produced a second workspace with no generator change required,
+  which is the first evidence for §8.9's "identical machinery; only
+  `config.yml` differs". Not yet proof: the claim is really about the *running*
+  system, and no run has happened here.
