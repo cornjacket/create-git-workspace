@@ -1,6 +1,7 @@
 # 22 — one repo's missing task folder silently truncates the whole replan
 
-Status: **filed 2026-08-04**, found while drafting plans for the full roster.
+Status: **FIXED 2026-08-04**, same day it was found. 353 assertions (was 344);
+dogfooded into both workspaces. See "What shipped" at the bottom.
 
 `make replan` exits 1 with **no error message** partway through the roster.
 Every repo after the offending one never gets a plan, and nothing says so.
@@ -83,8 +84,56 @@ is the honest one if the vocabulary keeps drifting.
 
 ## Acceptance
 
-- `make replan` drafts **every** enabled repo, whatever folders each epic has.
-- A repo that cannot be drafted is named, with a reason, and the run continues.
-- The exit code still reflects that something was skipped — loudly, at the end.
-- A test covers a child whose epic lacks `inbox`; today's suite passes while the
-  real roster cannot be drafted, which is why this reached production.
+- ✅ `make replan` drafts **every** enabled repo, whatever folders each epic has.
+- ✅ A repo that cannot be drafted is named, with a reason, and the run continues.
+- ✅ The exit code still reflects that something was skipped — loudly, at the end.
+- ✅ A test covers a child whose epic lacks `inbox`.
+
+## What shipped
+
+All four fixes, plus one thing the investigation turned up.
+
+1. **A missing folder is empty, not fatal.** `list_folder` captures the lister's
+   output and returns cleanly on a non-zero exit.
+2. **`check_lister` verifies the interface once, up front**, probing
+   `--folder in-progress` — the folder every generated epic has. A task-system
+   that cannot answer is skipped **loudly** with a reason, never handed a
+   plausible-looking empty plan. This is option **(e)** from the long-standing
+   open question, finally implemented.
+3. **The roster is never truncated.** Every per-repo outcome is non-fatal, the
+   loop always reaches the last entry, and failures are counted and reported at
+   the end with a non-zero exit.
+4. **The label prints on entry, not on completion**, so a crash leaves the
+   repo's name on the line instead of dying anonymously between two repos.
+5. **Rendering happens in a subshell that keeps `set -e` on**, writing to a temp
+   file that is only installed on success — a half-written plan is worse than
+   none, because it looks authoritative.
+
+**Bonus bug, found while fixing this:** `--repo <name>` reported
+`no target named '<name>'` for a perfectly real repo whenever its plan was
+already current, because the "did we find it?" check counted only `drafted` and
+`skipped`. Now counts `usable` and `failed` too. It had no test; it has one now.
+
+**Proof on the real roster** — the run that could not get past repo four:
+
+```
+_workspace               already current
+captains-log             already current
+create-project-system    no task-system — skipped
+create-git-workspace     no task-system — skipped
+create-ai-builder        redrafted        <- used to kill the run
+second-brain-devkit      no task-system — skipped
+customer-req-responder   no task-system — skipped
+```
+
+`create-ai-builder` got a derived plan for the first time: **6 in progress, 46
+queued, 20 in triage** — 72 tasks the workspace had never been able to see.
+
+## Still open, deliberately
+
+The **version drift** underneath this is untouched. `create-ai-builder`'s
+task-system is a generation behind and nothing declares which version a repo
+carries; this fix tolerates the difference rather than resolving it. The
+durable answers remain option **(a)** — a `--json` interface, filed downstream
+against `create-project-system` — or **(b)**, a declared flavour+version in
+`repos.yml`. Tolerance was the right first move; it is not the last one.

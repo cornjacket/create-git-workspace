@@ -94,6 +94,10 @@ assert_grep()    { if grep -qE -- "$2" "$3" 2>/dev/null; then ok "$1"; else bad 
 assert_no_grep() { if grep -qE -- "$2" "$3" 2>/dev/null; then bad "$1" "pattern SHOULD be absent from $3: $2"; else ok "$1"; fi; }
 # assert_fails — the command must exit non-zero (used for the refusal paths).
 assert_fails()   { local l=$1; shift; if "$@" >/dev/null 2>&1; then bad "$l" "command unexpectedly succeeded: $*"; else ok "$l"; fi; }
+# assert_succeeds — the mirror. Needed because "exits 0" is itself a contract in
+# places: a verb that refuses a legitimate target is as wrong as one that
+# accepts a bad one.
+assert_succeeds() { local l=$1; shift; if "$@" >/dev/null 2>&1; then ok "$l"; else bad "$l" "command unexpectedly failed: $*"; fi; }
 
 ws_clean() { # a workspace with no diff AND no untracked/modified files
   [ -z "$(git -C "$1" status --porcelain 2>/dev/null)" ]
@@ -1430,6 +1434,91 @@ YML
   out=$( PATH="$bin:$PATH" "$rp" --date 2026-12-26 2>&1 )
   case "$out" in *"MODEL CALLED"*) bad "replan makes no model call" "$out" ;;
                  *) ok "replan makes no model call" ;; esac
+
+  # A --repo target that is already current is still a target. This once
+  # reported "no target named" for a real repo purely because nothing changed.
+  "$rp" --repo kid --date 2026-12-26 >/dev/null 2>&1
+  assert_succeeds "--repo on an already-current plan is not 'no such target'" \
+    "$rp" --repo kid --date 2026-12-26
+
+  # -------------------------------------------------------------------------
+  # dogfood 22: an older generated task-system has no `inbox` folder. That is a
+  # VERSION DIFFERENCE, not a failure — and it must not cost any repo its plan.
+  #
+  # The regression this pins is not "one plan was wrong": it is that a non-zero
+  # exit from one folder listing killed the whole run, so every repo AFTER the
+  # offending one was never drafted and never even named. Ordering matters here,
+  # so `oldkid` is registered BEFORE `latekid`.
+  # -------------------------------------------------------------------------
+  mkdir -p "$ws/oldkid" && git -C "$ws/oldkid" init -q
+  "$GEN_ROOT/vendor/create-project-system/generate.sh" --target-repo "$ws/oldkid" \
+      --tasks-dir project/tasks >/dev/null 2>&1
+  "$ws/oldkid/project/tasks/scripts/new-user-task.sh" --folder in-progress \
+      --name legacy-layout-task >/dev/null 2>&1
+  # Downgrade it to the older vocabulary.
+  rm -rf "$ws"/oldkid/project/tasks/*/inbox
+  git -C "$ws/oldkid" add -A
+  git -C "$ws/oldkid" -c user.email=t@t -c user.name=t commit -qm init
+
+  mkdir -p "$ws/latekid" && git -C "$ws/latekid" init -q
+  "$GEN_ROOT/vendor/create-project-system/generate.sh" --target-repo "$ws/latekid" \
+      --tasks-dir project/tasks >/dev/null 2>&1
+  "$ws/latekid/project/tasks/scripts/new-user-task.sh" --folder in-progress \
+      --name drafted-after-the-old-one >/dev/null 2>&1
+  git -C "$ws/latekid" add -A
+  git -C "$ws/latekid" -c user.email=t@t -c user.name=t commit -qm init
+
+  cat >> "$ws/.workspace/repos.yml" <<'YML'
+  - name: oldkid
+    path: oldkid
+    type: standard
+    branch: main
+    url: https://example.invalid/oldkid.git
+  - name: latekid
+    path: latekid
+    type: standard
+    branch: main
+    url: https://example.invalid/latekid.git
+YML
+
+  out=$("$rp" --date 2026-12-27 2>&1) || true
+  assert_grep "a task-system with no inbox still gets a plan" 'legacy-layout-task' \
+    "$ws/.workspace/daily-plans/oldkid/daily-plan.md"
+  assert_grep "...and its Triage section renders as empty, not broken" \
+    '_Nothing in triage._' "$ws/.workspace/daily-plans/oldkid/daily-plan.md"
+
+  # THE regression: the repo listed after it is still drafted.
+  assert_file "a repo after it is still drafted" \
+    "$ws/.workspace/daily-plans/latekid/daily-plan.md"
+  assert_grep "...with its real task state" 'drafted-after-the-old-one' \
+    "$ws/.workspace/daily-plans/latekid/daily-plan.md"
+  case "$out" in *latekid*) ok "every repo is named in the output" ;;
+                 *) bad "every repo is named in the output" "$out" ;; esac
+
+  # A task-system whose lister does not answer at all is skipped LOUDLY —
+  # never given a plausible-looking empty plan.
+  mkdir -p "$ws/brokekid" && git -C "$ws/brokekid" init -q
+  "$GEN_ROOT/vendor/create-project-system/generate.sh" --target-repo "$ws/brokekid" \
+      --tasks-dir project/tasks >/dev/null 2>&1
+  printf '#!/bin/sh\nexit 3\n' > "$ws/brokekid/project/tasks/scripts/list-tasks.sh"
+  chmod 755 "$ws/brokekid/project/tasks/scripts/list-tasks.sh"
+  git -C "$ws/brokekid" add -A
+  git -C "$ws/brokekid" -c user.email=t@t -c user.name=t commit -qm init
+  cat >> "$ws/.workspace/repos.yml" <<'YML'
+  - name: brokekid
+    path: brokekid
+    type: standard
+    branch: main
+    url: https://example.invalid/brokekid.git
+YML
+
+  out=$("$rp" --date 2026-12-28 2>&1) || true
+  case "$out" in *brokekid*"does not answer"*) ok "an unreadable lister is skipped, and says why" ;;
+                 *) bad "an unreadable lister is skipped, and says why" "$out" ;; esac
+  assert_no_file "...and gets no plausible-looking empty plan" \
+    "$ws/.workspace/daily-plans/brokekid/daily-plan.md"
+  assert_grep "...while the rest of the roster is still drafted" '2026-12-28' \
+    "$ws/.workspace/daily-plans/latekid/daily-plan.md"
 }
 
 # ---------------------------------------------------------------------------

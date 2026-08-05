@@ -64,9 +64,28 @@ find_tasks_dir() {
 # list_folder <tasks-dir> <status> — task ids in that status folder.
 # Reads the task-system's own lister rather than globbing directories, so the
 # folder layout stays that generator's business.
+#
+# A NON-ZERO EXIT HERE MEANS "no such folder", NOT "something broke". Generated
+# task-systems differ by version — an older epic has no `inbox` — and treating
+# that as fatal once took down the entire run: `set -e` plus `pipefail` killed
+# the script mid-repo, and every repo after it silently lost its plan, unnamed.
+# The interface is verified once up front (`check_lister`); past that point an
+# absent folder is simply an empty one.
 list_folder() {
-  "$1/scripts/list-tasks.sh" --folder "$2" --depth 1 --all 2>/dev/null \
-    | sed -n 's/^    \([^ ].*\)$/\1/p'
+  local out
+  out=$("$1/scripts/list-tasks.sh" --folder "$2" --depth 1 --all 2>/dev/null) || return 0
+  printf '%s\n' "$out" | sed -n 's/^    \([^ ].*\)$/\1/p'
+}
+
+# check_lister <tasks-dir> — does this task-system speak the interface we read?
+#
+# Verify before trusting, rather than discovering a mismatch through an exit
+# code halfway through rendering. We scrape human output from another
+# generator's script, so the coupling is real and the failure must be loud: a
+# lister we cannot read produces a SKIP with a reason, never a plausible-looking
+# empty plan. `in-progress` is the probe because every generated epic has it.
+check_lister() {
+  "$1/scripts/list-tasks.sh" --folder in-progress --depth 1 --all >/dev/null 2>&1
 }
 
 bullets() { # <empty-fallback>
@@ -82,11 +101,11 @@ bullets() { # <empty-fallback>
 drafted=0
 skipped=0
 usable=0   # rendered OR already current — i.e. a target we could read
+failed=0   # had a task-system we could not finish reading
 
-# render <plan-path> <tasks-dir> <kind> <label>
-render() {
-  local plan=$1 tasks=$2 kind=$3 label=$4 tmp
-  tmp=$(mktemp "${TMPDIR:-/tmp}/replan.XXXXXX")
+# render_body <plan-path> <tasks-dir> <kind> <label> — the file, to stdout.
+render_body() {
+  local plan=$1 tasks=$2 kind=$3 label=$4
   {
     printf '# Daily plan — %s\n\n' "$DATE"
     if [ "$kind" = workspace ]; then
@@ -121,17 +140,38 @@ render() {
       printf '\n## Notes\n\n'
       printf '_Everything below the Notes heading is yours — `replan` never rewrites it._\n'
     fi
-  } > "$tmp"
+  }
+}
+
+# render <plan-path> <tasks-dir> <kind> <label>
+#
+# The label is already printed by the caller, so this prints only the outcome.
+# That ordering is deliberate: naming the repo BEFORE working on it means a
+# crash leaves its name on the line, instead of dying anonymously between two
+# repos and forcing a bisect to find which one.
+render() {
+  local plan=$1 tasks=$2 kind=$3 label=$4 tmp
+  tmp=$(mktemp "${TMPDIR:-/tmp}/replan.XXXXXX")
+
+  # Build in a subshell that keeps `set -e` on, so a partial render fails here
+  # instead of being installed as a truncated plan. A half-written plan is worse
+  # than none: it looks authoritative.
+  if ! ( set -e; render_body "$plan" "$tasks" "$kind" "$label" ) > "$tmp" 2>/dev/null; then
+    rm -f "$tmp"
+    printf 'could not draft — skipped (its task-system did not read cleanly)\n'
+    failed=$((failed + 1))
+    return 1
+  fi
 
   mkdir -p "$(dirname "$plan")"
   if [ -f "$plan" ] && cmp -s "$tmp" "$plan"; then
     rm -f "$tmp"
-    printf '    %-24s already current\n' "$label"
+    printf 'already current\n'
     usable=$((usable + 1))
     return 0
   fi
   mv "$tmp" "$plan"
-  printf '    %-24s redrafted\n' "$label"
+  printf 'redrafted\n'
   drafted=$((drafted + 1))
   usable=$((usable + 1))
 }
@@ -142,12 +182,16 @@ printf '\033[1m==>\033[0m Redrafting daily plans for %s\n' "$DATE"
 
 # The workspace's own plan, from its own task-system.
 if want "_workspace"; then
-  if [ -d "$WORKSPACE_DIR/project/tasks" ]; then
-    render "$WORKSPACE_DIR/daily-plans/_workspace/daily-plan.md" \
-           "$WORKSPACE_DIR/project/tasks" workspace "_workspace"
-  else
-    printf '    %-24s no task-system at .workspace/project/tasks — skipped\n' "_workspace"
+  printf '    %-24s ' "_workspace"
+  if [ ! -d "$WORKSPACE_DIR/project/tasks" ]; then
+    printf 'no task-system at .workspace/project/tasks — skipped\n'
     skipped=$((skipped + 1))
+  elif ! check_lister "$WORKSPACE_DIR/project/tasks"; then
+    printf 'task-system does not answer list-tasks.sh — skipped\n'
+    skipped=$((skipped + 1))
+  else
+    render "$WORKSPACE_DIR/daily-plans/_workspace/daily-plan.md" \
+           "$WORKSPACE_DIR/project/tasks" workspace "_workspace" || true
   fi
 fi
 
@@ -155,23 +199,38 @@ fi
 # without one is skipped rather than given an empty plan: an empty plan reads as
 # "nothing to do", which is a different claim from "this repo does not track
 # tasks here".
+#
+# ONE BAD REPO MUST NOT TRUNCATE THE ROSTER. Every outcome below is per-repo and
+# non-fatal: the loop always reaches the last entry, and whatever went wrong is
+# reported at the end with a non-zero exit. A batch verb that stops at the first
+# bad row is unusable as the roster grows — and worse, it stops *silently*.
 while IFS=$'\t' read -r name type path branch parent url tags; do
   want "$name" || continue
+  printf '    %-24s ' "$name"
   dest="$WORKSPACE_ROOT/$path"
   if [ ! -e "$dest/.git" ]; then
-    printf '    %-24s not checked out — skipped\n' "$name"
+    printf 'not checked out — skipped\n'
     skipped=$((skipped + 1))
     continue
   fi
   if ! tasks=$(find_tasks_dir "$dest"); then
-    printf '    %-24s no task-system — skipped\n' "$name"
+    printf 'no task-system — skipped\n'
     skipped=$((skipped + 1))
     continue
   fi
-  render "$WORKSPACE_DIR/daily-plans/$name/daily-plan.md" "$tasks" repo "$name"
+  if ! check_lister "$tasks"; then
+    printf 'task-system does not answer list-tasks.sh — skipped\n'
+    skipped=$((skipped + 1))
+    continue
+  fi
+  render "$WORKSPACE_DIR/daily-plans/$name/daily-plan.md" "$tasks" repo "$name" || true
 done < <(parse_enabled_repos)
 
-if [ -n "$ONLY" ] && [ "$drafted" -eq 0 ] && [ "$skipped" -eq 0 ]; then
+# `usable` and `failed` count too: a --repo target that was already current, or
+# that failed to draft, was still FOUND. Omitting them reported a real repo as
+# "no target named ..." purely because nothing about it had changed.
+if [ -n "$ONLY" ] && [ "$drafted" -eq 0 ] && [ "$skipped" -eq 0 ] \
+   && [ "$usable" -eq 0 ] && [ "$failed" -eq 0 ]; then
   echo "replan: no target named '$ONLY' (use a repo name, or _workspace)." >&2
   exit 2
 fi
@@ -180,18 +239,26 @@ echo
 if [ "$drafted" -gt 0 ]; then
   printf '%d plan(s) redrafted. Review them (git diff) and commit yourself —\n' "$drafted"
   printf 'replan never commits.\n'
-  exit 0
-fi
-
-if [ "$usable" -gt 0 ]; then
+elif [ "$usable" -gt 0 ]; then
   echo "Every plan was already current — nothing changed."
-  exit 0
+elif [ "$failed" -eq 0 ]; then
+  # Nothing was readable at all. A silent exit 0 here would look like success
+  # while producing no plan whatsoever, which is the one outcome worth failing on.
+  echo "replan: no task-system to derive a plan from." >&2
+  echo "        The workspace plan comes from .workspace/project/tasks, and a repo's" >&2
+  echo "        from its own task-system. Install one (setup.sh without --no-tasks)," >&2
+  echo "        or curate tasks in the repos you want plans for." >&2
+  exit 1
 fi
 
-# Nothing was readable at all. A silent exit 0 here would look like success while
-# producing no plan whatsoever, which is the one outcome worth failing on.
-echo "replan: no task-system to derive a plan from." >&2
-echo "        The workspace plan comes from .workspace/project/tasks, and a repo's" >&2
-echo "        from its own task-system. Install one (setup.sh without --no-tasks)," >&2
-echo "        or curate tasks in the repos you want plans for." >&2
-exit 1
+# Reported at the END, after every other repo has been drafted. The failure is
+# loud in the exit code and named in the output above, but it never costs the
+# rest of the roster its plans.
+if [ "$failed" -gt 0 ]; then
+  echo >&2
+  echo "replan: $failed plan(s) could not be drafted — named above." >&2
+  echo "        Every other repo was still drafted; one unreadable task-system" >&2
+  echo "        does not truncate the roster." >&2
+  exit 1
+fi
+exit 0
