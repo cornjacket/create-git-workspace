@@ -121,6 +121,7 @@ In order. Acceptance is one line each until these are extracted into files.
 | 19 | confirm the `sources` fix on the 08-05 run — [`19`](docs/plans/dogfood/19-confirm-the-sources-fix.md) | **prediction recorded** — check after 12:43 UTC |
 | 20 | `sources` should be a verb, not a manual seam — [`20`](docs/plans/dogfood/20-sources-should-be-a-verb.md) | **filed** — `RemoteTrigger` makes §8.5's premise false |
 | 21 | a workspace with no routine should not nag — [`21`](docs/plans/dogfood/21-no-routine-no-nag.md) | **filed** — `personal-workspace` is permanently red today |
+| 22 | `replan` crashes and truncates the roster — [`22`](docs/plans/dogfood/22-replan-crashes-and-truncates.md) | **filed** — blocks drafting plans for the full roster |
 | 10 | track incomplete routine registration; make `add-repo` idempotent | **done**, dogfooded into `dev-workspace` |
 | 05 | create the `/schedule` routine, add every repo to `sources` | **done** for the current roster |
 | 06 | run a full day: routine writes, `make pull` lands it | **done** — passed first try |
