@@ -84,6 +84,25 @@ It has now happened. Task [`15`](docs/plans/dogfood/15-personal-workspace.md).
   roster, and retire `gen-umbrella-claude.py` with it.
 - **`.project-status-ignore` in `dev-workspace`** as the interim fix for the
   SessionStart nag; the hook itself is removed in the last task.
+- **One session drives both repos, for this effort only — a deliberate,
+  expiring exception.** `dev-workspace/CLAUDE.md` says to run its commands from
+  a session rooted there. During dogfooding they run from here instead, because
+  the plan and the migrations feed each other: tasks `12`, `16`, `19` and `20`
+  were all found *while* migrating, and `16` specifically by reading a rollup
+  mid-migration — a session that only did membership work would not have looked.
+
+  **This is not a licence to be sloppy.** Every git command is explicitly
+  `cd`-ed or `git -C`-ed into its target, which is the only reason nothing has
+  landed in the wrong index; `guard.sh` has passed on every workspace commit,
+  and today's logs are a clean split (generator: `PLAN.md`, `DESIGN.md`,
+  `docs/plans/`; workspace: `repos.yml`, `daily-plans/`, `README.md`). Note the
+  extra wrinkle since `14`: this repo is now a *child of* `dev-workspace`, so
+  the session sits inside the workspace it is driving.
+
+  **Expires when this effort closes.** At that point membership work moves to a
+  `dev-workspace`-rooted session and this repo goes back to generator work only.
+  Recorded here so a later reader sees a decision rather than a violation to
+  "correct".
 
 ## Tasks
 
@@ -492,4 +511,6 @@ declare `project-status` obsolete once each of its five tracked repos has one.
 ---
 
 _On finishing: review every task file against `DESIGN.md`, graduate the durable
-conclusions, slim this file to pointers, and move it into `docs/plans/dogfood/`._
+conclusions, slim this file to pointers, and move it into `docs/plans/dogfood/`.
+**Also retire the two-repo session exception** in "Decisions already made" —
+membership work returns to a `dev-workspace`-rooted session._
