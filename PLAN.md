@@ -9,9 +9,10 @@ effort.
 
 ## Where I left off
 
-- **current task** — `04`, resumed: the **roster is decided** (see `04` below),
-  so three dev repos are queued to migrate. New task `15` stands up
-  `personal-workspace`. `08` unblocks once both are through.
+- **current task** — `21` (a workspace with no routine should not nag).
+  **The original effort is DONE**: every task `01`-`15` has landed, and `08`
+  mothballed `project-status` on 08-06. What remains is `16`-`22`, all of which
+  are defects dogfooding exposed rather than scope this plan set out with.
 - **what just happened (2026-08-03)** — `10` landed and was **dogfooded**: the
   `routine_registered` flag (absent = outstanding), the `routine-registered`
   verb, the `make status` gate, the `daily-plan-summary.md` banner, and an
@@ -40,11 +41,16 @@ effort.
   fell out and are filed rather than fixed — `16` (an UNAVAILABLE repo vanishes
   from the rollup, confirmed in production) and `17` (the injected kernel omits
   the blank line after the commit title, in all four copies).
-- **next concrete step** — **wait for the 08-05 12:43 UTC run and check `19`**,
-  whose prediction is recorded in advance. `sources` was repaired from a session
-  (4 → 6) after both by-hand edits were found never to have saved. Then
-  `create-context-hygiene` and `customer-req-responder` by the same recipe, then
-  `15`. `08` runs once `project-status`'s five repos all have an answer.
+- **what happened 2026-08-06** — `19` **confirmed**: the 08-05 and 08-06 runs
+  both carry `create-ai-builder`, `second-brain-devkit` and
+  `customer-req-responder`, and `state.json` has a key for each — so the missing
+  `sources` entries were the whole cause, and `12`'s entry-naming call is
+  validated. `22` fixed the same day it was found. The dated plan archive was
+  removed: `git log -p` on the file was already that history. Then `07`, `08`
+  and `09` all closed.
+- **next concrete step** — **`21`**, then `16`. `16` is the one that still
+  corrupts output (a tracked repo can vanish from the rollup); `21` only
+  annoys, but a status gate you learn to ignore is worth more than it costs.
 - **files mid-edit** — none.
 - **uncommitted / unpushed** — none. A full-floor sweep
   (`check-pending.py --all`) is clean except two non-issues: `create-repo-mail`
@@ -129,9 +135,9 @@ In order. Acceptance is one line each until these are extracted into files.
 | 12 | how a git-worktree layout is tracked — [`12`](docs/plans/dogfood/12-worktree-membership.md) | near-term step **done** (`main` registered); full build still deferred |
 | 13 | mount the task-system under `.workspace/` — [`13`](docs/plans/dogfood/13-task-system-under-workspace.md) | **done**, dogfooded into `dev-workspace` |
 | 14 | move `create-git-workspace` into `dev-workspace` — [`14`](docs/plans/dogfood/14-migrate-create-git-workspace.md) | **done** — acceptance verified from the new location |
-| 07 | strip `project-status` from each migrated repo — [`07`](docs/plans/dogfood/07-strip-project-status.md) | in progress — `create-project-system` + `create-ai-builder` done |
-| 08 | retire `project-status`: hook, umbrella `CLAUDE.md`, the repo | todo |
-| 09 | discuss whether `.project-status-ignore` was needed at all | todo |
+| 07 | strip `project-status` from each migrated repo — [`07`](docs/plans/dogfood/07-strip-project-status.md) | **done** — every repo clean, incl. the two worktree branches |
+| 08 | retire `project-status`: hook, umbrella `CLAUDE.md`, the repo | **done 2026-08-06** — remote archived read-only |
+| 09 | discuss whether `.project-status-ignore` was needed at all | **moot** — the hook is gone; files are inert litter |
 
 **01 — done.** `unsafe_reasons()` became `_status_lib.pending_findings()`,
 shared verbatim with `delete-repo` so a report and a refusal cannot disagree.
@@ -379,9 +385,35 @@ instrumentation, and `create-git-workspace` was never a target at all — which 
 precisely what its SessionStart nag has been reporting. So `07` is idle until the
 next repo lands.
 
-**08** — remove the user-level SessionStart hook from `~/.claude/settings.json`,
-delete `cornjacket/CLAUDE.md` and `gen-umbrella-claude.py`, and archive the
-`project-status` repo.
+**08 — DONE 2026-08-06.** `project-status` is mothballed. Verified rather than
+assumed: the GitHub remote is `isArchived: true` and read-only, its description
+records the supersession, the local checkout is gone from the floor, and
+`~/.claude/settings.json` no longer carries the SessionStart hook. The umbrella
+`cornjacket/CLAUDE.md` survives but is now **hand-owned** — the plan had it
+deleted outright, and keeping a hand-written signpost with no roster is the
+milder option the Decisions section already allowed for.
+
+**The repo was archived, not deleted.** It still holds the historical
+cross-repo activity record (`summary.md`, `daily-plan-archive/`), which is the
+one thing the new system genuinely does not carry forward: this workspace's own
+history starts at its first run.
+
+**07 — DONE.** Re-checked on 08-06: `second-brain-test` and both
+`create-ai-builder` worktree branches (`regression-infra`, `workspace-mgmt`) are
+now clean of the old instrumentation, closing the inventory below. Nothing on
+the floor carries a hook pointing at an archived repo.
+
+**09 — moot, and worth recording as such rather than answered.** The question
+was whether `.project-status-ignore` was worth creating given `08` would delete
+the hook anyway. `08` has now happened, so the files are inert: seven remain
+scattered (`dotfiles`, `tasks-test`, `tasks-test-wt/main`, `dev-workspace`,
+`captains-log`, `second-brain-test`, `ymca-basketball`). None is read by
+anything. They are litter, not debt — sweep them whenever, or never.
+
+The lesson the question was really asking about: **a transitional artifact
+created to silence a system you are retiring will outlive the system.** It cost
+nothing here because the file is inert; it would have cost something if it had
+been wired into behaviour.
 
 **Inventory: who still carries the old instrumentation (surveyed 2026-08-04).**
 `07` only ever runs on a member's default branch, so the leftovers are exactly
@@ -520,6 +552,17 @@ and the SessionStart nag is gone.
 not the same as being in a workspace — a fixture, a personal repo, and a repo
 with no commits are all answered without joining `dev-workspace`. `08` may only
 declare `project-status` obsolete once each of its five tracked repos has one.
+
+**MET 2026-08-06.** All four clauses: `dev-workspace` holds seven repos, the
+routine has landed rollups that `make pull` brought down on three separate
+days, no repo carries `project-status` instrumentation, and the nag is gone
+with the hook. A second workspace exists that was never in the original scope.
+
+**What is left is not this plan.** `16`-`22` are defects and follow-ups
+dogfooding produced. They deserve their own effort rather than keeping this one
+open — closing a plan whose stated goal is met is what stops it becoming a
+permanent backlog. Do the graduation pass below, then start the next plan with
+`16` at its head.
 
 ---
 
