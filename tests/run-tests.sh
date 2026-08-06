@@ -631,6 +631,56 @@ test_status_subsystem() {
   out=$(python3 "$S/new-work.py" 2>&1)
   case "$out" in *"no enabled repos"*) ok "enabled: false removes the repo" ;;
     *) bad "enabled: false removes the repo" "$out" ;; esac
+
+  # Re-enable it: the block below appends new entries, and `enabled: false`
+  # above was appended to whatever entry happened to be last.
+  grep -v '^    enabled: false$' "$ws/.workspace/repos.yml" > "$ws/.yml.tmp"
+  mv "$ws/.yml.tmp" "$ws/.workspace/repos.yml"
+
+  # -------------------------------------------------------------------------
+  # dogfood 16: a repo the run could not READ must appear in the deliverable.
+  #
+  # It used to be skipped with a warning on stderr — which on a scheduled remote
+  # run goes to a job log nobody opens, so the committed rollup showed no trace
+  # and a tracked repo silently vanished. "Absent" then read as "nothing to
+  # report", which is a different and false claim.
+  # -------------------------------------------------------------------------
+  cat >> "$ws/.workspace/repos.yml" <<'YML'
+  - name: phantom
+    path: phantom
+    type: standard
+    branch: main
+    url: https://example.invalid/phantom.git
+YML
+
+  python3 "$S/run.py" --dry-run >/dev/null 2>&1
+  assert_grep "an unreadable repo is named in summary.md" 'phantom' "$ws/summary.md"
+  assert_grep "...under its own heading"  'Not read this run'        "$ws/summary.md"
+  assert_grep "...with an actionable cause" 'sources'                "$ws/summary.md"
+  assert_grep "...and says the rollup does not cover it" \
+    'does not cover them' "$ws/summary.md"
+
+  # It must NOT be silenceable by report_inactivity — that flag is a claim about
+  # the repo's activity, not about whether the run could read it.
+  printf '    report_inactivity: false\n' >> "$ws/.workspace/repos.yml"
+  python3 "$S/run.py" --dry-run >/dev/null 2>&1
+  assert_grep "report_inactivity: false does not hide it" 'phantom' "$ws/summary.md"
+
+  # A QUIET DAY is exactly when it would vanish: the whole body is inherited
+  # from the last real section. The notice must describe THIS run, and must not
+  # stack up across days.
+  python3 "$S/run.py" --dry-run >/dev/null 2>&1
+  assert_eq "the notice is not duplicated on a re-run" "1" \
+    "$(grep -c 'Not read this run' "$ws/summary.md")"
+
+  # And once the checkout exists, the notice goes away by itself.
+  mkdir -p "$ws/phantom" && git -C "$ws/phantom" init -q
+  git -C "$ws/phantom" -c user.email="$TEST_AUTHOR" -c user.name=Dev \
+    commit -q --allow-empty -m "feat(phantom): now readable"
+  python3 "$S/run.py" --dry-run >/dev/null 2>&1
+  assert_no_grep "a readable repo drops out of the notice" \
+    'Not read this run' "$ws/summary.md"
+
 }
 
 test_aggregation() {

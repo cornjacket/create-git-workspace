@@ -1,7 +1,7 @@
 # 16 — an UNAVAILABLE repo vanishes from the rollup
 
-Status: **filed 2026-08-04**, confirmed in production on the first run after
-`create-ai-builder` was registered. Not yet fixed.
+Status: **FIXED 2026-08-06.** 369 assertions; dogfooded into both workspaces.
+See "What shipped" at the bottom.
 
 A repo whose checkout cannot be read in the sandbox is dropped from `summary.md`
 with **no trace in the deliverable** — only a `stderr` warning, which on a
@@ -118,11 +118,36 @@ rollup closely.
 
 ## Acceptance
 
-- A repo that is registered but unreadable appears in `summary.md` by name,
+- ✅ A repo that is registered but unreadable appears in `summary.md` by name,
   with a cause, on every run where that is true.
-- The line is not suppressible by `report_inactivity: false`.
-- A test asserts it: a registered repo with no resolvable checkout produces a
-  rollup containing its name. That test is the actual deliverable — the current
-  code passes every existing test while losing a repo.
-- `DESIGN.md` §5.2 gains this as a worked example, since the principle was
-  already written down and the code still violated it.
+- ✅ The line is not suppressible by `report_inactivity: false`.
+- ✅ A test asserts it — seven of them.
+
+## What shipped
+
+`### Not read this run`, a block alongside `### No updates`, naming each repo
+and pointing at the likely cause (the routine's `sources` pre-clone list), and
+closing with "these repos are tracked but were not summarized, so this rollup
+does not cover them."
+
+Three things the implementation forced that the filing had not anticipated:
+
+1. **The quiet-day path would have swallowed it anyway.** A day with no new
+   commits re-uses the previous section's whole body (task `11`), so a freshly
+   unreadable repo would have vanished exactly on the days it was most likely
+   to go unnoticed. The carried body is now stripped of any stale notice and
+   the current one appended — so it always describes *this* run, and re-running
+   never stacks duplicates. There is a test for each half.
+2. **Order in the dispatch loop is load-bearing.** `UNAVAILABLE` is now checked
+   *above* `INACTIVE_SUPPRESSED`. The two statuses happen to be mutually
+   exclusive today, but relying on that would have left the "not suppressible"
+   guarantee resting on an accident.
+3. **The notice has to clear itself.** A repo that becomes readable drops out
+   with no further action — asserted, because a warning that outlives its cause
+   is how people learn to ignore warnings.
+
+## Still open
+
+`DESIGN.md` §5.2 does not yet carry this as a worked example. The principle was
+already written there and the code violated it for weeks, which is the strongest
+possible argument for the example — deferred to the graduation pass.

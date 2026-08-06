@@ -121,7 +121,7 @@ In order. Acceptance is one line each until these are extracted into files.
 | 03 | create `dev-workspace` locally, push it to a new remote | **done** |
 | 04 | move the first repos in and register them | **roster decided**; 4 of 7 landed, 3 dev repos to migrate |
 | 15 | stand up `personal-workspace` — [`15`](docs/plans/dogfood/15-personal-workspace.md) | **built** — 2 repos in; routine outstanding |
-| 16 | an UNAVAILABLE repo vanishes from the rollup — [`16`](docs/plans/dogfood/16-unavailable-is-a-silent-omission.md) | **filed** — confirmed in production, a real §5.2 violation |
+| 16 | an UNAVAILABLE repo vanishes from the rollup — [`16`](docs/plans/dogfood/16-unavailable-is-a-silent-omission.md) | **done** — 369 assertions; reported, not skipped |
 | 17 | the injected kernel omits the blank line after the commit title | **filed** — all four copies of the schema, see `04` notes |
 | 18 | `daily-plan-summary.md` never says what a repo *is* — [`18`](docs/plans/dogfood/18-newcomer-blurb-in-plan-summary.md) | **filed** — project the `repos.yml` description into the rollup |
 | 19 | confirm the `sources` fix on the 08-05 run — [`19`](docs/plans/dogfood/19-confirm-the-sources-fix.md) | **prediction recorded** — check after 12:43 UTC |

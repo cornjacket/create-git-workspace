@@ -97,6 +97,60 @@ def render_inactives_block(entries):
     return "### No updates\n" + "\n".join(render_inactive_bullet(e) for e in entries)
 
 
+# A repo the run could not READ is a different fact from a repo that did
+# nothing, and the deliverable has to carry both. This heading is matched when
+# carrying a section forward, so keep the two in step.
+UNAVAILABLE_HEADING = "### Not read this run"
+
+
+def render_unavailable_block(entries):
+    """Repos that are tracked but whose git history could not be read.
+
+    THE WHOLE POINT OF THIS BLOCK: without it the run skipped them with a
+    warning on stderr, which on a scheduled remote run goes to a job log nobody
+    opens — so the committed rollup showed no trace and "absent" read as
+    "nothing to report". A repo that is tracked and was not read must say so in
+    the file people actually read.
+
+    It is deliberately NOT suppressible by `report_inactivity: false`. That flag
+    opts a repo out of the quiet-day list, which is a claim about the *repo*;
+    being unreadable is a claim about the *run*. Letting the flag hide it would
+    rebuild the original bug behind a config field.
+    """
+    if not entries:
+        return ""
+    bullets = "\n".join(
+        f"- {e['name']} — no readable checkout "
+        f"(is it in the routine's `sources` pre-clone list?)"
+        for e in entries)
+    return (f"{UNAVAILABLE_HEADING}\n{bullets}\n"
+            "\nThese repos are tracked but were not summarized, so this rollup "
+            "does not cover them.")
+
+
+def strip_unavailable(body):
+    """Remove a previous run's unavailable block from a carried-forward body.
+
+    A quiet day re-uses the last real section (see the `previous` branch in
+    main). Without this, yesterday's notice would ride along and read as
+    current — and re-running would stack duplicates. The notice always
+    describes THIS run.
+    """
+    out, skipping = [], False
+    for line in body.splitlines():
+        if line.startswith(UNAVAILABLE_HEADING):
+            skipping = True
+            continue
+        if skipping:
+            # The block runs until the next heading.
+            if line.startswith("#"):
+                skipping = False
+            else:
+                continue
+        out.append(line)
+    return "\n".join(out).strip()
+
+
 def polish(today, drafts_text, dry_run):
     if dry_run:
         return f"## {today}\n\n{drafts_text}"
@@ -168,13 +222,17 @@ def main():
     today = date.today().isoformat()
     report = gather_report(today=today, since=args.since, authors=authors)
 
-    drafts, inactive_entries, active_count = [], [], 0
+    drafts, inactive_entries, unavailable_entries, active_count = [], [], [], 0
     for e in report:
-        if e["status"] == "INACTIVE_SUPPRESSED":
-            continue
+        # UNAVAILABLE is checked FIRST and reported, never merely skipped. It is
+        # also above INACTIVE_SUPPRESSED on purpose: "could not read this repo"
+        # must not be silenceable by a flag about quiet days.
         if e["status"] == "UNAVAILABLE":
-            print(f"[run] WARNING: {e['name']} has no readable checkout; skipping",
-                  file=sys.stderr)
+            print(f"[run] WARNING: {e['name']} has no readable checkout; "
+                  "reporting it in the rollup", file=sys.stderr)
+            unavailable_entries.append(e)
+            continue
+        if e["status"] == "INACTIVE_SUPPRESSED":
             continue
         if e["status"] == "INACTIVE":
             inactive_entries.append(e)
@@ -186,6 +244,9 @@ def main():
     inactives = render_inactives_block(inactive_entries)
     if inactives:
         drafts.append(inactives)
+    unavailable = render_unavailable_block(unavailable_entries)
+    if unavailable:
+        drafts.append(unavailable)
 
     previous = previous_section()
     if active_count:
@@ -205,6 +266,13 @@ def main():
         activity, body = previous
         header = f"## {today}" if activity == today \
             else f"## {today} — no new work since {activity}"
+        # Carry the work forward, but re-state unreadability from THIS run:
+        # drop any stale notice, then append the current one. A quiet day is
+        # exactly when an unreadable repo would otherwise vanish, since the
+        # whole body is inherited.
+        body = strip_unavailable(body)
+        if unavailable:
+            body = f"{body}\n\n{unavailable}"
         write_summary(f"{header}\n\n{body}")
         print(f"[run] no new commits — re-dated summary.md to {today} "
               f"(work unchanged since {activity})")
