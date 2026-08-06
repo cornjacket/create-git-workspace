@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _repos_edit as R  # noqa: E402
 from _status_lib import (  # noqa: E402
     REPOS_YML, ROUTINE_FLAG, WORKSPACE_DIR, WORKSPACE_ROOT, describe_checkout,
+    routine_configured,
     describe_remote, git, refresh_readme,
 )
 
@@ -214,7 +215,10 @@ def main():
     # repos.yml is what actually remembers this, and `make status` refuses to go
     # green until it is cleared. Suppressed once the flag is set, so a reconcile
     # of a fully-registered repo does not re-raise settled work.
-    if not (prior or {}).get(ROUTINE_FLAG):
+    # Only nudge toward a routine that exists. In a workspace with no
+    # `routine_url` this instructed you to add the repo to a `sources` list
+    # there is none of, and to clear a flag nothing was checking.
+    if not (prior or {}).get(ROUTINE_FLAG) and routine_configured():
         print(f"  * Add '{name}' to the remote routine's `sources` pre-clone list, or the")
         print("    scheduled run cannot read its git log (the sandbox has no checkouts).")
         print(f"    Then record it:  make routine-registered ARGS=\"{name}\"")

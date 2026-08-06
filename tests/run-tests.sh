@@ -1621,6 +1621,11 @@ test_routine_registration() {
     -c user.email="$TEST_AUTHOR" -c user.name=Dev commit -qm "${1:-wip}" >/dev/null 2>&1; }
   rc_of() { "$S/status.py" >/dev/null 2>&1; echo $?; }
 
+  # dogfood 21: the gate reports an outstanding registration only where a
+  # routine EXISTS to be registered in. Everything below this line therefore
+  # needs a routine_url; the no-routine half is asserted at the end.
+  printf 'routine_url: https://claude.ai/code/routines/trig_TEST\n' >> "$ws/.workspace/config.yml"
+
   python3 "$S/add-repo.py" "$bare" --name gamma >/dev/null 2>&1
   assert_grep "a new entry is born OUTSTANDING" '^    routine_registered: false$' "$yml"
   # Land the kernel add-repo deliberately left uncommitted, so registration is
@@ -1713,6 +1718,42 @@ test_routine_registration() {
 
   # repos.yml is CONTENT: the header comments must survive every write above.
   assert_grep "the file's header survives the flag edits" '^# repos.yml' "$yml"
+
+  # -------------------------------------------------------------------------
+  # dogfood 21: a workspace with NO routine has no phase two, so nothing can be
+  # outstanding. Before this, such a workspace was permanently red for a step
+  # its owner had deliberately decided not to take — and the only way to green
+  # it was to record a `true` that was not true.
+  # -------------------------------------------------------------------------
+  python3 "$S/routine-registered.py" --all --unset >/dev/null 2>&1
+  grep -v '^routine_url:' "$ws/.workspace/config.yml" > "$ws/.cfg.tmp"
+  mv "$ws/.cfg.tmp" "$ws/.workspace/config.yml"
+  wcommit "drop the routine"
+
+  out=$("$S/status.py" 2>&1)
+  case "$out" in *"routine not registered"*) bad "no routine means no finding" "$out" ;;
+                 *) ok "no routine means no finding" ;; esac
+  assert_eq "...and the gate exits ZERO on a clean floor" "0" "$(rc_of)"
+
+  # The banner is the other projection of the same fact — it must agree.
+  python3 "$S/aggregate-plans.py" >/dev/null 2>&1
+  assert_no_grep "...and the summary banner is silent too" \
+    'Routine registration incomplete' "$sum"
+
+  # Recording a registration that cannot be true is refused outright.
+  assert_fails "routine-registered refuses with no routine" \
+    python3 "$S/routine-registered.py" gamma
+  assert_grep "...leaving the flag untouched" '^    routine_registered: false$' "$yml"
+  assert_succeeds "--check says there is nothing to register" \
+    python3 "$S/routine-registered.py" --check
+
+  # Nothing is cached: restoring the routine brings the debt straight back.
+  printf 'routine_url: https://claude.ai/code/routines/trig_TEST\n' >> "$ws/.workspace/config.yml"
+  wcommit "restore the routine"
+  out=$("$S/status.py" 2>&1)
+  case "$out" in *gamma*"routine not registered"*) ok "restoring a routine restores the finding" ;;
+                 *) bad "restoring a routine restores the finding" "$out" ;; esac
+  assert_eq "...and the gate is red again" "1" "$(rc_of)"
 }
 
 # ---------------------------------------------------------------------------

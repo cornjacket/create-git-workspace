@@ -175,14 +175,45 @@ def enabled_repos():
 ROUTINE_FLAG = "routine_registered"
 
 
+def routine_configured():
+    """Does this workspace have a scheduled routine at all?
+
+    `routine_url` in config.yml is the record. A workspace deliberately without
+    one is a supported configuration, not an unfinished setup — a personal
+    workspace whose repos should never enter a remote run is the motivating
+    case.
+    """
+    try:
+        return bool((load_config().get("routine_url") or "").strip())
+    except StatusError:
+        return False
+
+
 def routine_pending(repos=None):
     """Enabled repos whose phase-two registration is still outstanding.
+
+    THE SINGLE ANSWER to "is any registration outstanding?" — every reporter
+    routes through here, so the gate and the banner cannot drift apart. They
+    once did: `status.py` read the flag directly while only the banner used this
+    function, which meant a fix applied here silenced one and not the other.
+
+    No routine means NO PHASE TWO, so nothing can be outstanding — for every
+    repo, not some. That is why this is workspace-level rather than a per-repo
+    opt-out field: a per-repo flag would carry the identical value on every row,
+    which is the tell that the fact belongs one level up. It would also store a
+    claim nothing verifies, and this system has already been bitten by a stored
+    `routine_registered: true` sitting beside a `sources` list without the repo.
+
+    Nothing is cached: adding a `routine_url` brings every outstanding repo
+    straight back into view on the next run.
 
     Scoped to *enabled* repos: a repo with `enabled: false` is out of the run
     entirely, so it cannot be silently omitted from a rollup it never joins.
     Re-enabling it brings the flag back into view, because this is recomputed
     rather than stored.
     """
+    if not routine_configured():
+        return []
     repos = enabled_repos() if repos is None else repos
     return [r for r in repos if not r.get(ROUTINE_FLAG)]
 

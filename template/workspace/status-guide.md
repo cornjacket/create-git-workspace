@@ -272,10 +272,24 @@ field keep the debt visible:
   outstanding — that file is what actually gets read each morning.
 
 Both are recomputed on every run, and `routine-registered.py` is the only writer.
-So the flag is never hand-edited, and the two renderings cannot disagree with it.
+So the flag is never hand-edited, and the two renderings cannot disagree with it
+— both ask `_status_lib.routine_pending()`, which is the single answer to "is
+anything outstanding?"
+
+**A workspace with no routine at all reports nothing here.** If `routine_url` is
+unset in `config.yml`, there is no phase two to complete, so no repo is
+outstanding and `make status` stays green. That is a supported configuration —
+a personal workspace whose repos should never enter a remote run is the obvious
+case — not an unfinished setup. Add a `routine_url` later and every repo's
+registration reappears immediately, because nothing is stored.
+
+For the same reason `make routine-registered` **refuses** to set the flag in a
+workspace with no routine: `true` would assert membership of a `sources` list
+that does not exist. `--unset` is still allowed, since clearing a flag claims
+nothing.
 
 Skip this step only if you run the pipeline locally (`make run`) and never
-remotely — in which case `--all` once tells the workspace so.
+remotely.
 
 ### 5.3 Optional: the `@claude` workflow secret
 

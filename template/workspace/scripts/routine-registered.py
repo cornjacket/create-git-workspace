@@ -30,7 +30,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import _repos_edit as R  # noqa: E402
 from _status_lib import (  # noqa: E402
-    REPOS_YML, ROUTINE_FLAG, load_repos, routine_hint, routine_pending,
+    REPOS_YML, ROUTINE_FLAG, load_repos, routine_configured, routine_hint,
+    routine_pending,
 )
 
 
@@ -52,6 +53,10 @@ def main():
     known = R.names(text)
 
     if args.check:
+        if not routine_configured():
+            print("[routine-registered] this workspace has no routine — "
+                  "nothing to register")
+            return 0
         pending = routine_pending()
         if not pending:
             print("[routine-registered] every enabled repo is in the routine's `sources`")
@@ -77,6 +82,20 @@ def main():
     if not names:
         print("[routine-registered] no repos are registered — nothing to mark")
         return 0
+
+    # REFUSE TO RECORD SOMETHING THAT CANNOT BE TRUE. `true` here asserts "this
+    # repo is in the routine's `sources`"; with no routine there is no `sources`
+    # to be in, so writing it would put a falsehood in the lockfile — and that
+    # was the only way to silence the status gate before it learned about
+    # unconfigured workspaces. Unsetting stays allowed: clearing a flag never
+    # claims anything.
+    if not args.unset and not routine_configured():
+        sys.exit("routine-registered: this workspace has no routine "
+                 "(`routine_url` is unset in .workspace/config.yml), so there is\n"
+                 "no `sources` list for a repo to be in — refusing to record one.\n"
+                 "  * If you meant to set one up: .workspace/status-guide.md §5.\n"
+                 "  * If this workspace is deliberately routine-free, nothing is\n"
+                 "    outstanding and `make status` already treats it that way.")
 
     value = "false" if args.unset else "true"
     before = {r["name"]: r[ROUTINE_FLAG] for r in load_repos()}

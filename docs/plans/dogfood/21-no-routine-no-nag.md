@@ -80,11 +80,50 @@ declare-don't-verify pattern `20` is trying to remove.
 
 ## Acceptance
 
-- A workspace with no `routine_url` reports no routine findings and `make
+- ✅ A workspace with no `routine_url` reports no routine findings and `make
   status` exits zero on an otherwise clean floor.
-- Adding a `routine_url` brings every outstanding repo straight back into view,
-  because nothing is stored — same recompute property as `10`.
-- `routine-registered` will not write `true` in a workspace with no routine.
-- `personal-workspace` goes green without faking a flag.
-- A test covers the no-routine workspace; today's suite passes while `status` is
-  permanently red in one, which is why this was not caught.
+- ✅ Adding a `routine_url` brings every outstanding repo straight back into
+  view, because nothing is stored — same recompute property as `10`.
+- ✅ `routine-registered` will not write `true` in a workspace with no routine.
+- ✅ `personal-workspace` goes green without faking a flag.
+- ✅ A test covers the no-routine workspace.
+
+## What shipped — and the correction that changed the fix
+
+**The estimate above said "one function". It was wrong, and the reason is the
+interesting part.**
+
+`10` describes the gate and the banner as "two projections of one field". In
+code they were **two independent reads**: `aggregate-plans.py` asked
+`routine_pending()`, while `status.py` re-derived the condition inline
+(`repo["enabled"] and not repo["routine_registered"]`). Gating only
+`routine_pending()` would have silenced the banner and left `make status` red —
+the exact symptom being fixed. Two readers of one fact is how they drift, and
+they had already drifted without anyone noticing, because until now the two
+always agreed.
+
+So the fix makes the chokepoint real before using it:
+
+1. **`routine_configured()`** in `_status_lib` — reads `routine_url` from
+   `config.yml`.
+2. **`routine_pending()` returns `[]` when unconfigured.** No routine, no phase
+   two, nothing outstanding — for every repo, which is what makes this
+   workspace-level rather than a per-repo opt-out.
+3. **`status.py` now routes through `routine_pending()`** instead of its own
+   inline condition. One answer, asked once.
+4. **`routine-registered` refuses** to write `true` with no routine, since that
+   asserts membership of a `sources` list that does not exist. `--unset` is
+   still allowed: clearing a flag claims nothing. This closes the only route to
+   a green gate by falsehood.
+5. **`add-repo` stops nudging** toward a routine that is not there.
+
+**Deliberately not cached.** Restoring `routine_url` brings every outstanding
+registration straight back, and there is a test for exactly that — the same
+recompute property `10` chose, now load-bearing in a second place.
+
+## Still open, deliberately
+
+The **per-repo** exclusion — a routine exists, but one repo should stay out of
+the remote run — is untouched. It is still waiting on `20`, after which the
+question becomes checkable against live `sources` rather than declared in a
+lockfile. Nothing in this change makes that harder.

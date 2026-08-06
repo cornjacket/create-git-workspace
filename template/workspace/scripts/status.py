@@ -39,6 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _status_lib import (  # noqa: E402
     LOCAL_ONLY, WORKSPACE_ROOT, load_repos, pending_findings, routine_hint,
+    routine_pending,
 )
 
 # Reported alongside the git findings, but produced here rather than by
@@ -97,13 +98,19 @@ def rows(include_all):
             pending_findings(WORKSPACE_ROOT))]
 
     registered_paths = set()
+    # ONE ANSWER, ASKED ONCE. This used to re-derive the condition inline
+    # (`repo["enabled"] and not repo["routine_registered"]`) while the
+    # daily-plan-summary banner asked `routine_pending()`. Two readers of one
+    # fact drift: a workspace with no routine at all was silenced in the banner
+    # and still red here. The enabled/flag scoping and the "no routine means no
+    # phase two" rule both live in that function now.
+    pending_names = {r["name"] for r in routine_pending()}
+
     for repo in load_repos():
         d = WORKSPACE_ROOT / repo["path"]
         registered_paths.add(repo["path"].strip("/"))
         findings = pending_findings(d) if is_checkout(d) else None
-        # A repo switched off with `enabled: false` is out of the run entirely,
-        # so it cannot be silently omitted from a rollup — no debt to report.
-        if findings is not None and repo["enabled"] and not repo["routine_registered"]:
+        if findings is not None and repo["name"] in pending_names:
             findings = findings + [(ROUTINE, f"routine not registered — "
                                              f"{routine_hint(repo['name'])}")]
         out.append((repo["name"], repo["type"], current_branch(d) if is_checkout(d) else "-",
