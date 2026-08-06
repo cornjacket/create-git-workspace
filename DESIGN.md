@@ -287,7 +287,7 @@ command surface.
   │   ├── prompts/             machinery: the claude -p prompts
   │   ├── templates/           machinery: the child commit kernel
   │   ├── plans/               content: <repo>/ · _workspace/
-  │   └── state/               runtime: state.json · archive/
+  │   └── state/               runtime: state.json
   └── <child repos>/         ignored by the allowlist
 ```
 
@@ -516,7 +516,9 @@ which is why §8.5's `sources` list is load-bearing rather than a convenience.
 - `.workspace/daily-plans/_workspace/daily-plan.md` — the **workspace's own** plan:
   inter-repo work belonging to no single repo. Aggregated **first**, and
   **forward-looking only** — the workspace's own commits are meta-noise.
-- `.workspace/state/state.json` + `archive/YYYY-MM-DD.md`.
+- `.workspace/state/state.json` — the commit window. Nothing else: both
+  deliverables are rewritten in place, and `git log -p` on each is their
+  history. A dated on-disk archive was a second copy that grew without bound.
 
 Deliverables sit at the **top level** (the daily dashboard); plans, prompts, and
 state stay under `.workspace/`.

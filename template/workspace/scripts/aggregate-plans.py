@@ -20,8 +20,9 @@ Each plan declares its date on the first line:
     # Daily plan — YYYY-MM-DD
 
 Freshness is weekend-tolerant: a plan is fresh iff its date is on or after the
-most recent weekday. Output overwrites daily-plan-summary.md and snapshots it
-into .workspace/state/archive/<date>.md.
+most recent weekday. Output overwrites daily-plan-summary.md — and only that.
+The day-by-day history is `git log -p daily-plan-summary.md`, which every run
+already writes; a second dated copy on disk was a duplicate that grew forever.
 
 The output opens with a banner when any repo's routine registration is still
 outstanding (see `_status_lib.routine_pending`) — those repos are silently
@@ -31,12 +32,11 @@ import os
 import re
 import sys
 from datetime import date, timedelta
-from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from _status_lib import (  # noqa: E402
-    ARCHIVE_DIR, DAILY_PLAN_SUMMARY_MD, DAILY_PLANS_DIR, WORKSPACE_PLAN_KEY,
+    DAILY_PLAN_SUMMARY_MD, DAILY_PLANS_DIR, WORKSPACE_PLAN_KEY,
     StatusError, enabled_repos, git, repo_dir, routine_pending, workspace_name,
 )
 
@@ -293,25 +293,17 @@ def build_summary(today=None, repos=None):
     )
 
 
-def archive_summary(today, summary):
-    """Snapshot into .workspace/state/archive/<date>.md.
-
-    Keyed by the summary's own date, so re-running on the same day overwrites
-    that snapshot instead of accumulating duplicates.
-    """
-    ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
-    dest = ARCHIVE_DIR / f"{today.isoformat()}.md"
-    dest.write_text(summary)
-    return dest
-
-
 def main():
+    # ONE FILE, REWRITTEN. There is deliberately no dated snapshot alongside it:
+    # every run commits daily-plan-summary.md, so `git log -p` on it already IS
+    # the day-by-day history — versioned, diffable, and free. A parallel
+    # archive/ directory was a second copy of that same history which grew
+    # without bound, and which nothing ever read. Same argument that made
+    # summary.md a dashboard rather than a journal.
     today = date.today()
     summary = build_summary(today=today)
     DAILY_PLAN_SUMMARY_MD.write_text(summary)
     print(f"[aggregate-plans] wrote {DAILY_PLAN_SUMMARY_MD.name}", file=sys.stderr)
-    dest = archive_summary(today, summary)
-    print(f"[aggregate-plans] archived {Path(dest).name}", file=sys.stderr)
     return 0
 
 

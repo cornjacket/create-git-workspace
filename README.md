@@ -50,7 +50,7 @@ repo is ignored, so the wrapper can never swallow one.
 │   ├── daily-plans/<repo>/…  this developer's daily plans (per-dev, private)
 │   ├── prompts/…             the summariser prompts fed to `claude -p`
 │   ├── templates/…           the commit kernel injected into child repos
-│   ├── state/…               state.json + dated plan archive (runtime)
+│   ├── state/…               state.json — the commit window (runtime)
 │   └── scripts/…             the workspace verbs
 └── <child repos>/            managed checkouts — git-ignored
 ```

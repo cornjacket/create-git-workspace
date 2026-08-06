@@ -46,7 +46,7 @@ child, so the wrapper can never accidentally swallow one.
 │   ├── prompts/           the summariser prompts the run feeds to `claude -p`
 │   ├── scripts/           every verb (§2)
 │   ├── templates/         the commit kernel injected into child repos (§7)
-│   └── state/             runtime: state.json + dated archive/
+│   └── state/             runtime: state.json (the commit window)
 └── <child repos>/         managed checkouts — ignored by git
 ```
 
@@ -335,9 +335,14 @@ Two different artifacts, easy to confuse:
 
 `daily-plan-summary.md` is the forward-looking twin of `summary.md`: every
 `.workspace/daily-plans/*/daily-plan.md` aggregated behind an "At a glance" table, with
-the `_workspace` plan first and stale plans flagged. Dated snapshots of **that
-one** land in `.workspace/state/archive/`; `summary.md` is not archived, because
-its history is already in the commit that wrote it.
+the `_workspace` plan first and stale plans flagged.
+
+**Neither deliverable is archived.** Both are rewritten in place, and the
+day-by-day history of each is `git log -p <file>` — every run commits them, so
+that history is written for free, diffable, and impossible to get out of sync.
+There used to be a dated snapshot of `daily-plan-summary.md` under
+`.workspace/state/archive/`; it was removed, because it was a second copy of a
+history git already had, it grew without bound, and nothing read it.
 
 ## 7. The child commit kernel
 

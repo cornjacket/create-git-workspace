@@ -28,7 +28,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _status_lib import (  # noqa: E402
-    ARCHIVE_DIR, CONFIG_YML, WORKSPACE_ROOT, load_config, load_repos, workspace_name,
+    CONFIG_YML, WORKSPACE_ROOT, load_config, load_repos, workspace_name,
 )
 
 README = WORKSPACE_ROOT / "README.md"
@@ -111,11 +111,10 @@ def render_block():
                "activity, scoped to your own commits.")
     out.append("- **[daily-plan-summary.md](daily-plan-summary.md)** — every "
                "plan in one place, workspace plan first.")
-    out.append(f"- [`{_rel(ARCHIVE_DIR)}/`]({_rel(ARCHIVE_DIR)}/) — dated "
-               "snapshots of each day's aggregate.")
     out.append("")
     out.append("Both are written by the daily status run and appear after its "
-               "first run; do not hand-write them.")
+               "first run; do not hand-write them. Each is rewritten in place — "
+               "for the day-by-day history, read `git log -p <file>`.")
     out.append("")
 
     out.append("## The scheduled routine")

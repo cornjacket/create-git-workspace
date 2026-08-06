@@ -32,7 +32,9 @@ REPOS_YML = WORKSPACE_DIR / "repos.yml"
 CONFIG_YML = WORKSPACE_DIR / "config.yml"
 STATE_DIR = WORKSPACE_DIR / "state"
 STATE_JSON = STATE_DIR / "state.json"
-ARCHIVE_DIR = STATE_DIR / "archive"
+# NOTE: there is deliberately no ARCHIVE_DIR. `daily-plan-summary.md` is
+# rewritten each run and its history is `git log -p` on that file; a dated copy
+# under state/ duplicated that history on disk and grew without bound.
 DAILY_PLANS_DIR = WORKSPACE_DIR / "daily-plans"
 PROMPTS_DIR = WORKSPACE_DIR / "prompts"
 

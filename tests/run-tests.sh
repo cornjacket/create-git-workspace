@@ -605,8 +605,9 @@ test_status_subsystem() {
   assert_file "run --dry-run writes daily-plan-summary.md" "$ws/daily-plan-summary.md"
   assert_file "state.json is advanced"                     "$ws/.workspace/state/state.json"
   assert_grep "summary.md carries today's section"  '^## [0-9]{4}-[0-9]{2}-[0-9]{2}$' "$ws/summary.md"
-  assert_grep "the archive snapshot is written" 'Daily plan summary' \
-    "$(ls "$ws/.workspace/state/archive/"*.md | head -1)"
+  # No dated snapshot alongside it: the history is `git log -p` on the file
+  # itself, which every run commits. A second on-disk copy grew without bound.
+  assert_no_file "no dated archive is written" "$ws/.workspace/state/archive"
 
   # The window advanced, so a re-run finds nothing of yours...
   out=$(python3 "$S/new-work.py" 2>&1)
@@ -826,7 +827,7 @@ YML
   # auto-merge workflow (--ff-only) would fail.
   local committed; committed=$(git -C "$ws" show --pretty=format: --name-only HEAD | grep -v '^$' | sort | tr '\n' ' ')
   assert_eq "it commits exactly the routine-owned files" \
-    ".workspace/state/archive/$(date +%Y-%m-%d).md .workspace/state/state.json daily-plan-summary.md summary.md " \
+    ".workspace/state/state.json daily-plan-summary.md summary.md " \
     "$committed"
   assert_grep "the developer's plan edit is still uncommitted" \
     '# my in-progress plan edit' "$ws/.workspace/daily-plans/_workspace/daily-plan.md"
@@ -1730,7 +1731,8 @@ test_living_readme() {
   assert_grep "the roster block is emitted"    'git-workspace-roster:begin' "$rm"
   assert_grep "an empty workspace says so"     'No repos tracked yet'       "$rm"
   assert_grep "the deliverables are linked"    '\(daily-plan-summary\.md\)' "$rm"
-  assert_grep "the archive is linked"          'state/archive/'             "$rm"
+  assert_no_grep "no archive is linked"        'state/archive/'             "$rm"
+  assert_grep "...and git log is named as the history" 'git log -p'            "$rm"
   assert_grep "an unset routine is called out" 'Not set up yet'             "$rm"
   assert_no_grep "the seed placeholder is replaced" 'renders here on the first' "$rm"
 
