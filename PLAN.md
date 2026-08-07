@@ -107,11 +107,12 @@ In order. Acceptance is one line each until these are extracted into files.
 | 15 | stand up `personal-workspace` — [`15`](docs/plans/dogfood/15-personal-workspace.md) | **built** — 2 repos in; routine outstanding |
 | 16 | an UNAVAILABLE repo vanishes from the rollup — [`16`](docs/plans/dogfood/16-unavailable-is-a-silent-omission.md) | **done** — 369 assertions; reported, not skipped |
 | 17 | the injected kernel omits the blank line after the commit title | **filed** — all four copies of the schema, see `04` notes |
-| 18 | `daily-plan-summary.md` never says what a repo *is* — [`18`](docs/plans/dogfood/18-newcomer-blurb-in-plan-summary.md) | **filed** — project the `repos.yml` description into the rollup |
+| 18 | `daily-plan-summary.md` never says what a repo *is* — [`18`](docs/plans/dogfood/18-newcomer-blurb-in-plan-summary.md) | **filed** — project the `repos.yml` description into the rollup; land it *inside* `23`'s restructure, not before |
 | 19 | confirm the `sources` fix on the 08-05 run — [`19`](docs/plans/dogfood/19-confirm-the-sources-fix.md) | **done** — 08-05 and 08-06 runs both carry all three repos; `state.json` has a key for each |
 | 20 | `sources` should be a verb, not a manual seam — [`20`](docs/plans/dogfood/20-sources-should-be-a-verb.md) | **next** — its four steps run by hand 08-07 against the live routine; premise confirmed, not just argued |
 | 21 | a workspace with no routine should not nag — [`21`](docs/plans/dogfood/21-no-routine-no-nag.md) | **done** — 362 assertions; `personal-workspace` green |
 | 22 | `replan` crashes and truncates the roster — [`22`](docs/plans/dogfood/22-replan-crashes-and-truncates.md) | **done** — 353 assertions, dogfooded into both workspaces |
+| 23 | the rollups are a wall of prose, and nothing measures them — [`23`](docs/plans/dogfood/23-rollups-are-unreadable-and-unmeasured.md) | **filed 08-07** — build the judge before editing the prompt; sequences ahead of `18` |
 | 10 | track incomplete routine registration; make `add-repo` idempotent | **done**, dogfooded into `dev-workspace` |
 | 05 | create the `/schedule` routine, add every repo to `sources` | **done** for the current roster |
 | 06 | run a full day: routine writes, `make pull` lands it | **done** — passed first try |
