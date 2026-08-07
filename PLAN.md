@@ -53,9 +53,11 @@ effort.
   annoys, but a status gate you learn to ignore is worth more than it costs.
 - **files mid-edit** — none.
 - **uncommitted / unpushed** — none. A full-floor sweep
-  (`check-pending.py --all`) is clean except two non-issues: `create-repo-mail`
-  is an **empty** repo (no commits at all) and `tasks-test-wt` is a local-only
-  test fixture with no remote. Neither migrates.
+  (`check-pending.py --all`) is clean except one non-issue: `tasks-test-wt` is a
+  local-only test fixture with no remote, and does not migrate.
+  `create-repo-mail` no longer appears — it has no checkout on any floor, and
+  the idea it held moved into this repo as `docs/plans/mail/PLAN.md` (see the
+  roster entry below).
 - **open questions** — per-repo replan couples to child task-system internals —
   it worked against `captains-log`, so the scrape matches today;
   `.project-status-ignore` → task `09`; membership beyond `captains-log` TBD.
@@ -242,6 +244,17 @@ kernel inside the child → add to the routine's `sources` → `routine-register
   **Out, nothing to track:** `create-repo-mail` has **zero commits**. Not a
   judgement about the repo; there is literally no history for a rollup to read.
   Revisit when it has one.
+
+  **Resolved 2026-08-06 — it never will.** The revisit trigger cannot fire: the
+  repo was to be a generator installing an inter-repo mailbox, and that job is
+  now a **workspace feature**, planned here as
+  [`docs/plans/mail/PLAN.md`](docs/plans/mail/PLAN.md) — addressing, delivery
+  and notification are all workspace-scoped because only the workspace holds the
+  roster, so there is nothing left for a separate generator to install. It has
+  no checkout on any floor. What survives is an empty public GitHub repo,
+  `cornjacket/create-repo-mail`, which wants archiving or deleting; that is a
+  remote-side chore for whoever does the next roster pass, not a membership
+  question.
 
   What unlocked it: `DESIGN.md` §8.9's `second-brain` exemption is about the
   **vault**, not `second-brain-devkit`. The vault is a singleton *product* and
@@ -538,7 +551,11 @@ unpushed work is sitting in one of those clones first — which is exactly what
 - §8.9's `second-brain` exemption is the **vault**, not the devkit. The product
   is not a repo on any floor; the generator is (`04`, DESIGN §8.9).
 - A repo with **zero commits** is not a membership question — there is no
-  history to roll up. `create-repo-mail` waits for a first commit (`04`).
+  history to roll up. Deferring to a first commit is the right answer, but it is
+  a *bet* the repo happens: `create-repo-mail` never got one, because the idea
+  was absorbed into the workspace as `docs/plans/mail/PLAN.md` and the empty
+  remote outlived it. An empty repo is a placeholder for an idea, and ideas move
+  — so the deferral needs an owner who notices, not just a trigger (`04`).
 - The **second workspace happens now**: three personal repos is the trigger §10
   named, so `personal-workspace` is built rather than deferred (`15`).
 
