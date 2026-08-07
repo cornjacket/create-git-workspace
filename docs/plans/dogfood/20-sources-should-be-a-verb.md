@@ -1,6 +1,61 @@
 # 20 — `sources` should be a verb, not a manual seam
 
-Status: **next, 2026-08-07.** Filed 2026-08-04. Supersedes half of `10` if built.
+Status: **reader half DONE 2026-08-07**; writer half still open. Filed
+2026-08-04. Supersedes half of `10`.
+
+## What landed (2026-08-07)
+
+`.workspace/scripts/routine-sync.py --check` — the gate now asks the routine
+instead of believing a flag. 394 assertions green; dogfooded into
+`dev-workspace` via `update.sh` and run against the live routine.
+
+- **Transport is `claude -p`,** which reaches `RemoteTrigger` exactly as `run.py`
+  already shells out for summaries. Two alternatives were rejected: `curl` with a
+  token scraped from the macOS keychain (macOS-only, while the sandbox is Linux,
+  and it breaks on rotation — the tool's contract says use it *instead of* curl),
+  and letting the model perform the diff (a reconcile a model does is a reconcile
+  nobody can test). The model is a dumb pipe; every comparison is Python.
+- **Three exit codes, and the third is the point.** `0` verified-clean, `1`
+  verified-drifted, `2` could-not-verify. A missing `sources` key raises rather
+  than reading as an empty list, and an unrecognized payload refuses rather than
+  reporting all repos drifted.
+- **The verdict outranks the flag in both directions,** via `routine_pending()`
+  so the gate and the banner cannot disagree. Proven in production the same day:
+  `create-context-hygiene` had been reading `routine not registered` from a stale
+  flag, and the verified check cleared it.
+- **Cached with a 12h TTL** in `.workspace/state/routine-check.json`, always
+  re-taken on `--all`. Gitignored — writing it into the tracked tree made `make
+  status` report the workspace dirty for having been run, found by the suite.
+- **`make routine-check` now verifies**; the old flag reporter moved to `make
+  routine-flags`.
+- **`normalize_remote` moved into `_status_lib`.** `repos.yml` mixes `git@…` with
+  `https://….git` while the routine stores bare https, so an un-normalized
+  comparison reports every repo as drifted. Two copies of "are these the same
+  repo?" is the drift this check exists to catch.
+- **`DESIGN.md` §8.5 carries the correction** — the `CronList`-vs-`RemoteTrigger`
+  false premise, and the flag's demotion to offline fallback.
+
+Two things the suite caught that review would not have:
+
+- Three assertions passed against a fixture whose repos had **no checkouts**, so
+  the routine column could not render at all and the phrase they searched for
+  could never appear —
+  [[tests-that-cannot-fail]]'s "observer goes blind", written first-hand.
+- A fixture repo named `off` parsed as boolean `False` in YAML.
+
+## Still open — the writer
+
+Resending a reconciled config. This is the dangerous half and is deliberately
+not built: `RemoteTrigger update` is a **partial** update, so every field left
+out is dropped, and the job config carries the run prompt, the model, and the
+allowed-tools list. Land it behind a **round-trip verification** — send, re-`get`,
+assert the returned config matches what was intended, fail loudly otherwise —
+which converts a silent field-drop into an error. Until then `sources` is still
+edited by hand; the difference is that drifting from `repos.yml` is now caught
+within 12 hours instead of never.
+
+---
+
 
 **The four steps below were run by hand on 2026-08-07** to register
 `create-context-hygiene`, against the live routine

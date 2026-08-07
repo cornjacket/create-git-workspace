@@ -32,14 +32,17 @@ are the easiest of all to forget, and the routine's fast-forward depends on you
 having pushed them.
 """
 import argparse
+import os
+import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _status_lib import (  # noqa: E402
-    LOCAL_ONLY, WORKSPACE_ROOT, load_repos, pending_findings, routine_hint,
-    routine_pending,
+    LOCAL_ONLY, ROUTINE_CHECK_TTL_H, WORKSPACE_ROOT, load_repos,
+    pending_findings, routine_basis, routine_check_age_hours,
+    routine_check_fresh, routine_configured, routine_hint, routine_pending,
 )
 
 # Reported alongside the git findings, but produced here rather than by
@@ -48,6 +51,58 @@ from _status_lib import (  # noqa: E402
 ROUTINE = "routine"
 
 WORKSPACE_LABEL = "(this workspace)"
+
+
+def refresh_routine_check(force=False, quiet=False):
+    """Re-verify the routine's real `sources` if the cached verdict has aged out.
+
+    THE ONE NETWORK CALL IN AN OTHERWISE LOCAL COMMAND, and it is rationed. The
+    honest gate is the one that asks the routine, but asking costs a `claude -p`
+    round-trip and this command is meant to be instant, so the verdict is cached
+    for `ROUTINE_CHECK_TTL_H` hours and only re-taken when it expires (or on
+    `--all`, the deliberate deep sweep).
+
+    A FAILED REFRESH IS REPORTED, NEVER SWALLOWED. Offline, no `claude` on PATH,
+    a changed API shape — each leaves the gate standing on the old
+    `routine_registered` flag, which is a weaker fact than it looks. Saying so
+    is the §5.2 rule the rollup already follows for an unreadable repo: a thing
+    you could not check is not a thing that passed.
+    """
+    if not routine_configured():
+        return None
+    # Two places must never make this call: CI and the remote sandbox. Neither
+    # has an interactive Claude session to borrow a token from, so the attempt
+    # can only ever time out slowly and then fall back. CLAUDE_CODE_REMOTE is
+    # already the sandbox's tell (see sync.py); WORKSPACE_NO_VERIFY is the
+    # explicit off switch the acceptance suite sets.
+    if os.environ.get("WORKSPACE_NO_VERIFY") or os.environ.get("CLAUDE_CODE_REMOTE"):
+        return None
+    if not force and routine_check_fresh():
+        return None
+
+    script = Path(__file__).resolve().parent / "routine-sync.py"
+    try:
+        r = subprocess.run([sys.executable, str(script), "--check", "--json"],
+                           capture_output=True, text=True, timeout=200)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        r = None
+        err = str(e)
+    else:
+        err = (r.stderr or "").strip()
+
+    # 0 = verified in sync, 1 = verified and drifted. Both wrote a fresh verdict,
+    # so both are a successful refresh. Only 2 (could not verify) is a failure.
+    if r is not None and r.returncode in (0, 1):
+        return True
+    if not quiet:
+        age = routine_check_age_hours()
+        stale = f"last verified {age:.0f}h ago" if age is not None else "never verified"
+        print(f"[status] could not verify the routine's `sources` ({stale}); "
+              f"falling back to the recorded flag.", file=sys.stderr)
+        for line in (err or "no detail").splitlines()[:4]:
+            print(f"         {line}", file=sys.stderr)
+        print("", file=sys.stderr)
+    return False
 
 
 def colours(stream):
@@ -134,7 +189,15 @@ def main():
                     help="also report git checkouts that are not in repos.yml")
     ap.add_argument("-v", "--verbose", action="store_true",
                     help="list every pending finding, not just the counts")
+    ap.add_argument("--no-verify", action="store_true",
+                    help="never call the routine; answer from the cached verdict "
+                         "or the recorded flag (keeps this command fully offline)")
     args = ap.parse_args()
+
+    if not args.no_verify:
+        # --all is the deliberate deep sweep, so it always re-verifies; a plain
+        # run only does when the cached verdict has aged out.
+        refresh_routine_check(force=args.all)
 
     c = colours(sys.stdout)
     table = rows(args.all)
@@ -155,6 +218,21 @@ def main():
         if args.verbose:
             for _k, message in findings:
                 print(f"{'':<{width}} {c['D']}· {message}{c['X']}")
+
+    # SAY WHICH FACT THE ROUTINE COLUMN IS STANDING ON. "registered" derived from
+    # a checked `sources` list and "registered" derived from a flag somebody set
+    # by hand look identical in the table, and they are not the same claim.
+    basis = routine_basis()
+    if basis == "verified":
+        age = routine_check_age_hours()
+        when = "just now" if age is not None and age < 0.05 else f"{age:.0f}h ago"
+        print(f"\n{c['D']}Routine `sources` verified {when} "
+              f"(re-checked every {ROUTINE_CHECK_TTL_H}h; `make routine-check` "
+              f"forces it).{c['X']}")
+    elif basis == "flag":
+        print(f"\n{c['Y']}Routine `sources` NOT verified{c['X']}{c['D']} — the column above "
+              f"is the recorded flag, which asserts the edit was made rather than "
+              f"checking it. Run `make routine-check`.{c['X']}")
 
     if rc and not args.verbose:
         print(f"\n{c['D']}Pending work above. Re-run with -v for the detail.{c['X']}")

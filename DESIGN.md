@@ -648,6 +648,46 @@ another machine. So the state is a field in the lockfile:
 row and the banner are projections recomputed on every run. Same rule as
 `replan`: derived output is rewritten, never hand-maintained.
 
+#### Correction (2026-08-07): seam 2 is not manual, and the flag is not authoritative
+
+**The premise above was false for two weeks.** "Editing the routine is a step
+only a human can take in the Claude app" came from checking `CronList`, which
+lists only crons created in the *current session* and therefore cannot see a
+cloud routine. One tool answered "no" to a different question and the answer was
+generalized into an architectural constraint. The `RemoteTrigger` tool reads and
+writes routine config perfectly well, and `routine-sync.py --check` now does.
+
+What this changes, and what it does not:
+
+- **The flag is a fallback, not the truth.** A fresh verdict from
+  `routine-sync.py --check` is the routine's actual `sources`, and it decides in
+  both directions — clearing a repo whose flag was never set, and flagging one
+  whose flag says `true` while `sources` disagrees. `routine_pending()` prefers
+  the verdict and falls back to the flag; `routine_basis()` reports which.
+- **The flag survives on merit, not inertia.** `make status` must work offline
+  and inside the remote sandbox, where there is no session to borrow a token
+  from. In those places the flag is the only fact available, so it stays — as
+  the weaker answer, announced as weaker.
+- **The verdict is cached, and that is not the mistake the flag was.** A cache
+  with a timestamp and a real source expires and re-derives; the flag recorded
+  that a human *said* they had done something and nothing ever asked again. The
+  cache is machine-local and gitignored: a verdict is evidence only where it was
+  taken, and `make status` writes it, so tracking it would dirty the workspace
+  on every run.
+- **Why it is rationed.** Verification costs a `claude -p` round-trip because
+  the API's OAuth token is deliberately not exposed to the environment. So it is
+  taken at most every `ROUTINE_CHECK_TTL_H` hours, always on `--all`, and never
+  when `WORKSPACE_NO_VERIFY` or `CLAUDE_CODE_REMOTE` is set.
+- **A failed check is never a pass.** Exit `0` is verified-clean, `1` is
+  verified-drifted, `2` is could-not-verify — three states, because collapsing
+  the third into either of the others turns an outage into a false all-clear.
+
+Seam 1 (creating the routine) is still genuinely interactive. Seam 2's *writer*
+— resending a reconciled config — is not built yet: `RemoteTrigger update` is a
+partial update, so it silently drops whatever it omits, and the job config
+carries the run prompt, the model, and the allowed-tools list. It lands behind a
+round-trip verification or not at all.
+
 **Deliberately not a task.** An earlier design had `add-repo` file a task in the
 workspace's task-system. Dropped: that is a third copy of one fact, hand-closable
 and therefore driftable. The task-system is for work you *chose*; this is a debt

@@ -20,6 +20,7 @@ import os
 import subprocess
 import sys
 from datetime import date as _date
+from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
@@ -32,6 +33,12 @@ REPOS_YML = WORKSPACE_DIR / "repos.yml"
 CONFIG_YML = WORKSPACE_DIR / "config.yml"
 STATE_DIR = WORKSPACE_DIR / "state"
 STATE_JSON = STATE_DIR / "state.json"
+# The last verified answer to "does the routine pre-clone every enabled repo?",
+# written by routine-sync.py. Cached because the check is a network round-trip
+# and `make status` is meant to be instant; safe to cache because it carries a
+# timestamp and re-derives, which is precisely what the hand-set flag it
+# supersedes could not do.
+ROUTINE_CHECK_JSON = STATE_DIR / "routine-check.json"
 # NOTE: there is deliberately no ARCHIVE_DIR. `daily-plan-summary.md` is
 # rewritten each run and its history is `git log -p` on that file; a dated copy
 # under state/ duplicated that history on disk and grew without bound.
@@ -189,6 +196,60 @@ def routine_configured():
         return False
 
 
+# How long a verified verdict is trusted before the gate wants a fresh one. A
+# day's worth of drift is one missed rollup, so half a day is the useful
+# resolution; anything shorter just spends network on a fact that changes when a
+# human runs `add-repo`.
+ROUTINE_CHECK_TTL_H = 12
+
+
+def load_routine_check():
+    """The last verdict written by `routine-sync.py --check`, or None.
+
+    Returns None for absent, unreadable, or corrupt — never a partial dict. A
+    caller that got half a verdict would compute a wrong answer confidently,
+    which is the failure this whole seam exists to stop.
+    """
+    if not ROUTINE_CHECK_JSON.exists():
+        return None
+    try:
+        with open(ROUTINE_CHECK_JSON) as f:
+            v = json.load(f)
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+        return None
+    return v if isinstance(v, dict) and "in_sync" in v and "checked_at" in v else None
+
+
+def routine_check_age_hours(v=None):
+    """Hours since the verdict was taken, or None if there isn't a usable one."""
+    v = load_routine_check() if v is None else v
+    if not v:
+        return None
+    try:
+        t = datetime.fromisoformat(v["checked_at"])
+    except (ValueError, TypeError, KeyError):
+        return None
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - t).total_seconds() / 3600.0
+
+
+def routine_check_fresh(ttl_hours=ROUTINE_CHECK_TTL_H, v=None):
+    age = routine_check_age_hours(v)
+    return age is not None and 0 <= age < ttl_hours
+
+
+def routine_basis():
+    """What the pending answer below is standing on: verified | flag | none.
+
+    Reporters print this. A gate that cannot say whether it *checked* or merely
+    *believed* is how the stale flag survived three days of wrong rollups.
+    """
+    if not routine_configured():
+        return "none"
+    return "verified" if routine_check_fresh() else "flag"
+
+
 def routine_pending(repos=None):
     """Enabled repos whose phase-two registration is still outstanding.
 
@@ -200,21 +261,36 @@ def routine_pending(repos=None):
     No routine means NO PHASE TWO, so nothing can be outstanding — for every
     repo, not some. That is why this is workspace-level rather than a per-repo
     opt-out field: a per-repo flag would carry the identical value on every row,
-    which is the tell that the fact belongs one level up. It would also store a
-    claim nothing verifies, and this system has already been bitten by a stored
-    `routine_registered: true` sitting beside a `sources` list without the repo.
+    which is the tell that the fact belongs one level up.
 
-    Nothing is cached: adding a `routine_url` brings every outstanding repo
-    straight back into view on the next run.
+    TWO BASES, AND THE CHECKED ONE WINS. A fresh verdict from
+    `routine-sync.py --check` is the routine's *actual* `sources`, so it decides
+    — in both directions. It clears a repo whose flag was never set but which is
+    genuinely pre-cloned, and it flags one whose flag says `true` while `sources`
+    disagrees. That second case is not hypothetical: it is what happened to
+    `create-ai-builder`, where the flag faithfully recorded that a human said
+    they had done the edit, and the repo sat out three rollups.
+
+    Falling back to the flag when no fresh verdict exists is deliberate. The
+    alternative — refusing to answer without a network call — makes `make
+    status` fail offline and inside the remote sandbox, where the flag is the
+    only fact available. `routine_basis()` reports which one was used, so the
+    fallback is stated rather than silent.
 
     Scoped to *enabled* repos: a repo with `enabled: false` is out of the run
     entirely, so it cannot be silently omitted from a rollup it never joins.
-    Re-enabling it brings the flag back into view, because this is recomputed
-    rather than stored.
     """
     if not routine_configured():
         return []
     repos = enabled_repos() if repos is None else repos
+
+    v = load_routine_check()
+    if routine_check_fresh(v=v):
+        missing = set(v.get("missing") or [])
+        if not missing:
+            return []
+        return [r for r in repos if source_url(r, repos) in missing]
+
     return [r for r in repos if not r.get(ROUTINE_FLAG)]
 
 
@@ -223,6 +299,95 @@ def routine_hint(name):
     return (f"add '{name}' to the scheduled routine's `sources` "
             f"(.workspace/status-guide.md §5.2), then run: "
             f"make routine-registered ARGS=\"{name}\"")
+
+
+def normalize_remote(remote):
+    """A git remote as a browsable https URL, or None.
+
+    Derived from repos.yml (single source of truth) rather than self-reported by
+    each repo, so it cannot drift when a repo is renamed.
+
+    ONE NORMALIZER, TWO CALLERS. `aggregate-plans.py` renders these as roster
+    links; `routine-sync.py` compares them against the routine's pre-clone list.
+    That second use is why this moved out of the renderer and into the library:
+    repos.yml legitimately mixes forms (`git@github.com:o/r.git` beside
+    `https://github.com/o/r.git`) while the routine stores bare https, so a
+    comparison against un-normalized strings reports every repo as drifted. A
+    second copy of this function is a second answer to "are these the same
+    repo?", and the day they disagree the gate is wrong in whichever direction
+    is quieter.
+    """
+    if not remote:
+        return None
+    r = remote.strip()
+    if r.startswith("git@"):
+        host_path = r[len("git@"):]
+        if ":" not in host_path:
+            return None
+        host, path = host_path.split(":", 1)
+        r = f"https://{host}/{path}"
+    elif r.startswith("ssh://"):
+        r = "https://" + r[len("ssh://"):]
+        scheme, rest = r.split("://", 1)
+        if "@" in rest.split("/", 1)[0]:
+            r = f"{scheme}://{rest.split('@', 1)[1]}"
+    elif not r.startswith(("http://", "https://")):
+        return None
+    return r[:-len(".git")] if r.endswith(".git") else r
+
+
+def workspace_origin_url():
+    """This workspace's own remote, normalized — or None if it has no origin.
+
+    The workspace is itself a `source` of the routine (it is the checkout the run
+    commits the rollup into) but it has no entry in repos.yml, so anything
+    comparing the two lists has to know this URL or it will forever report the
+    workspace as an unexpected extra.
+    """
+    r = git(["remote", "get-url", "origin"], cwd=WORKSPACE_ROOT, check=False)
+    return normalize_remote(r.stdout.strip()) if r.returncode == 0 else None
+
+
+def source_url(repo, repos=None):
+    """The remote a repo is pre-cloned from, normalized.
+
+    A worktree entry carries no `url` of its own — it hangs off a repo that is
+    already present — so it resolves through `parent_repo_path`. The platform
+    pre-clones by *repository*, not by checkout (task `12`), which is why three
+    worktrees of one repo contribute one source and not three.
+    """
+    if repo.get("url"):
+        return normalize_remote(repo["url"])
+    parent = (repo.get("parent_repo_path") or "").strip("/")
+    if not parent:
+        return None
+    for other in (load_repos() if repos is None else repos):
+        if other["path"].strip("/") == parent and other.get("url"):
+            return normalize_remote(other["url"])
+    # Registered but not described in the lockfile: fall back to the checkout.
+    d = WORKSPACE_ROOT / parent
+    if (d / ".git").exists():
+        r = git(["remote", "get-url", "origin"], cwd=d, check=False)
+        if r.returncode == 0:
+            return normalize_remote(r.stdout.strip())
+    return None
+
+
+def expected_sources(repos=None):
+    """Normalized URLs the routine must pre-clone, one per enabled repo.
+
+    Scoped to *enabled* repos for the same reason `routine_pending` is: a repo
+    with `enabled: false` is out of the run entirely, so pre-cloning it would
+    cost a clone per day for a repo nothing reads.
+    """
+    repos = enabled_repos() if repos is None else [r for r in repos if r.get("enabled", True)]
+    seen, out = set(), []
+    for r in repos:
+        url = source_url(r, repos)
+        if url and url not in seen:
+            seen.add(url)
+            out.append(url)
+    return out
 
 
 # ---------------------------------------------------------------------------

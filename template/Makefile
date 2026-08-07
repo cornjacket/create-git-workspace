@@ -9,7 +9,7 @@ SCRIPTS := .workspace/scripts
 
 .PHONY: help guide status bootstrap guard hook hook-check readme readme-check replan \
         new-work run run-dry aggregate pull add-repo delete-repo mute-repo \
-        routine-registered routine-check inject-kernel kernel-check
+        routine-registered routine-check routine-flags inject-kernel kernel-check
 
 help: ## show this help
 	@echo "{{WORKSPACE_NAME}} — workspace commands"
@@ -73,13 +73,20 @@ delete-repo: ## unregister a repo, refusing a dirty/unpushed checkout   ARGS="<n
 mute-repo: ## quiet a repo in the rollup   ARGS="<name> [--skip|--unmute]"
 	@python3 $(SCRIPTS)/mute-repo.py $(ARGS)
 
-# Phase two of registration: the repo is in the routine's `sources`. Only you can
-# do that edit (it lives in the Claude app), so only you can record it.
+# Phase two of registration: the repo is in the routine's `sources`.
+#
+# `routine-check` ASKS THE ROUTINE. It used to report the `routine_registered`
+# flag — a hand-set claim that the edit had been made — and that claim has
+# already been wrong while the rollup silently dropped a repo. The flag is still
+# the offline fallback; this is the fact.
+routine-check: ## verify the routine's real `sources` against repos.yml (network)
+	@python3 $(SCRIPTS)/routine-sync.py --check
+
+routine-flags: ## report the recorded routine_registered flags (no network)
+	@python3 $(SCRIPTS)/routine-registered.py --check
+
 routine-registered: ## record that a repo is in the routine's `sources`   ARGS="<name>|--all"
 	@python3 $(SCRIPTS)/routine-registered.py $(ARGS)
-
-routine-check: ## list repos still missing from the routine's `sources`
-	@python3 $(SCRIPTS)/routine-registered.py --check
 
 inject-kernel: ## refresh the commit-discipline kernel in every tracked repo
 	@python3 $(SCRIPTS)/inject-kernel.py --all

@@ -37,3 +37,12 @@
 #    like everything else under .workspace/.
 __pycache__/
 *.pyc
+
+# 4b. The routine `sources` verdict is a MACHINE-LOCAL CACHE, not state — unlike
+#     .workspace/state/state.json beside it, which the daily run commits.
+#     Tracking it would be wrong twice over: `make status` writes it, so every
+#     status run would dirty the workspace and the gate would report itself red
+#     for having been run; and a verdict is only evidence on the machine that
+#     took it — committed, it would travel to another clone (or into the remote
+#     sandbox) and be trusted there for hours after it stopped being true.
+/.workspace/state/routine-check.json

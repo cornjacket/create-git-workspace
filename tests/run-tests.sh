@@ -18,6 +18,13 @@ GEN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SANDBOX="$GEN_ROOT/sandbox"
 TEST_AUTHOR="test@example.invalid"
 
+# The status gate can verify the routine's real `sources` over the network. A
+# test workspace's routine_url is a fixture (`trig_TEST`), so leaving that on
+# would spend a `claude -p` call per status invocation to slowly discover a
+# trigger that does not exist. The verifier is exercised deliberately, against
+# saved payloads, in `test_routine_sync`.
+export WORKSPACE_NO_VERIFY=1
+
 KEEP=0
 RUN_REMOTE=0
 for arg in "$@"; do
@@ -63,6 +70,7 @@ EXPECTED_TRACKED="\
 .workspace/scripts/render-readme.py
 .workspace/scripts/replan.sh
 .workspace/scripts/routine-registered.py
+.workspace/scripts/routine-sync.py
 .workspace/scripts/run.py
 .workspace/scripts/status.py
 .workspace/scripts/sync.py
@@ -1807,6 +1815,227 @@ test_routine_registration() {
 }
 
 # ---------------------------------------------------------------------------
+# 8q. Routine sync — verifying `sources` instead of believing a flag (dogfood 20)
+#
+# The flag this replaces was not lying; it faithfully recorded that a human said
+# they had done the edit, and `create-ai-builder` then sat out three rollups.
+# So the assertions that matter here are the ones where the flag and the world
+# DISAGREE — a check that only ever confirms what it was told is the flag again
+# with extra steps.
+#
+# The API is reached with `claude -p`, which a test cannot call, so every case
+# drives a saved payload through --from-file. That split is deliberate: the
+# transport is three lines and the comparison is the part that can be wrong.
+# ---------------------------------------------------------------------------
+test_routine_sync() {
+  section '8q. Routine sync (verify the routine sources list)'
+  local ws; ws=$(new_ws ws-rsync)
+  local S="$ws/.workspace/scripts"
+  local fx="$SANDBOX/rsync-fixtures"; mkdir -p "$fx"
+  local sync="python3 $S/routine-sync.py"
+
+  # A roster that exercises the normalizer: repos.yml legitimately mixes SSH and
+  # https-with-.git, while the routine stores bare https. Comparing raw strings
+  # would report all three as drifted.
+  cat > "$ws/.workspace/repos.yml" <<'YML'
+repos:
+  - name: alpha
+    path: alpha
+    type: standard
+    branch: main
+    url: git@github.com:acme/alpha.git
+  - name: beta
+    path: beta
+    type: standard
+    branch: main
+    url: https://github.com/acme/beta.git
+  - name: paused
+    path: paused
+    type: standard
+    branch: main
+    url: https://github.com/acme/paused.git
+    enabled: false
+YML
+  printf 'routine_url: https://claude.ai/code/routines/trig_TEST\n' >> "$ws/.workspace/config.yml"
+
+  # --- what SHOULD be pre-cloned -------------------------------------------
+  local exp; exp=$(cd "$ws" && $sync --show-expected 2>&1)
+  case "$exp" in *"https://github.com/acme/alpha"*) ok "an SSH remote normalizes to https" ;;
+                 *) bad "an SSH remote normalizes to https" "$exp" ;; esac
+  case "$exp" in *"https://github.com/acme/beta"*) ok "a .git suffix is stripped" ;;
+                 *) bad "a .git suffix is stripped" "$exp" ;; esac
+  case "$exp" in *acme/paused*) bad "an enabled:false repo is not expected" "$exp" ;;
+                 *) ok "an enabled:false repo is not expected" ;; esac
+
+  # --- fixtures -------------------------------------------------------------
+  mkfix() { # mkfix <file> <url>...
+    local out=$1; shift
+    python3 - "$out" "$@" <<'PY'
+import json, sys
+out, urls = sys.argv[1], sys.argv[2:]
+json.dump({"trigger": {"id": "trig_TEST", "job_config": {"ccr": {
+    "environment_id": "env_x",
+    "events": [{"data": {"message": {"content": "THE RUN PROMPT", "role": "user"}}}],
+    "session_context": {"allowed_tools": ["Bash", "Read"], "model": "claude-sonnet-5",
+                        "sources": [{"git_repository": {"url": u}} for u in urls]}}}}},
+    open(out, "w"))
+PY
+  }
+  local A=https://github.com/acme/alpha B=https://github.com/acme/beta
+  mkfix "$fx/insync.json"  "$A" "$B"
+  mkfix "$fx/missing.json" "$A"
+  mkfix "$fx/extra.json"   "$A" "$B" https://github.com/acme/stranger
+
+  # --- the three verdicts ---------------------------------------------------
+  assert_succeeds "a matching routine verifies clean" \
+    env -C "$ws" python3 "$S/routine-sync.py" --check --from-file "$fx/insync.json"
+
+  local out rc
+  out=$(cd "$ws" && $sync --check --from-file "$fx/missing.json" 2>&1); rc=$?
+  assert_eq "a repo absent from \`sources\` exits 1" "1" "$rc"
+  case "$out" in *MISSING*beta*) ok "...and names the repo that would vanish" ;;
+                 *) bad "...and names the repo that would vanish" "$out" ;; esac
+
+  out=$(cd "$ws" && $sync --check --from-file "$fx/extra.json" 2>&1); rc=$?
+  assert_eq "an unregistered pre-clone exits 1" "1" "$rc"
+  case "$out" in *EXTRA*stranger*) ok "...and names the stranger" ;;
+                 *) bad "...and names the stranger" "$out" ;; esac
+
+  # --- THE GUARD: unknown must never read as empty --------------------------
+  # Both of these would report "every repo is missing" if the payload were
+  # walked with .get() defaults, and "in sync" if an exception were swallowed.
+  # Either way the operator learns something false, so the only right answer is
+  # a third exit code that means "I could not tell".
+  python3 - "$fx/nosources.json" <<'PY'
+import json, sys
+json.dump({"trigger": {"id": "t", "job_config": {"ccr": {"session_context": {
+    "model": "claude-sonnet-5"}}}}}, open(sys.argv[1], "w"))
+PY
+  printf '{"trigger":{"id":"t","job_config":{}}}' > "$fx/shapechange.json"
+
+  out=$(cd "$ws" && $sync --check --from-file "$fx/nosources.json" 2>&1); rc=$?
+  assert_eq "a missing \`sources\` key exits 2, not 0 or 1" "2" "$rc"
+  case "$out" in *"refusing to treat"*) ok "...and says it refused to guess" ;;
+                 *) bad "...and says it refused to guess" "$out" ;; esac
+
+  out=$(cd "$ws" && $sync --check --from-file "$fx/shapechange.json" 2>&1); rc=$?
+  assert_eq "an unrecognized payload exits 2" "2" "$rc"
+
+  # A workspace with no routine has no `sources` to drift from (dogfood 21).
+  local ws2; ws2=$(new_ws ws-rsync-noroutine)
+  assert_succeeds "no routine is a clean no-op, not an error" \
+    env -C "$ws2" python3 "$ws2/.workspace/scripts/routine-sync.py" --check
+
+  # --- the verdict outranks the flag, in BOTH directions --------------------
+  # This is the mutation check for the whole seam: the flag is set to exactly
+  # the wrong value each time, and the gate must follow the checked fact.
+  #
+  # The two repos need REAL checkouts, and the workspace needs to be committed.
+  # status.py only attaches a routine finding to a repo that is actually cloned
+  # (a missing checkout is already its own, louder finding), so asserting
+  # against an uncloned fixture passes whether the gate works or not — the exit
+  # code is 1 either way and the phrase never appears. Found by writing it wrong
+  # first: three assertions here went green against a workspace where the
+  # routine column could not have rendered at all.
+  # `paused` gets a checkout too. `enabled: false` keeps it out of the rollup
+  # and out of `sources`, but status still expects it on disk — an unchecked-out
+  # repo reports `missing` and reddens the gate regardless of any routine state.
+  local n
+  for n in alpha beta paused; do
+    bare_origin "$SANDBOX/origin-rsync-$n.git"
+    git clone -q "$SANDBOX/origin-rsync-$n.git" "$ws/$n"
+  done
+  # Every repos.yml edit below is committed, because the workspace is a row in
+  # its own output and an uncommitted lockfile reads as `dirty` — which would
+  # turn the gate red for a reason that has nothing to do with the routine and
+  # make every exit-code assertion here meaningless.
+  wcommit() { git -C "$ws" add -A; git -C "$ws" \
+    -c user.email="$TEST_AUTHOR" -c user.name=Dev commit -qm "${1:-wip}" >/dev/null 2>&1; }
+  wcommit "roster"
+
+  local st="python3 $S/status.py --no-verify"
+  # The floor is clean, so the ONLY thing that can turn the gate red below is
+  # the routine finding. Proven, not assumed.
+  rm -f "$ws/.workspace/state/routine-check.json"
+  python3 "$S/routine-registered.py" --all >/dev/null 2>&1; wcommit "flags true"
+  assert_succeeds "baseline: a clean floor with every flag set is green" \
+    env -C "$ws" python3 "$S/status.py" --no-verify
+  writeverdict() { # writeverdict <in_sync> [missing-url]
+    mkdir -p "$ws/.workspace/state"
+    python3 - "$ws/.workspace/state/routine-check.json" "$@" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+out, in_sync = sys.argv[1], sys.argv[2] == "true"
+missing = sys.argv[3:]
+json.dump({"checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+           "in_sync": in_sync, "missing": missing, "extra": [], "trigger_id": "trig_TEST"},
+          open(out, "w"))
+PY
+  }
+
+  # Flag says registered; the routine says otherwise. The old gate went green
+  # here — that is the production bug (`create-ai-builder`), reproduced.
+  writeverdict false "$B"
+  out=$(cd "$ws" && $st 2>&1); rc=$?
+  case "$out" in *beta*"routine not registered"*)
+      ok "a lying \`true\` flag is overruled by the checked state" ;;
+    *) bad "a lying \`true\` flag is overruled by the checked state" "$out" ;; esac
+  assert_eq "...and the gate goes red on an otherwise clean floor" "1" "$rc"
+  # Line-scoped on purpose: `*alpha*routine not registered*` matches the whole
+  # blob because alpha's row precedes beta's finding, so it would pass however
+  # the gate behaved.
+  case "$(printf '%s\n' "$out" | grep '^alpha ')" in
+    *"routine not registered"*) bad "...and the in-sync repo stays clean" "$out" ;;
+    *clean*) ok "...and the in-sync repo stays clean" ;;
+    *) bad "...and the in-sync repo stays clean" "$out" ;; esac
+  case "$out" in *"verified"*) ok "...and status says the answer was verified" ;;
+                 *) bad "...and status says the answer was verified" "$out" ;; esac
+
+  # The reverse: flag never set, but the repo genuinely IS pre-cloned.
+  python3 "$S/routine-registered.py" --all --unset >/dev/null 2>&1; wcommit "flags false"
+  writeverdict true
+  out=$(cd "$ws" && $st 2>&1); rc=$?
+  case "$out" in *"routine not registered"*)
+      bad "a stale \`false\` flag is cleared by the checked state" "$out" ;;
+    *) ok "a stale \`false\` flag is cleared by the checked state" ;; esac
+  assert_eq "...and the gate goes green with every flag still false" "0" "$rc"
+
+  # An aged-out verdict is not trusted; the gate falls back and SAYS it fell
+  # back, rather than presenting a day-old answer as current.
+  python3 - "$ws/.workspace/state/routine-check.json" <<'PY'
+import json, sys
+from datetime import datetime, timedelta, timezone
+p = sys.argv[1]
+v = json.load(open(p))
+v["checked_at"] = (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat(timespec="seconds")
+json.dump(v, open(p, "w"))
+PY
+  out=$(cd "$ws" && $st 2>&1)
+  case "$out" in *"NOT verified"*) ok "a stale verdict is announced, not silently reused" ;;
+                 *) bad "a stale verdict is announced, not silently reused" "$out" ;; esac
+  case "$out" in *beta*"routine not registered"*)
+      ok "...and the flag takes over again" ;;
+    *) bad "...and the flag takes over again" "$out" ;; esac
+
+  # A corrupt verdict is the same as none — never a half-read answer.
+  printf '{"checked_at": "not-a-date"' > "$ws/.workspace/state/routine-check.json"
+  assert_succeeds "a truncated verdict file does not crash the gate" \
+    env -C "$ws" python3 "$S/status.py" --no-verify --help
+
+  # --no-verify and the sandbox env var both keep the gate off the network.
+  out=$(cd "$ws" && WORKSPACE_NO_VERIFY=1 python3 "$S/status.py" 2>&1)
+  case "$out" in *"could not verify"*) bad "WORKSPACE_NO_VERIFY makes no attempt" "$out" ;;
+                 *) ok "WORKSPACE_NO_VERIFY makes no attempt" ;; esac
+
+  # The Makefile's verb points at the verifier, not at the flag reporter.
+  assert_grep "make routine-check calls routine-sync" \
+    'routine-check:.*\n?' "$ws/Makefile"
+  grep -A1 '^routine-check:' "$ws/Makefile" | grep -q 'routine-sync.py --check' \
+    && ok "...specifically routine-sync.py --check" \
+    || bad "...specifically routine-sync.py --check" "$(grep -A1 '^routine-check:' "$ws/Makefile")"
+}
+
+# ---------------------------------------------------------------------------
 # 8m. The living README (task 019)
 #
 # README.md is the second hybrid: the generator owns the git-workspace-roster
@@ -2114,6 +2343,7 @@ main() {
   test_living_readme
   test_pending_sweep
   test_routine_registration
+  test_routine_sync
   test_per_repo_replan
   test_local_remote
   test_github_remote

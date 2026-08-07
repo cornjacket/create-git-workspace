@@ -37,7 +37,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from _status_lib import (  # noqa: E402
     DAILY_PLAN_SUMMARY_MD, DAILY_PLANS_DIR, WORKSPACE_PLAN_KEY,
-    StatusError, enabled_repos, git, repo_dir, routine_pending, workspace_name,
+    StatusError, enabled_repos, git, normalize_remote, repo_dir, routine_pending,
+    workspace_name,
 )
 
 PLAN_HEADER_RE = re.compile(r"^#\s+Daily plan\s+[—\-]\s+(\d{4}-\d{2}-\d{2})\s*$", re.M)
@@ -49,29 +50,10 @@ BULLET_RE = re.compile(r"^\s*[-*]\s+(?:\[[ xX]\]\s+)?(.+?)\s*$")
 MAX_FOCUS_CHARS = 64
 
 
-def remote_to_url(remote):
-    """A git remote as a browsable https URL, or None.
-
-    Derived from repos.yml (single source of truth) rather than self-reported by
-    each repo, so it cannot drift when a repo is renamed.
-    """
-    if not remote:
-        return None
-    r = remote.strip()
-    if r.startswith("git@"):
-        host_path = r[len("git@"):]
-        if ":" not in host_path:
-            return None
-        host, path = host_path.split(":", 1)
-        r = f"https://{host}/{path}"
-    elif r.startswith("ssh://"):
-        r = "https://" + r[len("ssh://"):]
-        scheme, rest = r.split("://", 1)
-        if "@" in rest.split("/", 1)[0]:
-            r = f"{scheme}://{rest.split('@', 1)[1]}"
-    elif not r.startswith(("http://", "https://")):
-        return None
-    return r[:-len(".git")] if r.endswith(".git") else r
+# Moved into _status_lib so `routine-sync.py` compares against the identical
+# normalization; kept under the old name here because this module's readers know
+# it by that name and the roster link is what it means locally.
+remote_to_url = normalize_remote
 
 
 def most_recent_weekday(today):
