@@ -12,9 +12,17 @@ effort.
 - **current task** — none in flight. Effort's stated goal met: `01`-`15` all
   landed, `08` mothballed `project-status` 08-06. Remaining `17`, `18`, `20` are
   defects dogfooding exposed, not scope this plan set out with.
-- **next concrete step** — `17`. One edit, four copies of the commit schema:
-  add the blank line after the title. Cheapest open item, and it degrades every
-  commit in every tracked repo until it lands.
+- **next concrete step** — **`20`** — `sources` becomes a verb. On 08-07 the
+  whole algorithm was executed **by hand** to register `create-context-hygiene`:
+  read `routine_url` from `config.yml`, `RemoteTrigger get`, diff against
+  `repos.yml`, resend the entire config. That is steps 1-4 of `20`'s own spec,
+  proven end to end against the live routine. Third hand-edit of this seam; the
+  script is now transcription, not design.
+  Start: `.workspace/scripts/routine-sync.py` with `--check` for `status.py` to
+  call, so the gate verifies the **actual** remote state instead of trusting a
+  flag that asserts it.
+  (`17` remains the cheapest item — one edit, four copies of the commit schema —
+  but it is not what today made ready.)
 - **files mid-edit** — none.
 - **uncommitted / unpushed** — none. Verified `git status` + `git log @{u}..`,
   both empty. Whole `dev-workspace` floor clean except `create-context-hygiene`,
@@ -101,7 +109,7 @@ In order. Acceptance is one line each until these are extracted into files.
 | 17 | the injected kernel omits the blank line after the commit title | **filed** — all four copies of the schema, see `04` notes |
 | 18 | `daily-plan-summary.md` never says what a repo *is* — [`18`](docs/plans/dogfood/18-newcomer-blurb-in-plan-summary.md) | **filed** — project the `repos.yml` description into the rollup |
 | 19 | confirm the `sources` fix on the 08-05 run — [`19`](docs/plans/dogfood/19-confirm-the-sources-fix.md) | **done** — 08-05 and 08-06 runs both carry all three repos; `state.json` has a key for each |
-| 20 | `sources` should be a verb, not a manual seam — [`20`](docs/plans/dogfood/20-sources-should-be-a-verb.md) | **filed** — `RemoteTrigger` makes §8.5's premise false |
+| 20 | `sources` should be a verb, not a manual seam — [`20`](docs/plans/dogfood/20-sources-should-be-a-verb.md) | **next** — its four steps run by hand 08-07 against the live routine; premise confirmed, not just argued |
 | 21 | a workspace with no routine should not nag — [`21`](docs/plans/dogfood/21-no-routine-no-nag.md) | **done** — 362 assertions; `personal-workspace` green |
 | 22 | `replan` crashes and truncates the roster — [`22`](docs/plans/dogfood/22-replan-crashes-and-truncates.md) | **done** — 353 assertions, dogfooded into both workspaces |
 | 10 | track incomplete routine registration; make `add-repo` idempotent | **done**, dogfooded into `dev-workspace` |

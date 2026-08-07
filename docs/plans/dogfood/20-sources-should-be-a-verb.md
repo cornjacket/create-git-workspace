@@ -1,6 +1,25 @@
 # 20 — `sources` should be a verb, not a manual seam
 
-Status: **filed 2026-08-04.** Supersedes half of `10` if built.
+Status: **next, 2026-08-07.** Filed 2026-08-04. Supersedes half of `10` if built.
+
+**The four steps below were run by hand on 2026-08-07** to register
+`create-context-hygiene`, against the live routine
+(`trig_01TA28JDCMTd8Em8sceLpxEC`): read `routine_url` from `config.yml`,
+`RemoteTrigger get`, diff the returned `sources` against `repos.yml`, resend the
+**entire** `job_config` with the eighth repo appended. It worked, and the
+response confirmed the prompt, model and `allowed_tools` all survived the write.
+
+So the design below is no longer a proposal — it is a transcript. Two things
+that only became clear by doing it:
+
+- **The API takes a partial update and the guide forbids using it.**
+  `RemoteTrigger update` is documented as a partial update, which is exactly the
+  trap §5.2 warns about. Whatever is built must send the whole config
+  unconditionally; the safe path is not the default path.
+- **This was the third hand-edit of this seam.** Each one has been correct and
+  each has cost a full read-modify-write of a config carrying the run prompt.
+  The risk is not effort, it is that one of these eventually drops a field and
+  the failure is silent until a run behaves oddly.
 
 The routine's `sources` pre-clone list must mirror `repos.yml`. Today that
 mirroring is done by hand, tracked by a flag, and enforced by a gate. It can
