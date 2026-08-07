@@ -5,8 +5,9 @@
 Started {{DATE}}. Task files: `docs/plans/{{EFFORT_NAME}}/`.
 Durable design lives in `DESIGN.md`; this file is only this effort.
 
-<!-- Copy this to PLAN.md at the repo root when an effort starts. One active
-     plan at a time. See docs/plans/README.md for the full cycle. -->
+<!-- Copy this to docs/plans/<name>/PLAN.md when an effort starts, then add a
+     row to the master PLAN.md at the repo root and make it the active one.
+     One active effort at a time. See docs/plans/README.md for the full cycle. -->
 
 ## Where I left off
 

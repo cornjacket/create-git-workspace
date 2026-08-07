@@ -3,9 +3,11 @@
 **Durable design.** What the workspace model is, what this generator emits, and
 which decisions are settled. It outlives any single effort.
 
-Efforts live elsewhere: an active `PLAN.md` at the repo root, finished ones under
-[`docs/plans/`](docs/plans/) with their task files. When a plan finishes, its
-decisions graduate *into this file* — see [`docs/plans/README.md`](docs/plans/README.md).
+Efforts live elsewhere: every one under [`docs/plans/<name>/`](docs/plans/) with
+its task files, whatever its state, sequenced by the master `PLAN.md` at the repo
+root. The master says which effort is active and in what order the rest follow;
+it holds no state of its own. When an effort finishes, its decisions graduate
+*into this file* — see [`docs/plans/README.md`](docs/plans/README.md).
 
 Sections 1–6 are the workspace model (tier-independent). Sections 7–9 are how
 `create-git-workspace` implements it. Section 10 is what is settled; §11 is what
