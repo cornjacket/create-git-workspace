@@ -113,6 +113,7 @@ In order. Acceptance is one line each until these are extracted into files.
 | 21 | a workspace with no routine should not nag — [`21`](docs/plans/dogfood/21-no-routine-no-nag.md) | **done** — 362 assertions; `personal-workspace` green |
 | 22 | `replan` crashes and truncates the roster — [`22`](docs/plans/dogfood/22-replan-crashes-and-truncates.md) | **done** — 353 assertions, dogfooded into both workspaces |
 | 23 | the rollups are a wall of prose, and nothing measures them — [`23`](docs/plans/dogfood/23-rollups-are-unreadable-and-unmeasured.md) | **filed 08-07** — build the judge before editing the prompt; sequences ahead of `18` |
+| 24 | nothing reconciles the plans against the commits — [`24`](docs/plans/dogfood/24-whats-next-reconciles-plan-against-reality.md) | **filed 08-07** — `/whats-next` skill; built *ahead* of `23`, accepting that it ships ungraded |
 | 10 | track incomplete routine registration; make `add-repo` idempotent | **done**, dogfooded into `dev-workspace` |
 | 05 | create the `/schedule` routine, add every repo to `sources` | **done** for the current roster |
 | 06 | run a full day: routine writes, `make pull` lands it | **done** — passed first try |
