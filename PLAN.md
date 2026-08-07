@@ -9,58 +9,32 @@ effort.
 
 ## Where I left off
 
-- **current task** — `21` (a workspace with no routine should not nag).
-  **The original effort is DONE**: every task `01`-`15` has landed, and `08`
-  mothballed `project-status` on 08-06. What remains is `16`-`22`, all of which
-  are defects dogfooding exposed rather than scope this plan set out with.
-- **what just happened (2026-08-03)** — `10` landed and was **dogfooded**: the
-  `routine_registered` flag (absent = outstanding), the `routine-registered`
-  verb, the `make status` gate, the `daily-plan-summary.md` banner, and an
-  `add-repo` that reconciles instead of refusing. Then `update.sh` into
-  `dev-workspace`, where the gate flagged `captains-log` **before any edit** —
-  the absent-means-outstanding default paying off on a repo registered days
-  earlier. Then `05`: the routine exists, so the flag is honestly cleared. Then
-  `06` end to end on a hand-triggered run, first try. Then `11`, which that run
-  exposed: `summary.md` now holds the latest run only. Then `13`'s generator
-  half: the task-system mounts at `.workspace/project/`, so the workspace floor
-  is child repos and nothing else. 344 assertions. Dogfooded on 08-04 — the
-  detection warning fired, the old mount came out, `make replan` read the new
-  one, `make status` clean. Then `14` steps 1-6: the generator is now a tracked
-  child of the workspace it generates, at the same HEAD, registered in the
-  routine, suite green from the new location, and regenerating the workspace
-  from inside itself is still zero-diff. Then `14` step 7 on 08-04: the old
-  checkout deleted from a session rooted at the new one, `make status` and
-  `--all` both four clean rows. Then `12`'s near-term step: `create-ai-builder`
-  **moved** in whole (bare + three worktrees), pointers repaired, `main`
-  registered, kernel committed, `07` stripped, added to the routine's `sources`
-  and the flag cleared — the roster is four repos and `make status` is green.
-- **what just happened (2026-08-04, later)** — `second-brain-devkit` migrated by
-  clone, its golden moved onto the floor as an unregistered fixture, old
-  checkout removed. Its `07` strip needed more than deleting a block: three
-  hand-written passages described the retired tracker as current. Two defects
-  fell out and are filed rather than fixed — `16` (an UNAVAILABLE repo vanishes
-  from the rollup, confirmed in production) and `17` (the injected kernel omits
-  the blank line after the commit title, in all four copies).
-- **what happened 2026-08-06** — `19` **confirmed**: the 08-05 and 08-06 runs
-  both carry `create-ai-builder`, `second-brain-devkit` and
-  `customer-req-responder`, and `state.json` has a key for each — so the missing
-  `sources` entries were the whole cause, and `12`'s entry-naming call is
-  validated. `22` fixed the same day it was found. The dated plan archive was
-  removed: `git log -p` on the file was already that history. Then `07`, `08`
-  and `09` all closed.
-- **next concrete step** — **`21`**, then `16`. `16` is the one that still
-  corrupts output (a tracked repo can vanish from the rollup); `21` only
-  annoys, but a status gate you learn to ignore is worth more than it costs.
+- **current task** — none in flight. Effort's stated goal met: `01`-`15` all
+  landed, `08` mothballed `project-status` 08-06. Remaining `17`, `18`, `20` are
+  defects dogfooding exposed, not scope this plan set out with.
+- **next concrete step** — `17`. One edit, four copies of the commit schema:
+  add the blank line after the title. Cheapest open item, and it degrades every
+  commit in every tracked repo until it lands.
 - **files mid-edit** — none.
-- **uncommitted / unpushed** — none. A full-floor sweep
-  (`check-pending.py --all`) is clean except one non-issue: `tasks-test-wt` is a
-  local-only test fixture with no remote, and does not migrate.
-  `create-repo-mail` no longer appears — it has no checkout on any floor, and
-  the idea it held moved into this repo as `docs/plans/mail/PLAN.md` (see the
-  roster entry below).
-- **open questions** — per-repo replan couples to child task-system internals —
-  it worked against `captains-log`, so the scrape matches today;
-  `.project-status-ignore` → task `09`; membership beyond `captains-log` TBD.
+- **uncommitted / unpushed** — none. Verified `git status` + `git log @{u}..`,
+  both empty. Whole `dev-workspace` floor clean except `create-context-hygiene`,
+  which reads `routine not registered` after being unmuted 08-07.
+- **open questions** — `discovery.json`'s filename and merge rule must be agreed
+  between `create-project-system` `28` and `create-context-hygiene` `13` before
+  either writes code; two generators writing one file under different names is a
+  silent mutual overwrite. Whether this repo vendors `create-context-hygiene`
+  (leaning yes) and whether it then checks its own *template* in CI — a
+  workspace's `CLAUDE.md` is machinery, so an over-budget block is fixable only
+  here, and one bad template edit fails CI in every workspace at once.
+
+### Queued, not started
+
+- **`docs/plans/mail/PLAN.md`** — 9 tasks, parked behind this plan's root slot.
+  Entry point: read `create-project-system` `27` first.
+- **`create-project-system`** `27` (`--json` lister) and `28` (`discovery.json`
+  keys) — design together, one sitting.
+- **`create-context-hygiene`** `13` (CI is the gate) — unparked 08-07,
+  `sources` edit outstanding.
 
 ## Scope
 
@@ -121,12 +95,12 @@ In order. Acceptance is one line each until these are extracted into files.
 | 01 | `make status` also reports unpushed work; `--all` mode | **done** |
 | 02 | per-repo replan — deterministic, no model calls | **done** |
 | 03 | create `dev-workspace` locally, push it to a new remote | **done** |
-| 04 | move the first repos in and register them | **roster decided**; 4 of 7 landed, 3 dev repos to migrate |
+| 04 | move the first repos in and register them | **done** — all 7 in and registered; `create-context-hygiene` unmuted 08-07, `sources` edit outstanding |
 | 15 | stand up `personal-workspace` — [`15`](docs/plans/dogfood/15-personal-workspace.md) | **built** — 2 repos in; routine outstanding |
 | 16 | an UNAVAILABLE repo vanishes from the rollup — [`16`](docs/plans/dogfood/16-unavailable-is-a-silent-omission.md) | **done** — 369 assertions; reported, not skipped |
 | 17 | the injected kernel omits the blank line after the commit title | **filed** — all four copies of the schema, see `04` notes |
 | 18 | `daily-plan-summary.md` never says what a repo *is* — [`18`](docs/plans/dogfood/18-newcomer-blurb-in-plan-summary.md) | **filed** — project the `repos.yml` description into the rollup |
-| 19 | confirm the `sources` fix on the 08-05 run — [`19`](docs/plans/dogfood/19-confirm-the-sources-fix.md) | **prediction recorded** — check after 12:43 UTC |
+| 19 | confirm the `sources` fix on the 08-05 run — [`19`](docs/plans/dogfood/19-confirm-the-sources-fix.md) | **done** — 08-05 and 08-06 runs both carry all three repos; `state.json` has a key for each |
 | 20 | `sources` should be a verb, not a manual seam — [`20`](docs/plans/dogfood/20-sources-should-be-a-verb.md) | **filed** — `RemoteTrigger` makes §8.5's premise false |
 | 21 | a workspace with no routine should not nag — [`21`](docs/plans/dogfood/21-no-routine-no-nag.md) | **done** — 362 assertions; `personal-workspace` green |
 | 22 | `replan` crashes and truncates the roster — [`22`](docs/plans/dogfood/22-replan-crashes-and-truncates.md) | **done** — 353 assertions, dogfooded into both workspaces |
@@ -558,6 +532,31 @@ unpushed work is sitting in one of those clones first — which is exactly what
   — so the deferral needs an owner who notices, not just a trigger (`04`).
 - The **second workspace happens now**: three personal repos is the trigger §10
   named, so `personal-workspace` is built rather than deferred (`15`).
+- A **fixture lives beside the repo that tests it**. `git-workspace-test` moved
+  onto the `dev-workspace` floor because `tests/run-tests.sh:1997` resolves it as
+  `$GEN_ROOT/../git-workspace-test` — it was not there, so test 10 skipped on
+  every `--remote` run. Rules out leaving fixture placement to convention.
+- **Mail is addressed to repos, not agents** — an agent is a process and ends;
+  a repo is a place and persists. Rules out an agent-to-agent bus, which would
+  rebuild in-session coordination the harness already provides
+  (`docs/plans/mail/PLAN.md`).
+- **One shared `discovery.json`, one key per capability** — not a file per
+  capability. Settled 08-07 when a second generator needed to declare something
+  about the same repos. Rules out `inbox.json` + `context-hygiene.json`, which
+  would leave a consumer probing for each in turn — the problem
+  `create-project-system` `28` exists to end, one level up. Two rules follow: a
+  generator **owns its keys and never rewrites another's**, and the version is
+  **per key** (`mail` `001`, c-p-s `28`, c-c-h `13`).
+- **CI is the hygiene gate, so it cannot be opt-in.** A pre-commit hook is
+  bypassable with `--no-verify`, so it can only ever be the warning. Rules out
+  the workspace owning a token counter: it runs each repo's installed checker
+  and collects answers, so two counters can never disagree (c-c-h `13`).
+- `create-context-hygiene` **unmuted 08-07** rather than left parked. Its
+  keep-or-drop question is answered by the CI decision above — only a repo-local
+  install can fail a push, so the generator is the only shape that delivers it.
+- **`## Where I left off` is state, not a log.** Wrapped 08-07: three dated
+  "what just happened" entries collapsed into current state. The dated history
+  is `git log -p PLAN.md`, the same argument `11` made for `summary.md`.
 
 ## Done when
 
