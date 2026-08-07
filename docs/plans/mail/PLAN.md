@@ -25,12 +25,11 @@ Never append a new dated entry; overwrite._
   else reads or writes that file, so it is the only thing that cannot be
   parallelised.
 - **files mid-edit** — none.
-- **uncommitted / unpushed** — this plan file is committed; unpushed as of
-  2026-08-06.
-- **open questions** — see **Open questions** below. One *does* bear on `001`:
-  whether the declaration is a single-purpose `inbox.json` or a `repo.json`
-  manifest that also names the task-system mount. Task `27` supplies the
-  evidence; settle it there rather than guessing here.
+- **uncommitted / unpushed** — none as of 2026-08-07.
+- **open questions** — see **Open questions** below; none block `001`. The one
+  that did — single-purpose file versus shared manifest — was **settled on
+  2026-08-07** in favour of a shared `discovery.json`, recorded under
+  **Decisions**.
 
 ## Why
 
@@ -53,8 +52,9 @@ missing is addressing, delivery, and notification.
 
 **In:**
 
-- A per-repo `inbox.json` — the receiver **declares** its intake. Read live,
-  never cached by the workspace.
+- The `inbox` key in a per-repo `discovery.json` — the receiver **declares** its
+  intake. Read live, never cached by the workspace. One shared manifest, one key
+  per capability; this effort owns `inbox` and leaves other keys alone.
 - Workspace-side send: resolve address from `repos.yml`, read the target's
   declaration, write the message.
 - Workspace-side sweep: what mail is outstanding across the whole roster.
@@ -69,7 +69,7 @@ missing is addressing, delivery, and notification.
 - **A `to:` field.** Delivery is positional — the address *is* the path. A `to:`
   makes the workspace a router and assumes every repo is in exactly one
   workspace forever, which breaks when membership changes.
-- **`INBOX.md` in every repo.** Superseded by `inbox.json` + the skill: receiving
+- **`INBOX.md` in every repo.** Superseded by `discovery.json` + the skill: receiving
   is per-repo, sending is uniform, and uniform things get one copy.
 - **`create-mail.sh` / `list-new-mail.sh` inside receiving repos.** Both are
   sender-side tools; installing them in the receiver puts them on the wrong side
@@ -88,32 +88,40 @@ moving.
 
 | # | Task | Status |
 |---|---|---|
-| 001 | the `inbox.json` contract + required message fields | todo |
+| 001 | the `inbox` key in `discovery.json` + required message fields | todo |
 | 002 | `send-mail.sh` — resolve, read declaration, write the message | todo |
 | 003 | `make mail` — sweep every repo's inbox, list what is outstanding | todo |
 | 004 | `status.py`: inbox-only dirt reads as `mail pending`, not `uncommitted` | todo |
 | 005 | generalize the skill install loop to own more than one skill dir | todo |
 | 006 | the `send-mail` skill | todo |
 | 007 | acceptance tests | todo |
-| 008 | upstream: `create-project-system` emits `inbox.json` (non-blocking) | todo |
+| 008 | upstream: `create-project-system` writes its `discovery.json` keys (non-blocking) | todo |
 | 009 | graduate the durable decisions into `DESIGN.md` | todo |
 
-### 001 — the `inbox.json` contract
+### 001 — the `inbox` key in `discovery.json`
 
 The receiver declares its intake at its repo root. Everything else in this effort
 reads or writes this file, so it is settled first and changed reluctantly.
 
+**This is not a mail-only file.** `discovery.json` is one shared manifest listing
+everything a repo offers the outside, with **one key per capability**:
+
 ```json
 {
-  "version": 1,
-  "inbox": {
-    "kind": "create-project-system",
-    "path": "project/tasks/main/inbox",
-    "format": "user-task",
-    "create": "project/tasks/scripts/new-user-task.sh --epic main --folder inbox"
-  }
+  "inbox":           { "version": 1, "kind": "create-project-system",
+                       "path": "project/tasks/main/inbox",
+                       "format": "user-task",
+                       "create": "project/tasks/scripts/new-user-task.sh --epic main --folder inbox" },
+  "tasks":           { "version": 1, "mount": "project/tasks", "epic": "main" },
+  "context-hygiene": { "version": 1, "ci": true }
 }
 ```
+
+This effort owns **`inbox`** and reads the rest. `create-project-system` task
+`28` writes `inbox` and `tasks`; `create-context-hygiene` task `13` writes
+`context-hygiene`. A file per capability would have a consumer probing for
+`inbox.json`, then `context-hygiene.json`, then the next — the same probing
+task `28` exists to end, one level up.
 
 - `path` is **required** and is what makes `003` possible — a command string
   alone cannot be listed.
@@ -124,10 +132,14 @@ reads or writes this file, so it is settled first and changed reluctantly.
   the sender already ruled out. Without this you get one-line drive-bys and the
   reader in March has the instruction but not the reasoning — which is the loss
   the whole effort exists to prevent.
+- **Version per key, not per file.** Different generators write their keys at
+  different times on different release schedules, so one file-level version
+  cannot stay true.
 
-Acceptance: the schema is written down, `version` is present from day one, and
-a repo with no `inbox.json` is a defined state ("declares no inbox"), not an
-error.
+Acceptance: the schema is written down, `version` is present on the `inbox` key
+from day one, a repo with no `discovery.json` **or** no `inbox` key is a defined
+state ("declares no inbox") rather than an error, and reading is tolerant of keys
+this effort does not own.
 
 ### 002 — `send-mail.sh`
 
@@ -136,7 +148,8 @@ error.
 Resolves `<repo>` through `repos.yml` (which already carries the path, and for
 worktree members resolves to the registered checkout — `create-ai-builder`
 addresses to `create-ai-builder/main`, not the bare container). Reads
-`<path>/inbox.json` **live**. Writes the message. Stamps `from:`.
+`<path>/discovery.json` **live** and takes its `inbox` key. Writes the message.
+Stamps `from:`.
 
 Does **not** commit. See `004` for why that is the right call and how it is made
 visible instead.
@@ -220,14 +233,14 @@ declaring an inbox and one not; send; assert the message landed with `from:` and
 the required fields; assert `make mail` lists it; assert `status.py` calls it
 `mail pending`; assert the undeclared repo fails informatively.
 
-### 008 — upstream: `create-project-system` emits `inbox.json`
+### 008 — upstream: `create-project-system` writes its `discovery.json` keys
 
 The generator just installed an inbox at a path it chose, so it can declare it in
 the same breath. This is the **only** change outside this repo, and it is one
 file of output — not the two scripts originally sketched, which were sender-side
 tools sitting on the receiver.
 
-**Deliberately non-blocking.** `inbox.json` can be hand-written for the handful
+**Deliberately non-blocking.** `discovery.json` can be hand-written for the handful
 of repos that matter now, so this effort does not wait on
 `create-project-system`'s active generator-extraction plan. Do it when that
 effort next opens, then re-vendor.
@@ -239,7 +252,7 @@ Upstream or not at all.
 **File it beside task `27`, and read `27` first.** That task already states this
 problem from the other side — its first listed coupling is *"probe for the mount
 — `find_tasks_dir()` tries `project/tasks` then `tasks`, because nothing in an
-install declares where it is."* `inbox.json` is the declaration that removes that
+install declares where it is."* The `tasks` key is the declaration that removes that
 probe. The two want to be designed together: `27` makes a task-system's
 *contents* machine-readable, this makes its *location* machine-readable, and
 neither alone is enough for `003`.
@@ -274,6 +287,13 @@ what it rules out, why.
   repo that `vendor/README.md` deliberately walls off from them — and which would
   need a re-scan on `update.sh` to avoid going stale. A declaration cannot go
   stale; it *is* the truth.
+- **One shared `discovery.json`, one key per capability — not a file per
+  capability.** Settled 2026-08-07, when `create-context-hygiene` task `13` needed
+  to declare something about the same repos before mail was built. `inbox.json` +
+  `context-hygiene.json` would leave a consumer probing for one file, then the
+  next — exactly the probing `28` exists to end, one level up. Two rules follow:
+  a generator **owns its keys and never rewrites another's**, and the version is
+  **per key**, since generators write at different times on different schedules.
 - **The declaration is read live, never cached into `repos.yml`.** A cache is a
   second copy that goes stale the moment the repo edits its own file, and it buys
   nothing: you can only send to a checked-out repo, and then the file is one read
@@ -301,15 +321,10 @@ deleting it.
   (workspace always writes the file itself, `create` is documentation for a human
   or agent), execute only for `kind` values on an allowlist, or execute freely
   and accept it. Not needed for `001`-`004`, all of which use `path`.
-- **Should `inbox.json` generalize to a capability manifest?** Opened as YAGNI;
-  **now has evidence and leans yes.** `create-project-system` task `27` records
-  that `replan.sh:53-62` probes for the task-system mount *"because nothing in an
-  install declares where it is"* — and that the resulting fragility took down a
-  whole run when a vocabulary difference read as a failure. A declaration that
-  named the mount would retire that probe, which means the file has a second
-  consumer before it has its first. Argues for `repo.json` with an `inbox` key
-  beside a `tasks` key rather than a single-purpose file. Decide this with `27`,
-  not after it. `version: 1` keeps the rename survivable either way.
+- **Which key does a repo with no task-system use?** `inbox` is deliberately
+  separate from `tasks` so a repo without a generated task-system can hand-write
+  the one key and still receive mail. Confirm `002` treats a hand-written `inbox`
+  identically to a generated one — no `kind` allowlist that quietly excludes it.
 - **Which epic receives, when a repo has several?** `main` is the catch-all and
   the obvious default, but the epic is a variable in the generator
   (`generate.sh:278` creates the status folders per epic), so the declaration
