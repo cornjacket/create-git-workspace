@@ -17,12 +17,20 @@ _Rewritten wholesale by `/wrap` at the end of each session — state, not a log.
 Never append a new dated entry; overwrite._
 
 - **current task** — none; effort not started. `001` is the entry point.
-- **next concrete step** — write the `inbox.json` contract (`001`). Everything
-  else reads or writes that file, so it is the only thing that cannot be done
-  in parallel.
+- **next concrete step** — read `create-project-system` task `27`
+  (`tasks/27-list-tasks-json-output.md`) **before** writing the `001` contract.
+  It states the same missing-declaration problem from the consumer side and
+  decides the payload shape this effort has to interoperate with; designing the
+  two independently is how they end up disagreeing. Then write `001` — everything
+  else reads or writes that file, so it is the only thing that cannot be
+  parallelised.
 - **files mid-edit** — none.
-- **uncommitted / unpushed** — this plan file.
-- **open questions** — see **Open questions** below; none block `001`.
+- **uncommitted / unpushed** — this plan file is committed; unpushed as of
+  2026-08-06.
+- **open questions** — see **Open questions** below. One *does* bear on `001`:
+  whether the declaration is a single-purpose `inbox.json` or a `repo.json`
+  manifest that also names the task-system mount. Task `27` supplies the
+  evidence; settle it there rather than guessing here.
 
 ## Why
 
@@ -143,7 +151,17 @@ Sweep every repo in `repos.yml`, read each declaration, list outstanding inbox
 items with their `from:`. This is the verb that cannot exist anywhere but the
 workspace, because only the workspace knows the roster.
 
-Acceptance: one row per repo with pending mail; silent when the floor is clean.
+**Read the inbox through `list-tasks.sh --json`, not by scraping.** That flag is
+`create-project-system` task `27`, already filed and unbuilt. Until it lands, the
+only machine interface to a task-system is the human output — and `replan.sh` is
+the cautionary tale: it scrapes a four-space indent (`replan.sh:74-78`), which
+has made that indent load-bearing public contract. Do not add a second consumer
+to that contract. If `27` has not landed when this task is reached, read the
+inbox *directory* (which `001`'s `path` gives us) rather than the lister, and
+switch to `--json` when it exists.
+
+Acceptance: one row per repo with pending mail; silent when the floor is clean;
+no scrape of human-formatted output anywhere in the implementation.
 
 ### 004 — `status.py`: pending mail is not uncommitted work
 
@@ -218,6 +236,20 @@ Note `tools/revendor.sh` does `rm -rf "$DEST"` — anything added to
 `vendor/create-project-system/` directly is destroyed on the next re-vendor.
 Upstream or not at all.
 
+**File it beside task `27`, and read `27` first.** That task already states this
+problem from the other side — its first listed coupling is *"probe for the mount
+— `find_tasks_dir()` tries `project/tasks` then `tasks`, because nothing in an
+install declares where it is."* `inbox.json` is the declaration that removes that
+probe. The two want to be designed together: `27` makes a task-system's
+*contents* machine-readable, this makes its *location* machine-readable, and
+neither alone is enough for `003`.
+
+Note also **how task `27` was filed** — "Requested by `dev-workspace` on
+2026-08-04 … Filed here because the workspace states the problem and this repo
+owns the interface." That is this effort's own workflow, executed by hand,
+before it existed. Same *demonstrated, not speculative* evidence `DESIGN.md` §8.7
+used to justify the triage area, and worth citing in `009`.
+
 ### 009 — graduate to `DESIGN.md`
 
 Per `docs/plans/README.md`, a decision left only in a plan is one the next effort
@@ -269,10 +301,15 @@ deleting it.
   (workspace always writes the file itself, `create` is documentation for a human
   or agent), execute only for `kind` values on an allowlist, or execute freely
   and accept it. Not needed for `001`-`004`, all of which use `path`.
-- **Should `inbox.json` generalize to a capability manifest?** One root file that
-  grows keys beats N single-purpose files if repos later declare other cross-repo
-  capabilities. Argues for `repo.json` with an `inbox` key. Also plain YAGNI —
-  and `version: 1` makes the rename survivable either way.
+- **Should `inbox.json` generalize to a capability manifest?** Opened as YAGNI;
+  **now has evidence and leans yes.** `create-project-system` task `27` records
+  that `replan.sh:53-62` probes for the task-system mount *"because nothing in an
+  install declares where it is"* — and that the resulting fragility took down a
+  whole run when a vocabulary difference read as a failure. A declaration that
+  named the mount would retire that probe, which means the file has a second
+  consumer before it has its first. Argues for `repo.json` with an `inbox` key
+  beside a `tasks` key rather than a single-purpose file. Decide this with `27`,
+  not after it. `version: 1` keeps the rename survivable either way.
 - **Which epic receives, when a repo has several?** `main` is the catch-all and
   the obvious default, but the epic is a variable in the generator
   (`generate.sh:278` creates the status folders per epic), so the declaration
