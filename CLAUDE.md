@@ -48,3 +48,26 @@ intent, so each developer keeps their own in their own workspace
 a file two people overwrite.
 
 <!-- git-workspace-commits:end -->
+
+## Name the repo before you touch it
+
+This repo sits **inside** the workspace it generates, so a session rooted here
+routinely operates on `dev-workspace` and on sibling children. That is allowed
+where a plan says so — but it must never be silent.
+
+- **Any command or file change targeting a path outside this repo is announced
+  first, tagged `[<workspace>/<repo>]`** — in the message, not only in the
+  command. Same tag on the result (`✅ [dev-workspace] abc1234 — title`) and on
+  any question you stop to ask.
+- **Why the tag and not the terminal:** the status line shows the **session
+  root**, and it does not move when you `cd`. A session rooted here can spend an
+  hour committing to `dev-workspace` with the screen still reading
+  `create-git-workspace`. Interactive prompts can cover that line entirely, so at
+  the moment someone is choosing, the only statement of *where* is the one you
+  wrote.
+- **Untagged, a cross-repo write reads as a local one** — and it is the write
+  most worth challenging.
+
+This is the human-facing half of the rule `guard.sh` enforces mechanically:
+`guard.sh` stops a child being staged into the wrapper index; this stops a
+correct cross-repo edit from being invisible.

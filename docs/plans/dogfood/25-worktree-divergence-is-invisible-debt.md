@@ -1,7 +1,9 @@
 # 25 — `status` measures a worktree against its remote, never against `main`
 
-Status: **filed 2026-08-07**, from a real integration on `create-ai-workspace`'s
-`create-ai-builder`.
+Status: **filed 2026-08-07**, from two real integrations on `dev-workspace`'s
+`create-ai-builder`. Both hit a conflict in the same file for the same reason;
+the second also produced a **clean rebase with a wrong tree**, which is what
+decided the automatic-vs-manual question below.
 
 `pending_findings()` answers exactly one question: *does this checkout differ
 from its own upstream?* Its kinds are `dirty`, `stashed`, `ahead`,
@@ -109,14 +111,15 @@ by discipline.
 
 The request this task came from was: *if past threshold, perform a rebase
 followed by a fast-forward.* **The measurement should be automatic. The rebase
-must not be.** Three reasons, in increasing order of severity:
+must not be.** Four reasons, in increasing order of severity:
 
 1. **A rebase can conflict.** An unattended rebase that hits a conflict leaves
    the worktree in a mid-rebase state with a detached HEAD and a half-applied
    patch series. That is strictly worse than the divergence it was fixing, and
    the daily routine would have done it to you overnight, on every diverged
    repo, in parallel. In the concrete case above, conflicts across those 8
-   shared files were **certain**.
+   shared files were **certain** — both integrations hit one, in the same file,
+   for the same reason.
 2. **Rebase rewrites published history.** All three branches on
    `create-ai-builder` are on `origin`. Rebasing rewrites commits the remote
    already has, so it forces a `--force-with-lease` push to reconcile. A daily
@@ -126,6 +129,47 @@ must not be.** Three reasons, in increasing order of severity:
    `guard.sh` exists precisely to stop the machinery from mutating managed
    checkouts. Making the daily run rewrite history inverts that guarantee, and
    every future reader of `status.py` would have to know it.
+4. **A rebase can SUCCEED and still leave the tree wrong.** This is the one that
+   settles it, and it was found the hard way — see below.
+
+### The strongest reason: a clean rebase that silently reverted a deletion
+
+Integrating `regression-infra` on 2026-08-07 produced no error, no conflict on
+the relevant file, and a wrong tree.
+
+The branch carried a matched pair of commits:
+
+- `886b039` **added** `.project-status-ignore` while un-bootstrapping;
+- `50e7794` **deleted** it again, once `project-status` was mothballed outright.
+
+`workspace-mgmt` had already integrated its own equivalent of the deletion
+(`a11c254`). So when `regression-infra` was rebased, git recognised `50e7794` as
+already-applied and dropped it:
+
+```
+warning: skipped previously applied commit 50e7794
+hint: use --reapply-cherry-picks to include skipped commits
+```
+
+**The delete was deduplicated. The add was not.** A file that had been
+deliberately removed came back, with nothing left in the branch to remove it
+again. The remaining commit contained *only* the resurrection, so the fix was to
+drop it entirely — but that required a human noticing a file existed that
+shouldn't, because git considered the rebase a success.
+
+This is qualitatively worse than reason 1. **A conflict stops and asks. This
+does not.** It exits zero, prints a `warning:` among the progress output, and
+hands back a tree that quietly contradicts a decision someone made on purpose.
+An unattended `make integrate` would have reported success, and the only trace
+would be a `warning:` line in a log nobody reads — on a schedule, across every
+diverged repo, with the operator's confidence that the automation "handled it".
+
+The generalisation worth keeping: **cherry-pick deduplication is content-based
+and one-directional.** When two branches independently perform the same
+*sequence* of changes, rebase can drop one commit of the sequence and keep
+another, leaving a state neither branch ever had. Long-lived parallel branches
+doing the same cross-cutting chore — which is exactly what this task exists to
+detect — are the case that produces it.
 
 The honest split: **automate the thing that is always safe and always right
 (counting), and make the dangerous thing one keystroke away (`make integrate`).**
@@ -133,7 +177,20 @@ That achieves the actual goal — *do not allow long-lived divergence* — becau
 what prevents drift is knowing about it early, not repairing it unattended.
 
 `make integrate` should additionally: refuse on a dirty tree, abort the rebase
-cleanly on conflict and say so, and **never push**. Pushing stays the operator's.
+cleanly on conflict and say so, **surface every skipped cherry-pick as a
+first-class result rather than a buried `warning:`**, and **never push**.
+Pushing stays the operator's.
+
+The skipped-commit report is not optional polish. It is the only signal
+distinguishing "rebased cleanly" from "rebased cleanly and dropped a commit you
+meant to keep", and git prints it at a severity that guarantees it is missed.
+`git rebase` should be run so that skips are captured (`--no-reapply-cherry-picks`
+is the default; the skips are enumerable from the rebase output) and echoed as:
+
+```
+integrated workspace-mgmt -> main  (15 commits, 1 skipped as already applied)
+  skipped: 50e7794 chore: drop .project-status-ignore — REVIEW: its pair may not have been skipped
+```
 
 ## Where to implement — not in `dev-workspace`
 
@@ -173,5 +230,13 @@ is a source file.
   read-only contract still holds.
 - ✅ `make integrate` refuses a dirty tree, aborts cleanly on conflict, and does
   not push.
+- ✅ `make integrate` reports skipped-as-already-applied commits in its own
+  output, by SHA and subject, and exits non-zero (or prints a REVIEW banner) when
+  any occurred — a clean-looking rebase that dropped a commit must not read as an
+  unqualified success.
 - ✅ A test covers a workspace with a diverged worktree, using the
   `git-workspace-test` fixture.
+- ✅ A test reproduces the add/delete pair: branch A adds a file then deletes it,
+  branch B deletes the same file independently, B integrates first. Rebasing A
+  must either preserve the deletion or report the skip loudly — it must not
+  resurrect the file silently.

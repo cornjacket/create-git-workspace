@@ -30,6 +30,17 @@ running the status pipeline.
   the wrong repo or staging a child into the wrapper index (what `guard.sh`
   catches). Do real code work in the owning child repo, from a session rooted
   there; this wrapper manages the *set* of repos, not their contents.
+- **Name the repo before you touch it.** Any command or file change targeting a
+  path outside the session's own root is **announced first, tagged
+  `[<workspace>/<repo>]`** — in the message, not only in the command. Same tag on
+  the result (`✅ [dev-workspace/foo] abc1234 — title`), and in any question you
+  stop to ask. The reader's status line shows the **session root**, which does not
+  move when you `cd`: a session rooted in one repo can spend an hour committing to
+  another with the screen still naming the first. Interactive prompts can cover
+  that line entirely, so at the exact moment someone is deciding, the only
+  statement of *where* is the one you wrote. Untagged, a cross-repo write is
+  indistinguishable from a local one — and it is the write you would most want
+  challenged.
 - **Never hand-edit `.workspace/repos.yml`.** It is a lockfile maintained by
   `add-repo.py` / `delete-repo.py` / `mute-repo.py` / `routine-registered.py`
   and replayed by `bootstrap.sh`. `make` (no target) lists every verb.

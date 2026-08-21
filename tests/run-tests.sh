@@ -313,6 +313,12 @@ test_claude_md() {
   # appears just in the title would vanish for a user who brought their own file.
   assert_grep "block substitutes the name"       '\(`ws-claude-create`\)'  "$d/CLAUDE.md"
   assert_grep "block carries a version echo"     'create-git-workspace v'  "$d/CLAUDE.md"
+  # The cross-repo announcement rule is KERNEL, not guide material: by the time
+  # an on-demand doc loads, the unannounced write has already happened.
+  assert_grep "block requires cross-repo work to be announced" \
+    'Name the repo before you touch it' "$d/CLAUDE.md"
+  assert_grep "...with the tag format spelled out" \
+    '\[<workspace>/<repo>\]' "$d/CLAUDE.md"
 
   # replace — a stale block is swapped, surrounding text preserved
   d="$SANDBOX/ws-claude-replace"; rm -rf "$d"; mkdir -p "$d"
