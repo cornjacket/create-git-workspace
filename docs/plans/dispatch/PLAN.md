@@ -11,6 +11,38 @@ Follows [`proposals`](../proposals/PLAN.md), which turns an idea into a task in
 the target repo. This effort starts work on such a task. It also replaces the
 part of [`mail`](../mail/PLAN.md) that left reply paths out of scope.
 
+Provenance for the transferable lesson: the second-brain note
+`[[leader-agent-across-a-multi-repo-workspace]]`
+(`vault/resources/leader-agent-across-a-multi-repo-workspace.md`).
+
+## Overview
+
+The leader in the workspace does two separate things: hand-over (`proposals`)
+and work start (this effort).
+
+```
+                               YOU
+                    ideas · answers · approvals · merges
+                                │
+                                ▼
+ ┌──────────────────── WORKSPACE (dev-workspace) ────────────────────┐
+ │  LEADER session  (rooted at workspace root, auto mode)            │
+ │                                                                   │
+ │  proposals/   rough ─► shaped ─► ready ─► handed-over ─► closed   │
+ │  runs/<id>/   status.json · questions · replies · logs            │
+ └─────────┬──────────────────────────────────────┬──────────────────┘
+           │ 1. HAND-OVER   (claude -p)           │ 2. WORK START  (claude --bg)
+           │ "create a task from this proposal"   │ "work on task 31"
+           ▼                                      ▼
+ ┌─ child repo · main checkout ─┐    ┌─ child repo · registered worktree ─┐
+ │ CHILD session (repo's rules) │    │ CHILD session (repo's rules)        │
+ │ creates + commits task 31    │    │ builds on a branch, commits         │
+ │ replies: "31"                │    │ Stop hook ─► status.json            │
+ └──────────────────────────────┘    │ questions ◄──► leader ◄──► you      │
+                                     └─────────────────────────────────────┘
+         task system: owns accepted work           you review + merge
+```
+
 ## Where I left off
 
 _Rewritten wholesale by `/wrap` at the end of each session — state, not a log.
@@ -199,6 +231,12 @@ Settled by the user on 2026-10-22 unless marked. One line each.
    launch on 2.1.308: `--bg` ignores `--session-id` ("--bg manages the session
    id"). Replaces the proposal's plan to start each session with
    `--session-id <uuid>`.
+7. **Matching permission modes** (user, 2026-10-23). The leader and every child
+   run in the same mode (auto). Messages between sessions in different modes are
+   held for human approval. See the first-dispatch findings below.
+8. **The leader creates and registers every worktree** (user, 2026-10-23). The
+   child never picks one. Rules out a child making its own worktree that
+   `repos.yml` cannot see, which the first dispatch did.
 
 ## Open questions
 
@@ -212,7 +250,9 @@ deleting it. Numbers in brackets are the leader proposal's original numbers.
    normal clone. Gates the start of this effort.
 2. **[5] What is the default permission profile for a child session?** Not
    bypass. It has to edit, run tests, and commit with no one at the prompt.
-   Shared with `proposals`.
+   Shared with `proposals`. **Partly settled by decision 7:** the mode is auto,
+   the same as the leader. Still open: whether auto alone is enough, or the
+   launch also scopes `--allowedTools`.
 3. **How does the leader deliver the first prompt?** The positional prompt was
    dropped with `--bg`, and `SendMessage` worked. `SendMessage` is a tool of a
    Claude session, so a `make` verb alone cannot start work. Either work start is
@@ -252,6 +292,20 @@ session):
 - `--bg` ignores `--session-id` and says "--bg manages the session id".
 - A prompt passed as a positional argument with `--bg` was dropped. The session
   started idle and needed the prompt delivered by `SendMessage`.
+
+**Found in the first real dispatch** (2.1.308, this effort's own planning
+session):
+
+- A cross-session message from a bypass-mode leader to an acceptEdits child was
+  held until the user approved it in the child's view. Idle notices from that
+  child also did not reach the leader within 12 hours. Decision 7 follows.
+- acceptEdits prompted for every shell command, including read-only `ls` and
+  `cat`. The child sat at its first prompt for about 12 hours. It ran only after
+  the user picked "Yes, and switch to auto mode".
+- The child created its own worktree at `.claude/worktrees/proposals-and-dispatch`
+  (branch `plan/proposals-and-dispatch`). That worktree is not in `repos.yml`,
+  and it shows as untracked `.claude/worktrees/` in the main checkout.
+  Decision 8 follows.
 
 **Not yet checked:**
 

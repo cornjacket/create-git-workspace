@@ -10,7 +10,8 @@ file is only this effort.
 Replaces most of [`mail`](../mail/PLAN.md), which is now `superseded`. Its
 sibling effort [`dispatch`](../dispatch/PLAN.md) starts work on a task after
 hand-over. Hand-over and work start are separate actions, and often only
-hand-over happens.
+hand-over happens. The [Overview](../dispatch/PLAN.md#overview) diagram in
+`dispatch` shows both actions.
 
 ## Where I left off
 
@@ -296,7 +297,8 @@ deleting it. Numbers in brackets are the leader proposal's original numbers.
    task scripts and `git commit` with no one at the prompt. Child sessions do
    not run with bypass permissions. Candidates: `--allowedTools` scoped to the
    declared scripts and `git`, or a named permission mode. Shared with
-   `dispatch`.
+   `dispatch`. **Partly settled** by `dispatch` decision 7 (2026-10-23): every
+   child runs in the leader's mode, auto.
 4. **[6] Can the leader read child transcripts safely and cheaply enough for
    capture?** Transcripts can be large. Reading a slice, or delegating to a
    read-only subagent, are candidates.
