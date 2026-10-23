@@ -33,6 +33,13 @@ There are **two sequencing layers**, and they answer different questions.
 | **parked** | complete-in-scope or deliberately deferred, with open follow-ups | `docs/plans/<name>/` |
 | **queued** | designed, not started | `docs/plans/<name>/` |
 | **archived** | finished, nothing points at it any more | `docs/plans/<name>/` |
+| **superseded** | replaced by other efforts before it was finished. Will not be built as written | `docs/plans/<name>/` |
+
+A **superseded** effort keeps its plan as the record of what was designed and
+why it was replaced. Its plan records each superseded decision and task with the
+reason, and names the efforts that took over the rest. Its master row points at
+those efforts. Do not delete the replaced text: the reasoning is what stops the
+next effort from re-proposing it.
 
 Every effort lives in the same place regardless of state. **State is a field the
 master owns, not a filesystem location** — moving files to signal status is how
@@ -103,6 +110,11 @@ index.
 - [`rollups/`](rollups/) — readable, trustworthy daily artifacts (2026-08-07 → ).
 - [`dogfood/`](dogfood/) — stood up the first workspace, retired `project-status`
   (2026-08-02 → 08-06, parked with follow-ons).
-- [`mail/`](mail/) — cross-repo task hand-off (designed 2026-08-06, queued).
+- [`proposals/`](proposals/) — workspace proposals and hand-over to the target
+  repo (designed 2026-10-22, queued).
+- [`dispatch/`](dispatch/) — the leader starts background work on a task in a
+  registered worktree (designed 2026-10-22, queued).
+- [`mail/`](mail/) — cross-repo task hand-off (designed 2026-08-06, superseded
+  2026-10-22 by `proposals` and `dispatch`).
 - [`genesis/`](genesis/) — built the generator itself (2026-07-31 → 2026-08-02,
   archived).

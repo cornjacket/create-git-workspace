@@ -24,7 +24,9 @@ exists.
 |---|---|---|
 | [`rollups`](docs/plans/rollups/PLAN.md) | **active** | make the daily artifacts readable and trustworthy — tasks `18`, `23`, `24` |
 | [`dogfood`](docs/plans/dogfood/PLAN.md) | **parked** | stood up the first workspace and retired `project-status`. Scope met 08-06; `17`, `20`-writer, `25`, `26` remain as follow-ons |
-| [`mail`](docs/plans/mail/PLAN.md) | **queued** | one repo files a task into another repo's inbox. Unblocked in substance since 08-07 — was waiting only on a slot |
+| [`proposals`](docs/plans/proposals/PLAN.md) | **queued** | the workspace leader keeps ideas as proposals and hands a ready one to the target repo, which creates its own task |
+| [`dispatch`](docs/plans/dispatch/PLAN.md) | **queued** | the leader starts a background agent on a task in a registered worktree and relays its status and questions. Needs `dogfood` `12` and `25` |
+| [`mail`](docs/plans/mail/PLAN.md) | superseded | one repo files a task into another repo's inbox. Superseded 2026-10-22 by [`proposals`](docs/plans/proposals/PLAN.md) and [`dispatch`](docs/plans/dispatch/PLAN.md) |
 | [`genesis`](docs/plans/genesis/PLAN.md) | archived | built the generator itself (2026-07-31 → 08-02) |
 
 ## Order, and why
@@ -32,12 +34,17 @@ exists.
 1. **`rollups`** — active. It owns the judge that grades model-generated daily
    output. Everything downstream of it stays unmeasurable until it lands, and it
    is already carrying a task (`24`) built ahead of that judge.
-2. **`mail`** — next. Cross-repo hand-offs are currently done by hand and by
-   memory; its blocking design question was settled 08-07 and its entry point
-   (`create-project-system` `27`) landed the same day.
-3. **`dogfood`'s remainder** — `17` is one edit across four copies of the commit
+2. **`proposals`** — next. The user works through one leader in the workspace
+   and today drives each child repo's agent by hand. Hand-over needs nothing
+   from `dogfood`, so it can start as soon as `rollups` frees the slot.
+3. **`dispatch`** — after `proposals`. Work start acts on a task that hand-over
+   created, and it cannot start until `dogfood` `12` (the worktree lifecycle
+   verb) and `25` phase 1 (divergence measurement) land. Take those two ahead
+   of it.
+4. **`dogfood`'s remainder** — `17` is one edit across four copies of the commit
    schema and can be taken at any time. `20`'s writer half, `25` and `26` are
-   larger and unsequenced against each other.
+   larger and unsequenced against each other, except that `dispatch` pulls `12`
+   and `25` forward.
 
 ## Rules
 

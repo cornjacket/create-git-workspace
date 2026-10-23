@@ -6,16 +6,21 @@ repo's inbox, addressed by location and declared by the receiver.**
 Started 2026-08-06. Task files: drafted inline below until they stop moving.
 Durable design lives in `DESIGN.md`; this file is only this effort.
 
-<!-- PARKED: this effort is queued, not active. The root PLAN.md slot is held by
-     `dogfood` (tasks 16-22 open). Per docs/plans/README.md there is one active
-     plan at a time — promote this file to the repo root when dogfood archives.
-     Nothing here is blocked by that; it is a sequencing rule, not a dependency. -->
+> **Superseded 2026-10-22.** Replaced by two efforts:
+> [`proposals`](../proposals/PLAN.md) (capture and hand-over) and
+> [`dispatch`](../dispatch/PLAN.md) (work start). Nothing in this file will be
+> built as written. It stays as the record of what was designed and why each
+> part was replaced — see **Superseded** below. The rest of the file is
+> unchanged from 2026-08-07, except status markers on the task table and two
+> decisions.
 
 ## Where I left off
 
 _Rewritten wholesale by `/wrap` at the end of each session — state, not a log.
 Never append a new dated entry; overwrite._
 
+- **superseded 2026-10-22** — no further work here. The state below is the last
+  state before supersession, kept for the record.
 - **current task** — none; effort not started. `001` is the entry point.
 - **next concrete step** — read `create-project-system` task `27`
   (`tasks/27-list-tasks-json-output.md`) **before** writing the `001` contract.
@@ -30,6 +35,64 @@ Never append a new dated entry; overwrite._
   that did — single-purpose file versus shared manifest — was **settled on
   2026-08-07** in favour of a shared `discovery.json`, recorded under
   **Decisions**.
+
+## Superseded (2026-10-22)
+
+The user decided on 2026-10-22 to replace this effort with `proposals` and
+`dispatch`, from a `dev-workspace` leader proposal. The new design has **one
+leader** in the workspace instead of peer-to-peer sending, and the **target
+repo creates its own task** instead of receiving a file. Each change is recorded
+here with its reason. The original text below is not edited.
+
+### Decisions superseded
+
+| Decision as written | Replaced by | Reason |
+|---|---|---|
+| **Peer-to-peer sender model** — any repo session sends to any other repo (*Why*, *Scope*) | Only the leader writes proposals (`proposals` decision 4) | Child repos must not influence siblings. All proposals pass through the leader |
+| **Deliver by writing, not committing** | The hand-over session, rooted in the target, creates and commits its own task (`proposals` `004`) | Nothing writes into the target from outside, so there is no dirty tree to explain. The commit happens inside the owning repo, under its own hooks and schema, which removes the boundary violation this decision avoided |
+| **Delivery is positional; `to:` is not needed, `from:` is** | A proposal carries a `target` field (`proposals` `001`) | The proposal stays in the workspace, so its location no longer names the target. Not listed by the user; recorded here as a consequence of the two rows above |
+
+### Decisions that still hold
+
+Carried into [`proposals`](../proposals/PLAN.md) decision 10:
+
+- **Mail is addressed to repos, not agents.** The repo owns the task; agents are
+  couriers.
+- **One shared `discovery.json`, one key per capability.** Only the key changes:
+  `tasks` stays, `inbox` goes.
+- **The declaration is read live, never cached into `repos.yml`.**
+
+Also unaffected: *the receiver declares, the workspace does not detect* (now the
+`tasks` key); *instructions live once, in a workspace skill* (now the leader
+skill); *the mechanism belongs to `create-git-workspace`*.
+
+### Tasks
+
+| # | Outcome | Reason |
+|---|---|---|
+| 001 | **superseded** | The `inbox` key declares an intake nobody writes to any more. The `tasks` key from `008` replaces it |
+| 002 | **superseded** | `send-mail.sh` writes into the target from outside. Hand-over (`proposals` `004`) runs the target's own scripts in a session rooted there |
+| 003 | **superseded** | `make mail` sweeps inboxes for foreign mail. Open work is now listed from the workspace's own proposals (`proposals` `002`) |
+| 004 | **superseded** | `mail pending` explained a dirty tree that delivery by writing caused. Hand-over commits, so no tree is left dirty |
+| 005 | moved → `proposals` `005` | Still needed. `rollups` `24` needs the same change; do it once |
+| 006 | **superseded** | The `send-mail` skill is for a peer sender. Replaced by the leader skill (`proposals` `006`) |
+| 007 | moved → `proposals` `007`, rewritten | Same harness, new assertions: capture, list, hand-over |
+| 008 | partly moved → `proposals` `003` | The `tasks` key stays. The `inbox` key goes with `001` |
+| 009 | moved → `proposals` `008` | Graduation is still owed for the decisions that hold |
+
+### Open questions
+
+- *Does the workspace ever execute `create`?* — **moot.** The leader no longer
+  runs a repo's intake command. The target's own session runs its own scripts.
+- *Which key does a repo with no task-system use?* — moved to `proposals` open
+  question 2, reframed: what does hand-over do for a repo with no task system?
+- *Which epic receives, when a repo has several?* — moved to `proposals` open
+  question 7.
+
+### Out of scope here, in scope now
+
+*Reply paths* were out of scope for `mail`. Hand-over still needs none. Work
+start needs status and replies, and `dispatch` owns them.
 
 ## Why
 
@@ -88,15 +151,15 @@ moving.
 
 | # | Task | Status |
 |---|---|---|
-| 001 | the `inbox` key in `discovery.json` + required message fields | todo |
-| 002 | `send-mail.sh` — resolve, read declaration, write the message | todo |
-| 003 | `make mail` — sweep every repo's inbox, list what is outstanding | todo |
-| 004 | `status.py`: inbox-only dirt reads as `mail pending`, not `uncommitted` | todo |
-| 005 | generalize the skill install loop to own more than one skill dir | todo |
-| 006 | the `send-mail` skill | todo |
-| 007 | acceptance tests | todo |
-| 008 | upstream: `create-project-system` writes its `discovery.json` keys (non-blocking) | todo |
-| 009 | graduate the durable decisions into `DESIGN.md` | todo |
+| 001 | the `inbox` key in `discovery.json` + required message fields | superseded |
+| 002 | `send-mail.sh` — resolve, read declaration, write the message | superseded |
+| 003 | `make mail` — sweep every repo's inbox, list what is outstanding | superseded |
+| 004 | `status.py`: inbox-only dirt reads as `mail pending`, not `uncommitted` | superseded |
+| 005 | generalize the skill install loop to own more than one skill dir | moved → `proposals` `005` |
+| 006 | the `send-mail` skill | superseded |
+| 007 | acceptance tests | moved → `proposals` `007` |
+| 008 | upstream: `create-project-system` writes its `discovery.json` keys (non-blocking) | `tasks` key moved → `proposals` `003`; `inbox` superseded |
+| 009 | graduate the durable decisions into `DESIGN.md` | moved → `proposals` `008` |
 
 ### 001 — the `inbox` key in `discovery.json`
 
@@ -279,7 +342,7 @@ what it rules out, why.
   anything addressed to it dies with it. A repo is a place and persists. Agents
   are the couriers, not the correspondents. Rules out an agent-to-agent message
   bus, which would rebuild coordination the harness already provides in-session.
-- **Delivery is positional; `to:` is not needed, `from:` is.** Location is the
+- **[Superseded 2026-10-22 — see *Superseded*.]** **Delivery is positional; `to:` is not needed, `from:` is.** Location is the
   address, so a routing field is redundant — but provenance cannot be derived
   from location, so it must be carried.
 - **The receiver declares; the workspace does not detect.** Rules out scanning
@@ -303,7 +366,7 @@ what it rules out, why.
   `INBOX.md` per repo. Not `CLAUDE.md` either — always-on tax for something used
   only when sending, which is the on-demand bucket in
   `[[agent-instruction-placement]]`.
-- **Deliver by writing, not committing.** Committing into a repo from a session
+- **[Superseded 2026-10-22 — see *Superseded*.]** **Deliver by writing, not committing.** Committing into a repo from a session
   rooted elsewhere is the real boundary violation; a file write is not. The cost
   is a dirty tree, paid for by `004`.
 - **The mail mechanism belongs to `create-git-workspace`, not
