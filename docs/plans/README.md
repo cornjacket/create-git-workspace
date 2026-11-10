@@ -110,6 +110,8 @@ index.
 - [`rollups/`](rollups/) — readable, trustworthy daily artifacts (2026-08-07 → ).
 - [`dogfood/`](dogfood/) — stood up the first workspace, retired `project-status`
   (2026-08-02 → 08-06, parked with follow-ons).
+- [`cadence/`](cadence/) — weekly status runs: cadence-neutral names, visible
+  schedule, measured cost (designed 2026-11-10, queued).
 - [`proposals/`](proposals/) — workspace proposals and hand-over to the target
   repo (designed 2026-10-22, queued).
 - [`dispatch/`](dispatch/) — the leader starts background work on a task in a

@@ -24,6 +24,7 @@ exists.
 |---|---|---|
 | [`rollups`](docs/plans/rollups/PLAN.md) | **active** | make the daily artifacts readable and trustworthy — tasks `18`, `23`, `24` |
 | [`dogfood`](docs/plans/dogfood/PLAN.md) | **parked** | stood up the first workspace and retired `project-status`. Scope met 08-06; `17`, `20`-writer, `25`, `26` remain as follow-ons |
+| [`cadence`](docs/plans/cadence/PLAN.md) | **queued** | weekly cadence on the $20 plan: cadence-neutral names, schedule in the README, per-run token cost — tasks `28`, `29`, `30` |
 | [`proposals`](docs/plans/proposals/PLAN.md) | **queued** | the workspace leader keeps ideas as proposals and hands a ready one to the target repo, which creates its own task |
 | [`dispatch`](docs/plans/dispatch/PLAN.md) | **queued** | the leader starts a background agent on a task in a registered worktree and relays its status and questions. Needs `dogfood` `12` and `25` |
 | [`mail`](docs/plans/mail/PLAN.md) | superseded | one repo files a task into another repo's inbox. Superseded 2026-10-22 by [`proposals`](docs/plans/proposals/PLAN.md) and [`dispatch`](docs/plans/dispatch/PLAN.md) |
