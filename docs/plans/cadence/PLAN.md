@@ -11,10 +11,10 @@ _Rewritten wholesale by `/wrap` at the end of each session — state, not a log.
 Never append a new dated entry; overwrite._
 
 - **current task** — none started.
-- **next concrete step** — `28`: settle the script name, then rename.
+- **next concrete step** — `28`: rename in `template/`, with the `daily.sh` shim.
 - **files mid-edit** — none.
 - **uncommitted / unpushed** — none.
-- **open questions** — see below.
+- **open questions** — none.
 
 ## Scope
 
@@ -34,10 +34,11 @@ Never append a new dated entry; overwrite._
 
 - 2026-11-10 — The dev-workspace routine moved to weekly (`43 12 * * 1`) and to `claude-haiku-5-5`, done by hand via `RemoteTrigger`. No code change: the run window is commit-based (`last_commit..HEAD`), so a weekly run covers the whole week.
 - 2026-11-10 — No `cadence:` field in `config.yml`. The live routine is the only source of truth for the schedule.
+- 2026-11-10 — `daily.sh` becomes `routine.sh`. The file is the entry point the routine calls: it branches, runs `run.py`, commits and pushes. `run.py` does the summarizing, so `summarize.sh` would misname it. `update.sh` is out: it names the generator's refresh script. "Routine" is already the repo's word for this (`routine-sync.py`, `routine-registered.py`, `routine_url`).
 
 ## Open questions
 
-- `28`: what replaces `daily.sh`? `update.sh` is out — it names the generator's refresh script. Candidates: `summarize.sh`, `routine.sh` (the entry point the routine calls; `run.py` does the summarizing, this script branches, commits and pushes).
+None.
 
 ## Done when
 

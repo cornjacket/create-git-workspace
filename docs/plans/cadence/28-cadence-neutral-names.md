@@ -6,7 +6,7 @@ The routine now runs weekly, but the names still say "daily". Rename:
 
 | Now | New |
 |---|---|
-| `.workspace/scripts/daily.sh` | open question — see `PLAN.md`. Not `update.sh`: that names the generator's refresh script |
+| `.workspace/scripts/daily.sh` | `.workspace/scripts/routine.sh` (decided 2026-11-10 — see `PLAN.md`) |
 | `.workspace/daily-plans/<repo>/daily-plan.md` | `.workspace/current-plans/<repo>/current-plan.md` |
 | plan header `# Daily plan — YYYY-MM-DD` | `# Plan — YYYY-MM-DD` |
 | `daily-plan-summary.md` | `current-plan-summary.md` |
