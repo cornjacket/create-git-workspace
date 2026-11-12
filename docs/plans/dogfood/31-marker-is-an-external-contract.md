@@ -1,6 +1,6 @@
 # 31 — record that the workspace marker is an external contract
 
-Status: **landed 2026-11-12, awaiting owner close** — note added to `DESIGN.md` §7.2. No code change.
+Status: **done 2026-11-12** — note added to `DESIGN.md` §7.2. No code change.
 
 The `dotfiles` repo finds git-workspaces from outside this repo.
 `claude-leader` and `claude-workspaces` in
