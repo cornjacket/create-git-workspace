@@ -12,15 +12,13 @@ belonging to it. Task files: `docs/plans/rollups/`. Durable design lives in
 _Rewritten wholesale by `/wrap` at the end of each session — state, not a log.
 Never append a new dated entry; overwrite._
 
-- **current task** — none in flight. The effort was constituted, not started.
-- **next concrete step** — **`23`**, and specifically its *judge* half before any
-  prompt edit. `23`'s own acceptance says build the harness first; `24` was then
-  filed deliberately ahead of it, so every session that picks up `24` instead
-  increases the amount of ungraded generated output. Start with the rubric file
-  and the frozen fixture set drawn from `git log -p summary.md`, with the 08-06
-  run frozen as the known-bad case.
+- **current task** — none in flight. Effort still not started.
+  Last session (11-12) was off-effort: `dogfood` [`31`](../dogfood/31-marker-is-an-external-contract.md), done and closed.
+- **next concrete step** — **`23`**, *judge* half first, before any prompt edit.
+  Create the rubric file + frozen fixture set from `git log -p summary.md`;
+  freeze the 08-06 run as the known-bad case. Not `24` — it adds ungraded output.
 - **files mid-edit** — none.
-- **uncommitted / unpushed** — none as of 2026-08-07.
+- **uncommitted / unpushed** — none. Checked 2026-11-12: clean tree, `main` = `origin/main` @ `2467c1f`.
 - **open questions** — all four of `23`'s are still open and one of them gates
   the rubric: **who is the reader?** `summary.md` is author-scoped, so if the
   real reader is the author a week later then "outsider" is the wrong target and
