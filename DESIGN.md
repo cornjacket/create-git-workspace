@@ -293,6 +293,11 @@ command surface.
   └── <child repos>/         ignored by the allowlist
 ```
 
+> **External contract.** The `.workspace/config.yml` marker path and the
+> `~/src/<host>/<org>/<repo>` workspace depth are used outside this repo:
+> `claude-leader` in `dotfiles` ([`zsh/.config/zsh/claude.zsh`](https://github.com/cornjacket/dotfiles/blob/main/zsh/.config/zsh/claude.zsh))
+> finds workspaces by both. A change to either one needs a matching change there.
+
 The emitted allowlist `.gitignore` — ignore-by-default plus explicit exceptions,
 so adding a child repo can never accidentally get tracked:
 

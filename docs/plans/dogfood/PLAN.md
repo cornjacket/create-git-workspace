@@ -129,6 +129,7 @@ In order. Acceptance is one line each until these are extracted into files.
 | 25 | `status` measures a worktree against its remote, never against `main` — [`25`](25-worktree-divergence-is-invisible-debt.md) | **filed 08-07** — filed from a live three-worktree integration |
 | 26 | the plan layer has no sequencer — [`26`](26-the-plan-layer-has-no-sequencer.md) | **filed 08-07** — master plan at the root; this effort parked rather than archived |
 | 27 | ship the step-map convention into every child repo — [`27`](27-step-map-in-the-child-repo-kernel.md) | **filed 08-13** — a peer kernel beside the commit one; rule-of-three deliberately waived |
+| 31 | the workspace marker is an external contract — [`31`](31-marker-is-an-external-contract.md) | **landed 11-12, awaiting close** — DESIGN.md §7.2 names the `dotfiles` dependency; no code change |
 | 10 | track incomplete routine registration; make `add-repo` idempotent | **done**, dogfooded into `dev-workspace` |
 | 05 | create the `/schedule` routine, add every repo to `sources` | **done** for the current roster |
 | 06 | run a full day: routine writes, `make pull` lands it | **done** — passed first try |
