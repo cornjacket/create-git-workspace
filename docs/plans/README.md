@@ -107,7 +107,8 @@ no archive event to flush it — anything that accretes there stays forever.
 The master [`PLAN.md`](../../PLAN.md) is the live list. This is the directory
 index.
 
-- [`rollups/`](rollups/) — readable, trustworthy daily artifacts (2026-08-07 → ).
+- [`rollups/`](rollups/) — readable, trustworthy daily artifacts (2026-08-07,
+  parked 11-12 without starting).
 - [`dogfood/`](dogfood/) — stood up the first workspace, retired `project-status`
   (2026-08-02 → 08-06, parked with follow-ons).
 - [`cadence/`](cadence/) — weekly status runs: cadence-neutral names, visible
@@ -115,7 +116,8 @@ index.
 - [`proposals/`](proposals/) — workspace proposals and hand-over to the target
   repo (designed 2026-10-22, queued).
 - [`dispatch/`](dispatch/) — the leader starts background work on a task in a
-  registered worktree (designed 2026-10-22, queued).
+  registered worktree (designed 2026-10-22, active 11-12; drives `dogfood` `12`
+  and `25`).
 - [`mail/`](mail/) — cross-repo task hand-off (designed 2026-08-06, superseded
   2026-10-22 by `proposals` and `dispatch`).
 - [`genesis/`](genesis/) — built the generator itself (2026-07-31 → 2026-08-02,

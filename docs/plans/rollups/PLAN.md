@@ -7,6 +7,15 @@ Started 2026-08-07, from three tasks that accumulated in `dogfood` without
 belonging to it. Task files: `docs/plans/rollups/`. Durable design lives in
 `DESIGN.md`; this file is only this effort.
 
+<!-- PARKED 2026-11-12: the user promoted `dispatch` and pulled `dogfood` 12 and
+     25 into it. This effort had not started, so nothing was interrupted. It is
+     parked, not abandoned: `18`, `23` and `24` are all open and still name it.
+     `23`'s rubric is also waiting on an answer the user owns — "who is the
+     reader of summary.md?" — so the slot was not free in practice either.
+     Sequenced from the master plan at the repo root. -->
+
+**Status: parked.** Scope untouched — none of `18`, `23`, `24` has started.
+
 ## Where I left off
 
 _Rewritten wholesale by `/wrap` at the end of each session — state, not a log.

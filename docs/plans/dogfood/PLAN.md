@@ -12,6 +12,12 @@ effort.
      master plan at the repo root; see task 26 for why parking is now a legal
      state. Tasks `18`, `23` and `24` moved to `docs/plans/rollups/`. -->
 
+<!-- STILL PARKED 2026-11-12: `12` and `25` are now driven by the active
+     `dispatch` effort, which depends on both. Their files stay here and keep
+     their numbers — the master plan, this table and task `26` all link to these
+     paths. Only who drives them changed. `17`, `20`'s writer half and `26` are
+     this effort's remaining follow-ons. -->
+
 **Status: parked.** Scope met 2026-08-06 — `01`–`15` all landed and `08`
 mothballed `project-status`. What remains is follow-on defects, not scope this
 plan set out with.
@@ -126,7 +132,7 @@ In order. Acceptance is one line each until these are extracted into files.
 | 20 | `sources` should be a verb, not a manual seam — [`20`](20-sources-should-be-a-verb.md) | **reader done 08-07** — `routine-sync.py --check`, 394 assertions, live; the writer stays open behind a round-trip verification |
 | 21 | a workspace with no routine should not nag — [`21`](21-no-routine-no-nag.md) | **done** — 362 assertions; `personal-workspace` green |
 | 22 | `replan` crashes and truncates the roster — [`22`](22-replan-crashes-and-truncates.md) | **done** — 353 assertions, dogfooded into both workspaces |
-| 25 | `status` measures a worktree against its remote, never against `main` — [`25`](25-worktree-divergence-is-invisible-debt.md) | **filed 08-07** — filed from a live three-worktree integration |
+| 25 | `status` measures a worktree against its remote, never against `main` — [`25`](25-worktree-divergence-is-invisible-debt.md) | **filed 08-07** — filed from a live three-worktree integration. Phase 1 **driven by [`dispatch`](../dispatch/PLAN.md) from 2026-11-12** |
 | 26 | the plan layer has no sequencer — [`26`](26-the-plan-layer-has-no-sequencer.md) | **filed 08-07** — master plan at the root; this effort parked rather than archived |
 | 27 | ship the step-map convention into every child repo — [`27`](27-step-map-in-the-child-repo-kernel.md) | **filed 08-13** — a peer kernel beside the commit one; rule-of-three deliberately waived |
 | 31 | the workspace marker is an external contract — [`31`](31-marker-is-an-external-contract.md) | **done 11-12** — DESIGN.md §7.2 names the `dotfiles` dependency; no code change |
@@ -134,7 +140,7 @@ In order. Acceptance is one line each until these are extracted into files.
 | 05 | create the `/schedule` routine, add every repo to `sources` | **done** for the current roster |
 | 06 | run a full day: routine writes, `make pull` lands it | **done** — passed first try |
 | 11 | `summary.md` holds the latest run only, not a growing journal | **done** |
-| 12 | how a git-worktree layout is tracked — [`12`](12-worktree-membership.md) | near-term step **done** (`main` registered); full build still deferred |
+| 12 | how a git-worktree layout is tracked — [`12`](12-worktree-membership.md) | near-term step **done** (`main` registered); full build **driven by [`dispatch`](../dispatch/PLAN.md) from 2026-11-12**, no longer deferred |
 | 13 | mount the task-system under `.workspace/` — [`13`](13-task-system-under-workspace.md) | **done**, dogfooded into `dev-workspace` |
 | 14 | move `create-git-workspace` into `dev-workspace` — [`14`](14-migrate-create-git-workspace.md) | **done** — acceptance verified from the new location |
 | 07 | strip `project-status` from each migrated repo — [`07`](07-strip-project-status.md) | **done** — every repo clean, incl. the two worktree branches |

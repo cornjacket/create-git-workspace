@@ -18,7 +18,9 @@ hand-over happens. The [Overview](../dispatch/PLAN.md#overview) diagram in
 _Rewritten wholesale by `/wrap` at the end of each session — state, not a log.
 Never append a new dated entry; overwrite._
 
-- **current task** — none; effort queued behind `rollups`.
+- **current task** — none; effort queued behind `dispatch`, which took the active
+  slot on 2026-11-12. `dispatch` task `006` needs this effort's leader skill, so
+  this one still has to land before `dispatch` can close.
 - **next concrete step** — settle open question 1 (folder and template), then
   write `001`. Every other task reads or writes a proposal file.
 - **files mid-edit** — none.
@@ -274,6 +276,9 @@ chosen, what it rules out, why.
    review before another repo takes ownership.
 9. **Two efforts, not a rewrite of `mail`.** `proposals` then `dispatch`, queued
    after `rollups`. `mail` becomes `superseded` and keeps its plan as the record.
+   *The ordering half was overtaken on 2026-11-12: the user promoted `dispatch`
+   first, to drive `dogfood` `12` and `25`. The two-efforts split still holds;
+   only the sequence changed. See `dispatch` decision 9.*
 10. **Carried from `mail`, still holding:** work is addressed to repos, not
     agents; one shared `discovery.json` with one key per capability; the
     declaration is read live, never cached.

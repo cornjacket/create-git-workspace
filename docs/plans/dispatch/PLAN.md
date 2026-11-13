@@ -48,13 +48,17 @@ and work start (this effort).
 _Rewritten wholesale by `/wrap` at the end of each session — state, not a log.
 Never append a new dated entry; overwrite._
 
-- **current task** — none; effort queued behind `proposals`.
-- **next concrete step** — check the unchecked CLI facts below against the
-  installed `claude`. Two of them decide the shape of `002` and `003`.
+- **current task** — none in flight. Effort promoted to active on 2026-11-12 and
+  `dogfood` `12` and `25` pulled in; no work started yet.
+- **next concrete step** — **`dogfood` `12`**, its "Full (deferred)" acceptance
+  block. The design is already decided there as option (a) scoped; do not
+  re-derive it. Settle open question 1 first — it is now a scope question inside
+  `12`, not an ownership question. Read `25` phase 1 alongside it.
 - **files mid-edit** — none.
-- **uncommitted / unpushed** — none.
-- **open questions** — see **Open questions**. Question 1 (where the worktree
-  verb lives) gates the start of this effort.
+- **uncommitted / unpushed** — none as of 2026-11-12.
+- **open questions** — see **Open questions**. Question 1 no longer gates the
+  effort's *start*; it gates `12`'s shape. Decision 9 records what the promotion
+  settled.
 
 ## Why
 
@@ -73,12 +77,20 @@ user when it stops or has a question.
 
 ## Dependencies
 
-This effort cannot start until both land. They live in `dogfood`.
+Both are **pulled into this effort** (user, 2026-11-12). This effort drives them;
+it no longer waits on `dogfood` to be un-parked. Their files stay in
+`docs/plans/dogfood/` and keep their `dogfood` numbers — those paths are already
+referenced from the master plan, from `dogfood`'s task table and from `26`, and
+renumbering them into this effort's `001`-`008` scheme would break every link
+for no gain. State is a field a plan owns, not a filesystem location.
 
 | Task | What dispatch needs from it |
 |---|---|
 | [`dogfood` `12`](../dogfood/12-worktree-membership.md) | A worktree lifecycle verb. No verb registers a worktree today, and `add-repo.py` refuses them. Work start creates and later removes one |
 | [`dogfood` `25`](../dogfood/25-worktree-divergence-is-invisible-debt.md), phase 1 | Divergence measurement. Every work-start worktree creates drift-from-`main` debt, and `status` cannot see it today |
+
+Neither needs [`proposals`](../proposals/PLAN.md). That is why this effort can
+hold the active slot ahead of it — see the master plan's "Order, and why".
 
 `dogfood` `26` puts parallel work on the task record (a `Worktree` field). A
 work-start worktree is that field made real.
@@ -109,8 +121,13 @@ work-start worktree is that field made real.
 
 In build order.
 
+The two pulled-in tasks come first. Their canonical status lives in their own
+files, not here.
+
 | # | Task | Status |
 |---|---|---|
+| `dogfood` [`12`](../dogfood/12-worktree-membership.md) | the worktree lifecycle verb — see `12`'s "Full (deferred)" block | see `12` |
+| `dogfood` [`25`](../dogfood/25-worktree-divergence-is-invisible-debt.md) | divergence measurement, phase 1 only | see `25` |
 | 001 | the run directory and its `status.json` schema | todo |
 | 002 | the launch: worktree, `claude --bg`, run directory, session ID | todo |
 | 003 | the `Stop` hook that writes `status.json` | todo |
@@ -237,17 +254,25 @@ Settled by the user on 2026-10-22 unless marked. One line each.
 8. **The leader creates and registers every worktree** (user, 2026-10-23). The
    child never picks one. Rules out a child making its own worktree that
    `repos.yml` cannot see, which the first dispatch did.
+9. **This effort owns `dogfood` `12` and `25`** (user, 2026-11-12). Promoting
+   `dispatch` ahead of `proposals` and pulling both tasks in replaces the earlier
+   plan of waiting for `dogfood` to be un-parked. This settles the *ownership*
+   half of open question 1: the worktree-registration verb is part of `12`, built
+   here. It does not settle the *scope* half — see question 1 as narrowed.
 
 ## Open questions
 
 Move each to **Decisions** once resolved, with the reasoning, rather than
 deleting it. Numbers in brackets are the leader proposal's original numbers.
 
-1. **[4] Is the worktree-registration verb part of `dogfood` `12`, or a new
-   task?** `12` decision 3 already says worktree lifecycle is the workspace's
-   job, and its full acceptance lists the verb. But `12` designs long-lived
-   workstreams with a bare clone, and a work-start worktree is short-lived on a
-   normal clone. Gates the start of this effort.
+1. **[4] Does `12`'s verb cover a short-lived worktree on a normal clone?**
+   Narrowed by decision 9, which settled that the verb is part of `12` and is
+   built here. What remains is scope, not ownership: `12` designs long-lived
+   workstreams on a **bare** clone with one worktree per branch, while a
+   work-start worktree is **short-lived on a normal clone**. Either `12`'s verb
+   takes both layouts, or it takes the bare-container case and work start gets a
+   second, simpler verb. Gates `12`'s shape, and therefore `002` and `005`.
+   Settle it before writing code.
 2. **[5] What is the default permission profile for a child session?** Not
    bypass. It has to edit, run tests, and commit with no one at the prompt.
    Shared with `proposals`. **Partly settled by decision 7:** the mode is auto,
